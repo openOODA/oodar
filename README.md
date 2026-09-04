@@ -32,17 +32,17 @@ All design, RFCs, practices, and onboarding live in [openOODA/openOODA](https://
 
 ## The 9-Repo Polyrepo
 
-| Layer | Repo | Purpose |
-|-------|------|---------|
-| Strategic | [openOODA/openOODA](https://github.com/openOODA/openOODA) | Governance, RFCs, laws |
-| Operational | [openOODA/ooda](https://github.com/openOODA/ooda) | `ooda` workflow driver |
-| Operational | [openOODA/lsp](https://github.com/openOODA/lsp) | Language server |
-| Operational | [openOODA/mcp](https://github.com/openOODA/mcp) | MCP server |
-| Operational | [openOODA/opm](https://github.com/openOODA/opm) | Package manager |
-| Tactical | [openOODA/std](https://github.com/openOODA/std) | Standard library |
-| Tactical | [openOODA/oodar](https://github.com/openOODA/oodar) | Runtime substrate |
-| Tactical | [openOODA/oodac](https://github.com/openOODA/oodac) | Compiler |
-| Meta | [openOODA/website](https://github.com/openOODA/website) | Website source |
+| Repo | Purpose |
+|------|---------|
+| [openOODA/openOODA](https://github.com/openOODA/openOODA) | Governance, RFCs, laws |
+| [openOODA/ooda](https://github.com/openOODA/ooda) | `ooda` workflow driver |
+| [openOODA/lsp](https://github.com/openOODA/lsp) | Language server |
+| [openOODA/mcp](https://github.com/openOODA/mcp) | MCP server |
+| [openOODA/opm](https://github.com/openOODA/opm) | Package manager |
+| [openOODA/std](https://github.com/openOODA/std) | Standard library |
+| [openOODA/oodar](https://github.com/openOODA/oodar) | Runtime substrate |
+| [openOODA/oodac](https://github.com/openOODA/oodac) | Compiler |
+| [openOODA/website](https://github.com/openOODA/website) | Website source |
 
 ## License
 
