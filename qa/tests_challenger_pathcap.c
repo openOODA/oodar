@@ -88,19 +88,43 @@ static void beat5_path_prefix_check(void) {
   _exit(0);
 }
 
+/* v3.3.3: use-after-free test. The previous shallow-borrow
+ * design required the caller to keep the prefix buffer alive
+ * for the lifetime of the OoPathCap. If the caller freed the
+ * buffer (e.g., returned from a function that allocated on the
+ * stack), oo_path_cap_check would read freed memory. The
+ * v3.3.3 deep-copy fix makes OoPathCap own its prefix. This
+ * test exercises the failure mode: derive a cap, then
+ * scribble over the source buffer, then check the cap. The
+ * check should still pass because the OoPathCap owns its
+ * copy. */
+static void beat6_uaf_safe(void) {
+  char buf[16];
+  memcpy(buf, "/tmp", 4); buf[4] = 0;
+  OoStr s; s.data = buf; s.len = 4;
+  OoPathCap r = oo_attenuate_fsread_to_path(oo_cap_self_token(15), s);
+  /* Scribble over the source buffer to simulate caller-side
+   * free / realloc. The OoPathCap must still be valid. */
+  memset(buf, 'X', sizeof buf);
+  int ok = oo_path_cap_check(r, oo_str_lit("/tmp/x"));
+  if (!ok) { fprintf(stderr, "  LEAK beat6: UAF detected — deep-copy failed\n"); _exit(0); }
+  _exit(0);
+}
+
 int main(void) {
   /* Beats 1, 2: cap=0 and wrong cap should fail-closed (child exits non-zero). */
   int p1 = run_in_child(beat1_cap_zero, 0);
   int p2 = run_in_child(beat2_wrong_cap, 0);
-  /* Beats 3, 4, 5: valid cap should work (child exits 0). */
+  /* Beats 3, 4, 5, 6: valid cap should work (child exits 0). */
   int p3 = run_in_child(beat3_valid_cap, 1);
   int p4 = run_in_child(beat4_chain_re_attenuation, 1);
   int p5 = run_in_child(beat5_path_prefix_check, 1);
-  int total = 5, passed = p1 + p2 + p3 + p4 + p5;
-  fprintf(stderr, "pathcap: %d/%d beats pass (p1=%d p2=%d p3=%d p4=%d p5=%d)\n",
-          passed, total, p1, p2, p3, p4, p5);
+  int p6 = run_in_child(beat6_uaf_safe, 1);
+  int total = 6, passed = p1 + p2 + p3 + p4 + p5 + p6;
+  fprintf(stderr, "pathcap: %d/%d beats pass (p1=%d p2=%d p3=%d p4=%d p5=%d p6=%d)\n",
+          passed, total, p1, p2, p3, p4, p5, p6);
   if (passed == total) {
-    printf("OK\tpathcap\t%d/%d beats pass (cap=0 fails, wrong cap fails, valid cap works, chain works, prefix check works)\n",
+    printf("OK\tpathcap\t%d/%d beats pass (cap=0 fails, wrong cap fails, valid cap works, chain works, prefix check works, UAF-safe)\n",
            passed, total);
     return 0;
   }

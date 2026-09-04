@@ -1379,3 +1379,44 @@ all pass.
 
 **Public ABI:** unchanged. The k_prf fix is internal; no
 exported symbol changed.
+
+## v3.3.3 — Patch (path-cap deep-copy: closes use-after-free)
+
+v3.3.3 is a **Patch** bump from v3.3.2. Round-5 audit
+follow-up: `oo_attenuate_fsread_to_path` had a use-after-free
+trap in its shallow-borrow design. The function returned an
+`OoPathCap` with `r.prefix = prefix;` — a shallow copy of the
+caller's OoStr struct (which holds a pointer to the caller's
+buffer). The caller had to keep the underlying buffer alive
+for the lifetime of the OoPathCap, but the function's return
+value didn't carry that contract visibly.
+
+A caller that derived a cap from a stack-allocated string
+(or any buffer that fell out of scope) would have
+`oo_path_cap_check` read freed memory.
+
+**The fix:** deep-copy the prefix bytes into a new buffer
+that the OoPathCap owns. The OoPathCap is now self-contained:
+derive it, store it, pass it around — the prefix survives any
+caller-side frees.
+
+**The test:** `qa/tests_challenger_pathcap.c:beat6_uaf_safe`
+derives a cap from a stack buffer, scribbles over the source
+buffer (simulating caller-side free/realloc), and verifies
+the cap is still valid. v3.3.3 passes this test; pre-v3.3.3
+would have failed (the OoPathCap would read 'XXXX' as the
+prefix).
+
+**Test results:** 6/6 pathcap beats pass (was 5/5 in v3.3.1,
++1 UAF-safe). All 10 challenger tests + 3 lint + adversarial
+all pass.
+
+**Public ABI:** unchanged. The OoPathCap struct is the same;
+only the lifetime semantics changed (now owned vs borrowed).
+The test exercises the new contract.
+
+**Why this matters:** the shallow-borrow pattern is a common
+trap in C. The deep-copy is small (prefixes are short, max
+4096 bytes) and removes the lifetime-management footgun. The
+cap system is "fail-closed by default" — the deep-copy makes
+the cap self-contained and immune to caller-side bugs.

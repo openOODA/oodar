@@ -97,7 +97,24 @@ OoPathCap oo_attenuate_fsread_to_path(long long cap, OoStr prefix) {
   crypto_secure_wipe(msg, sizeof msg);
 
   r.parent_cap = cap;
-  r.prefix = prefix; /* shallow borrow — caller owns the underlying buffer */
+  /* v3.3.3 round-5 audit fix: deep-copy the prefix into a new
+   * buffer that the OoPathCap owns. The previous shallow borrow
+   * (r.prefix = prefix) was a use-after-free trap: the caller
+   * had to keep the underlying buffer alive for the lifetime
+   * of the OoPathCap, but the function's return value doesn't
+   * carry that contract visibly. A caller that derived a cap
+   * and then freed the prefix buffer (e.g., from a stack-
+   * allocated string or a heap string that fell out of scope)
+   * would have oo_path_cap_check read freed memory.
+   *
+   * The deep-copy is small (prefixes are short, max 4096
+   * bytes per the validation above) and removes the
+   * lifetime-management footgun. The OoPathCap is now
+   * self-contained: derive it, store it, pass it around —
+   * the prefix is owned and survives any caller-side frees. */
+  r.prefix.data = (char *)oo_str_alloc_payload((size_t)prefix.len);
+  memcpy(r.prefix.data, prefix.data, (size_t)prefix.len);
+  r.prefix.len = prefix.len;
   return r;
 }
 
