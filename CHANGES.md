@@ -1135,3 +1135,65 @@ OK    lint_cap_table    cap_table.json matches caps.h (26 caps)
 **Public ABI:** one diagnostic function added
 (`oo_cap_self_token(int which)`). The 22 cap tokens it exposes
 are the real production values; no test-only derivation path.
+
+## v3.2.3 — Patch (fuzzing smoke test)
+
+v3.2.3 is a **Patch** bump from v3.2.2. Adds the fuzzing smoke
+test — the 4th hard gate of the round-5 depth-first approach.
+No public ABI change.
+
+**What landed:** `qa/tests_fuzz_smoke.c`
+
+The fuzz test calls each cap-protected mutator with random
+valid-looking inputs and verifies the process doesn't crash.
+This is a smoke test (not a full AFL/libFuzzer harness) but it
+catches the easy "unknown unknowns" — buffer overflows, NULL
+deref, off-by-one in the bit math, use-after-free in zeroize.
+
+The 4 hard gates of round-5:
+
+| Gate | Version | Catches |
+|------|---------|---------|
+| 1. Contract test | v3.2.0 | "cap is not the first line of defense" |
+| 2. Adversarial scanner | v3.2.1 | "comments lie about what code does" |
+| 3. Differential test | v3.2.2 | "entropy is not actually random" |
+| 4. Fuzzing smoke | v3.2.3 | "does the code survive random inputs" |
+
+**Test result:** 200 iterations with random caps and args, no
+crashes. The cap-protected mutators all handle the random-input
+matrix without segfaulting or aborting unexpectedly.
+
+**Why a smoke test, not a full fuzzer:** a full AFL/libFuzzer
+harness needs LLVM/clang with libFuzzer instrumentation, which
+isn't always available in the build environment. The smoke test
+runs in any environment with gcc and exercises the same code
+paths a fuzzer would (random inputs to public mutators, watch
+for crashes). It's not as thorough as AFL, but it's better
+than nothing and costs ~100 lines of code.
+
+**Pattern:** each iteration picks a random cap (from
+getentropy() when available, from xoshiro256** when not) and
+random args (size, slot, etc.). Forks a child. The child calls
+one of 6 mutators chosen at random. If the child crashes
+(SIGSEGV, SIGABRT, SIGBUS), the test fails. If the child
+exits 0, the call returned without crashing — even if the call
+"failed" the cap check (cap=0 → exit(1) → child exits
+non-zero, but no crash).
+
+**Test results:**
+
+```
+OK    cap_escape        forged cap rejected
+OK    cap_threat        proc_mem refused
+OK    contract          56/56 cap-requiring mutators fail-closed on cap=0
+OK    diff              22 cap tokens × 8 children: all unique, all non-zero
+OK    fuzz              200 iterations, no crashes
+OK    dudect_ct         branchless XOR-mix is constant-time
+OK    proc_mem_leak     Landlock-APPLIED gate is intact
+OK    sandbox_containment  Landlock containment verified
+OK    lint_anchors      all directories have ANCHOR.oo
+OK    lint_file_size    all .c/.h files ≤ 256 lines
+OK    lint_cap_table    cap_table.json matches caps.h (26 caps)
+```
+
+**Public ABI:** unchanged. The fuzz test is a development tool.
