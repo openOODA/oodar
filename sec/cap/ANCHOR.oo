@@ -1,6 +1,6 @@
 // # sec/cap — Capability Tokens
 //
-// Logline: The capability token system (Pillar 5). 14 NORTHSTAR core (FsRead, FsWrite, Net, Tcp, Udp, Sys, Process, Env, Time, Rand, Alloc, Thread, Gpu, Ffi) + 11 future-state (Fs, Arena, Sign, Audio, Camera, Usb, Hid, Window, Frame, Bind, CompilerRead) for hardware caps not yet wired up. Token derivation uses getentropy(3) — fail-closed (no LCG fallback) per NORTHSTAR. Plus the cap helpers (seal, attenuate, eq).
+// Logline: The capability token system (Pillar 5). 14 NORTHSTAR core (FsRead, FsWrite, Net, Tcp, Udp, Sys, Process, Env, Time, Rand, Alloc, Thread, Gpu, Ffi) + 12 future-state (Fs, Arena, Sign, Audio, Camera, Usb, Hid, Window, Frame, Bind, CompilerRead, Metrics — the Metrics token re-uses the v2.1.0-reserved bit 0x800, added in v3.0.0 for the cap-gated oo_metrics_* family). Token derivation uses getentropy(3) — fail-closed (no LCG fallback) per NORTHSTAR. Plus the cap helpers (seal, attenuate, OoPathCap).
 //
 // Beats:
 //   1. caps.h — the OODAR_CAP_* bit-layout and the 14 token kinds.
