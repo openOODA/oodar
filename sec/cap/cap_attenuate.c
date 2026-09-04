@@ -40,14 +40,24 @@ OoPathCap oo_attenuate_fsread_to_path(long long cap, OoStr prefix) {
   oo_caps_init();
   memset(&r, 0, sizeof r);
 
-  /* Validate cap: must be FsReadCap or the stronger FsCap. This matches
-   * the chain rule in oo_cap_require_fsread (which already lets g_tok_fs
-   * through). Chain re-attenuation is allowed: the caller may pass the
-   * parent_cap field of a previously-derived OoPathCap. */
-  if (cap == 0 || (cap != g_tok_fsread && cap != g_tok_fs)) {
-    fprintf(stderr, "ERR\tcap\too_attenuate_fsread_to_path: cap is not FsReadCap or FsCap\n");
-    exit(1);
-  }
+  /* v3.3.1 round-5 audit fix: cap check is the FIRST line of defense,
+   * before any path validation. The previous custom check
+   * (cap == g_tok_fsread || cap == g_tok_fs) was brittle — it
+   * required the cap to be the raw token value, not any cap that
+   * grants FsRead via the canonical oo_cap_require_fsread path.
+   * Moving to the canonical macro means a future cap that grants
+   * FsRead (e.g., via FS subsumption or a new FsRead-granting cap)
+   * will be accepted here automatically. The cap_require_fsread
+   * macro internally checks the FsRead bit via the canonical store
+   * (caps.c:57), which accepts FsReadCap and the FsCap (which
+   * subsumes FsRead). */
+  oo_cap_require_fsread(cap, "attenuate_fsread_to_path");
+  /* Chain re-attenuation is allowed: the caller may pass the
+   * parent_cap field of a previously-derived OoPathCap. The
+   * canonical check above handles this because the OoPathCap's
+   * parent_cap is one of g_tok_fsread / g_tok_fs (the same
+   * values oo_cap_require_fsread accepts). */
+  (void)cap;  /* cap is now validated by oo_cap_require_fsread */
   /* Validate prefix: non-empty, must point to a buffer, and must be an
    * absolute path (starts with '/'). */
   if (prefix.len <= 0 || !prefix.data || prefix.data[0] != '/') {

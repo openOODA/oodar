@@ -1276,3 +1276,55 @@ The round-5 depth-first approach (4 hard gates: contract, scanner,
 differential, fuzz + the Rule 2 contract) caught 1 bug the
 round-4 surface-area audit missed (proc_mem_read order) and
 closed the last deferred CRITICAL (Rule 2 bitmask).
+
+## v3.3.1 — Patch (path-prefix attenuator audit + contract test)
+
+v3.3.1 is a **Patch** bump from v3.3.0. Round-5 deep-dive
+follow-up: the path-prefix cap attenuator
+`oo_attenuate_fsread_to_path` had the same custom-cap-check
+anti-pattern that `oo_proc_mem_read` had pre-v3.2.0. v3.3.1
+migrates the check to the canonical `oo_cap_require_fsread`
+and adds a 5-beat contract test.
+
+**The change in sec/cap/cap_attenuate.c:**
+
+Before (custom check, brittle):
+```c
+if (cap == 0 || (cap != g_tok_fsread && cap != g_tok_fs)) {
+  fprintf(stderr, "ERR\tcap\t...\n");
+  exit(1);
+}
+```
+
+After (canonical check, future-proof):
+```c
+oo_cap_require_fsread(cap, "attenuate_fsread_to_path");
+```
+
+The canonical `oo_cap_require_fsread` does the same comparison
+internally (sec/cap/cap_require.c:57) but goes through the
+canonical pattern. A future cap that grants FsRead via
+subsumption (e.g., a new cap that subsumes FsRead) will be
+accepted here automatically.
+
+**The 5-beat contract test (qa/tests_challenger_pathcap.c):**
+
+1. cap=0 → fail-closed (child exits non-zero)
+2. Wrong cap (0xdeadbeef) → fail-closed
+3. Valid FsReadCap + absolute path → returns non-empty OoPathCap
+4. Chain re-attenuation (cap = previous.parent_cap) → works
+5. Path-prefix check: /tmp/x matches /tmp prefix (ok=1),
+   /etc/passwd does not (ok=0)
+
+All 5 beats pass.
+
+**Why this matters:** the round-4 OCap audit flagged
+`oo_attenuate_fsread_to_path` as having a custom cap check
+that didn't go through the canonical macro. The round-5
+depth-first audit (defense-in-depth lens) closed it in v3.3.1.
+
+**Test results:** 10 challenger tests + 3 lint + adversarial
+all pass.
+
+**Public ABI:** unchanged. The function signature is the
+same; only the internal cap check is canonicalized.
