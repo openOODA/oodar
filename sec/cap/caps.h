@@ -115,6 +115,14 @@ void oo_cap_require_metrics(long long got, const char *op);
  * oo_cap_attenuate / oo_cap_attenuate_ok. */
 OoStr oo_cap_attenuate(OoStr parent_hmac, OoStr child_rights);
 int oo_cap_attenuate_ok(OoStr parent_hmac, OoStr child_rights);
+
+/* v3.3.0: bitmask-checked attenuation. The v2 API takes
+ * (parent_hmac, parent_rights, child_rights) and enforces
+ * SECURITY_MODEL.oot Rule 2: `parent_rights & child_rights ==
+ * child_rights`. New code MUST use the v2 API. The old API
+ * (oo_cap_attenuate) is preserved for back-compat. */
+OoStr oo_cap_attenuate_v2(OoStr parent_hmac, OoStr parent_rights, OoStr child_rights);
+int oo_cap_attenuate_v2_ok(OoStr parent_hmac, OoStr parent_rights, OoStr child_rights);
 OoStr oo_cap_kernel_seal(long long sys, OoStr cap_id);
 OoStr oo_enclave_enter(long long sys, OoStr sealed);
 

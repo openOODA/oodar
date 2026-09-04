@@ -1197,3 +1197,82 @@ OK    lint_cap_table    cap_table.json matches caps.h (26 caps)
 ```
 
 **Public ABI:** unchanged. The fuzz test is a development tool.
+
+## v3.3.0 — Thrust (Rule 2 bitmask subset check)
+
+v3.3.0 is a **Thrust** (MINOR) bump from v3.2.3. Closes the last
+deferred CRITICAL from round-4: the `oo_cap_attenuate` bitmask
+subset check. Adds a new function `oo_cap_attenuate_v2` that
+enforces SECURITY_MODEL.oot Rule 2. The old `oo_cap_attenuate`
+is preserved for back-compat (it has no way to know the parent's
+rights and cannot do the check).
+
+**The new API:**
+
+```c
+OoStr oo_cap_attenuate_v2(OoStr parent_hmac, OoStr parent_rights, OoStr child_rights);
+int  oo_cap_attenuate_v2_ok(OoStr parent_hmac, OoStr parent_rights, OoStr child_rights);
+```
+
+The v2 function parses `parent_rights` and `child_rights` as
+hex bitmasks and verifies `parent_rights & child_rights == child_rights`
+before HMACing. If the child requests rights the parent does not have,
+the function returns the empty `OoStr` (fail-closed).
+
+**The old API:**
+
+```c
+OoStr oo_cap_attenuate(OoStr parent_hmac, OoStr child_rights);
+int  oo_cap_attenuate_ok(OoStr parent_hmac, OoStr child_rights);
+```
+
+The old API is preserved unchanged. It cannot do the Rule 2 check
+because the signature has no `parent_rights` parameter. New code
+MUST use the v2 API. The verifier (oodac) is updated to call v2.
+
+**Why this is a Thrust, not a Floor:** the old API still works
+with the same signature. Consumers that don't track the bitmask
+change continue to link unchanged. Consumers that want Rule 2
+enforcement call the new v2 API. The contract change is opt-in.
+
+**Test results:**
+
+```
+OK    rule2             9/9 Rule 2 cases pass (subset accepted, superset rejected)
+OK    cap_escape        forged cap rejected
+OK    cap_threat        proc_mem refused
+OK    contract          56/56 cap-requiring mutators fail-closed on cap=0
+OK    diff              22 cap tokens × 8 children: all unique, all non-zero
+OK    fuzz              200 iterations, no crashes
+OK    dudect_ct         branchless XOR-mix is constant-time
+OK    proc_mem_leak     Landlock-APPLIED gate is intact
+OK    sandbox_containment  Landlock containment verified
+```
+
+**The 9 Rule 2 cases:**
+
+| Case | Parent | Child | Expected | Reason |
+|------|--------|-------|----------|--------|
+| equal | 0xff | 0xff | OK | masks are identical |
+| subset_singleton | 0xff | 0x01 | OK | child < parent |
+| subset_lo | 0xff | 0x00 | OK | child = 0 (empty) |
+| subset_hi | 0xff | 0x80 | OK | child is bit 7 |
+| superset_one_bit | 0x01 | 0xff | REJECT | child requests 7 bits parent doesn't have |
+| superset_different | 0x0f | 0xf0 | REJECT | child requests 4 bits parent doesn't have |
+| child_zero | 0xff | 0x00 | OK | empty rights is always a subset |
+| single_bit_match | 0x01 | 0x01 | OK | masks are identical |
+| single_bit_diff | 0x01 | 0x02 | REJECT | child requests bit 1, parent has bit 0 |
+
+**Round-5 closed all 4 round-4 CRITICALs:**
+
+| # | Bug | Closed in | Defense |
+|---|-----|-----------|---------|
+| 1 | GPU cap shadow | v3.1.0 | code review + contract test |
+| 2 | time_rand LCG | v3.1.0 | abort() + differential test |
+| 3 | crypto LCG | v3.1.0 | abort() + differential test |
+| 4 | oo_cap_attenuate no Rule 2 | v3.3.0 | new v2 API + 9-case contract test |
+
+The round-5 depth-first approach (4 hard gates: contract, scanner,
+differential, fuzz + the Rule 2 contract) caught 1 bug the
+round-4 surface-area audit missed (proc_mem_read order) and
+closed the last deferred CRITICAL (Rule 2 bitmask).
