@@ -36,7 +36,7 @@ static long long g_tok_tcp, g_tok_udp, g_tok_bind;
 static long long g_tok_audio, g_tok_camera, g_tok_usb, g_tok_hid;
 static long long g_tok_window, g_tok_frame, g_tok_fsread, g_tok_fswrite;
 static long long g_tok_arena, g_tok_thread, g_tok_gpu;
-static long long g_tok_compiler_read;
+static long long g_tok_compiler_read, g_tok_metrics;
 /* v2.1.0: removed g_tok_audit, g_tok_hitl, g_tok_sync, g_tok_mem, g_tok_http
  * (declared in v2.0.0 caps.h but either never defined or dead-granted). */
 static unsigned char g_kernel_hmac_key[32];
@@ -84,11 +84,12 @@ static void caps_zeroize(void) {
   explicit_bzero(&g_tok_thread, sizeof g_tok_thread);
   explicit_bzero(&g_tok_gpu, sizeof g_tok_gpu);
   explicit_bzero(&g_tok_compiler_read, sizeof g_tok_compiler_read);
+  explicit_bzero(&g_tok_metrics, sizeof g_tok_metrics);
   explicit_bzero(g_kernel_hmac_key, sizeof g_kernel_hmac_key);
 }
 
 static void caps_once_init(void) {
-  unsigned char b[175];
+  unsigned char b[184];
   size_t i;
   unsigned long long acc;
 #if defined(__linux__) || defined(__APPLE__)
@@ -124,6 +125,7 @@ static void caps_once_init(void) {
   g_tok_thread  = make_cap_tok(0x16, b + 147);
   g_tok_gpu     = make_cap_tok(0x17, b + 154);
   g_tok_compiler_read = make_cap_tok(0x18, b + 161);
+  g_tok_metrics        = make_cap_tok(0x19, b + 168);
 
 #if defined(__linux__) || defined(__APPLE__)
   if (getentropy(g_kernel_hmac_key, sizeof g_kernel_hmac_key) != 0) {
@@ -173,6 +175,7 @@ long long oo_cap_grant_arena(void) { oo_caps_init(); return g_tok_arena; }
 long long oo_cap_grant_thread(void) { oo_caps_init(); return g_tok_thread; }
 long long oo_cap_grant_gpu(void) { oo_caps_init(); return g_tok_gpu; }
 long long oo_cap_grant_compiler_read(void) { oo_caps_init(); return g_tok_compiler_read; }
+long long oo_cap_grant_metrics(void) { oo_caps_init(); return g_tok_metrics; }
 
 int oo_cap_is_arena(long long got) { oo_caps_init(); return got == g_tok_arena; }
 
@@ -200,6 +203,7 @@ void oo_cap_require_arena(long long got, const char *op) { oo_cap_require(got, g
 void oo_cap_require_thread(long long got, const char *op) { oo_cap_require(got, g_tok_thread, op ? op : "thread"); }
 void oo_cap_require_gpu(long long got, const char *op) { oo_cap_require(got, g_tok_gpu, op ? op : "gpu"); }
 void oo_cap_require_compiler_read(long long got, const char *op) { oo_cap_require(got, g_tok_compiler_read, op ? op : "compiler_read"); }
+void oo_cap_require_metrics(long long got, const char *op) { oo_cap_require(got, g_tok_metrics, op ? op : "metrics"); }
 
 /* v2.1.0: removed oo_cap_require_http (dead cap). */
 void oo_cap_require_tcp(long long got, const char *op) {

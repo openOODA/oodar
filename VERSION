@@ -17,8 +17,8 @@
 # it must match the most recent git tag. See RULES.oot §1.24
 # and rfcs/0006-versioning-and-release-protocol.oot.
 
-oodar=2.2.0
-release_tag=2.2.0
+oodar=3.0.0
+release_tag=3.0.0
 ooda=2.10.0
 ooda_max=2.99.0
 api_surface=57
@@ -37,3 +37,21 @@ api_surface=57
 # in-tree callers use sec/crypto/crypto_internal.h. See CHANGES.md
 # for the full migration notes (what changed, what consumers must
 # update, what did not change, the symbol signatures table).
+#
+# v3.0.0 is a Floor break from v2.2.0. The audit pass 3 / v2.1.0
+# residuals converged on a single remaining gap: the 4 cap-free
+# public mutator families. v3.0.0 closes them all in one Floor
+# break. 8 public symbols gain a long long cap first arg and
+# require the appropriate cap token. One new cap (MetricsCap) is
+# introduced at bit 0x800 (the v2.1.0 AUDIT bit position, which
+# had been reserved since v2.1.0 for exactly this kind of future
+# re-introduction). The cap system grows from 25 to 26 tokens
+# (22 implemented inline in sec/cap/caps.c + 4 split across
+# core/mem/alloc.c, app/xlang/ffi_sec.c, fs/os/time_rand.c + the
+# new metrics in sec/cap/caps.c). The entropy buffer grows from
+# 175 to 184 bytes to fit the 8 new bytes for g_tok_metrics. The
+# umbrella .o size is +1552 bytes (v2.2.0 = 386952, v3.0.0 = 388504;
+# the new cap state + 8 require calls + 8 new function signatures
+# in oodar.h outweigh the small rebalances). Consumers must
+# rebuild. See CHANGES.md "v3.0.0" for the full signature-change
+# table and the consumer migration notes.

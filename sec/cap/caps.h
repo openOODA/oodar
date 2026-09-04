@@ -14,12 +14,17 @@
 #define OODAR_CAP_ALLOC 256u
 #define OODAR_CAP_ARENA 512u
 #define OODAR_CAP_FFI 1024u
-/* v2.1.0: removed OODAR_CAP_AUDIT (0x800), OODAR_CAP_HITL (0x2000),
- * OODAR_CAP_SYNC (0x4000), OODAR_CAP_MEM (0x8000), OODAR_CAP_HTTP
- * (0x10000) — dead caps (declared but never granted/required). The
- * bit positions are reserved; future re-introduction must use a
- * different bit position to avoid collision with anything that may
- * have been packed into the gaps. */
+/* v3.0.0: re-introduced OODAR_CAP_METRICS at 0x800 (the v2.1.0 AUDIT
+ * bit position). The metrics counter is process-global state — a side
+ * channel via counter export — so v3.0.0 gives it its own cap token.
+ * The bit was reserved since v2.1.0 for exactly this kind of future
+ * re-introduction; we use it now per RULES.oot §1.21 Floor break. */
+#define OODAR_CAP_METRICS 2048u
+/* v2.1.0: removed OODAR_CAP_AUDIT (now METRICS at 0x800), OODAR_CAP_HITL
+ * (0x2000), OODAR_CAP_SYNC (0x4000), OODAR_CAP_MEM (0x8000), OODAR_CAP_HTTP
+ * (0x10000) — dead caps. The remaining bit positions are reserved;
+ * future re-introduction must use a different bit position to avoid
+ * collision with anything that may have been packed into the gaps. */
 #define OODAR_CAP_SIGN 4096u
 #define OODAR_CAP_TCP (1u << 17)
 #define OODAR_CAP_UDP (1u << 18)
@@ -71,6 +76,7 @@ long long oo_cap_grant_fswrite(void);
 long long oo_cap_grant_thread(void);
 long long oo_cap_grant_gpu(void);
 long long oo_cap_grant_compiler_read(void);
+long long oo_cap_grant_metrics(void);
 
 void oo_cap_require(long long got, long long want, const char *op);
 void oo_cap_require_fs(long long got, const char *op);
@@ -102,6 +108,7 @@ void oo_cap_require_fswrite(long long got, const char *op);
 void oo_cap_require_thread(long long got, const char *op);
 void oo_cap_require_gpu(long long got, const char *op);
 void oo_cap_require_compiler_read(long long got, const char *op);
+void oo_cap_require_metrics(long long got, const char *op);
 
 /* v2.1.0: cap_attenuate and cap_attenuate_ok (no oo_ prefix) are gone.
  * They were declared but never defined; the canonical entry points are

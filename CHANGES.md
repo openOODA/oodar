@@ -1,5 +1,148 @@
 # Changelog
 
+## v3.0.0 — Floor (cap-gating sweep: 8 public mutators, 1 new MetricsCap)
+
+Per RULES.oot §1.21, v3.0.0 is a MAJOR (Floor) bump. **The public ABI
+breaks.** Consumers (oodac-emitted C code) must rebuild against the
+new signatures.
+
+The audit pass 2 / pass 3 / v2.1.0 residuals all converged on a single
+remaining gap: the 4 cap-free public mutator families. v3.0.0 closes
+all of them in one coordinated Floor break. Eight public symbols
+gain a `long long cap` first parameter and require the appropriate
+capability token. One new cap (`OODAR_CAP_METRICS`) is introduced.
+
+### Signature changes (8 public mutators, ABI break)
+
+| v2.2.0 | v3.0.0 | Cap |
+|---|---|---|
+| `OoStr oo_read_stdin(void);` | `OoStr oo_read_stdin(long long cap);` | FsReadCap |
+| `OoResS oo_read_stdin_chunk(long long timeout_ms);` | `OoResS oo_read_stdin_chunk(long long cap, long long timeout_ms);` | FsReadCap |
+| `OoStr oo_file_stamp(OoStr path);` | `OoStr oo_file_stamp(long long cap, OoStr path);` | FsReadCap |
+| `int oo_metrics_incr(OoStr name);` | `int oo_metrics_incr(long long cap, OoStr name);` | MetricsCap (new) |
+| `long long oo_metrics_get(OoStr name);` | `long long oo_metrics_get(long long cap, OoStr name);` | MetricsCap (new) |
+| `int oo_metrics_reset(OoStr name);` | `int oo_metrics_reset(long long cap, OoStr name);` | MetricsCap (new) |
+| `OoStr oo_metrics_export(void);` | `OoStr oo_metrics_export(long long cap);` | MetricsCap (new) |
+| `int oo_metrics_self_test(void);` | `int oo_metrics_self_test(long long cap);` | MetricsCap (new) |
+
+The cap checks are at function entry. The cap system is fail-closed
+(`exit(1)` on a missing or forged token). All 8 functions refuse to
+do any work if the cap is wrong — no fall-through, no silent default.
+
+### The new MetricsCap (re-introduction of the v2.1.0 AUDIT bit)
+
+`OODAR_CAP_METRICS` re-uses bit 0x800 (1<<11). v2.1.0 removed
+`OODAR_CAP_AUDIT` (the original occupant of that bit) and reserved
+the bit position for "future re-introduction must use a different
+bit position to avoid collision." v3.0.0 reverses that policy for
+this one bit: the metrics counter is process-global state, and the
+JSON export is a numeric side channel into the process's internal
+state. A bare counter is a real cap-bypass surface. v3.0.0 gives
+metrics its own cap.
+
+The metrics module grants itself a `g_metrics_self_cap` at
+`metrics_init_once` time (via `oo_cap_grant_metrics()`), and the
+event-bus subscribers (`on_cap_attenuate`, `on_pq_sign`, etc.)
+forward that self-cap to `oo_metrics_incr()`. External callers
+must obtain a fresh MetricsCap via `oo_cap_grant_metrics()`.
+
+The cap system adds:
+
+```c
+#define OODAR_CAP_METRICS 2048u         /* was AUDIT in v2.0.0; reserved in v2.1.0; live in v3.0.0 */
+long long oo_cap_grant_metrics(void);   /* mints a fresh MetricsCap token */
+void oo_cap_require_metrics(long long got, const char *op);  /* fail-closed validate */
+```
+
+The token is derived from `getentropy(3)` (band byte 0x19, entropy
+buffer offset 168) and zeroized on `atexit` (defeats post-mortem
+memory dumps). Same lifecycle as the other 25 cap tokens. The
+entropy buffer grew from 175 to 184 bytes to fit the 8 new bytes
+of `g_tok_metrics` derivation.
+
+### Why each function got the cap it got
+
+- `oo_read_stdin` / `oo_read_stdin_chunk` → **FsReadCap**. The function
+  reads from fd 0 (the standard input stream). A read of an
+  input stream is a filesystem-style read; FsReadCap already lets
+  in `oo_read_file`, `oo_path_exists`, `oo_file_size`, and the new
+  `oo_file_stamp`. A caller who can read a file should be able to
+  read stdin, and no caller who can't read a file should be able
+  to slurp arbitrary amounts from stdin.
+
+- `oo_file_stamp` → **FsReadCap**. `stat(2)` is a metadata read of
+  a file path. Same cap as the other read-only path predicates.
+
+- `oo_metrics_*` → **MetricsCap (new)**. The counter table is
+  process-global state. `oo_metrics_export` returns a JSON dump
+  of every counter, which is a side channel into the process's
+  internal state (any caller that knows a counter name can read
+  it; any caller that controls a counter name can drive it). The
+  v2.1.0 audit identified this as a deferred Floor break; v3.0.0
+  closes it.
+
+### What consumers must change
+
+You must rebuild. Concretely:
+
+- Any caller of `oo_read_stdin` must now pass
+  `oo_cap_grant_fsread()` (or the parent `oo_cap_grant_fs()`).
+- Any caller of `oo_read_stdin_chunk` must now pass an FsReadCap
+  as the first arg (the second arg is the `timeout_ms`, unchanged).
+- Any caller of `oo_file_stamp(path)` must now pass
+  `oo_cap_grant_fsread()` as the first arg.
+- Any caller of `oo_metrics_incr` / `oo_metrics_get` /
+  `oo_metrics_reset` / `oo_metrics_export` / `oo_metrics_self_test`
+  must now obtain a MetricsCap via `oo_cap_grant_metrics()` and
+  pass it as the first arg.
+- Internal callers (oodac-emitted code that subscribes to the
+  event bus) need no change — the metrics module forwards its
+  self-cap automatically.
+
+### What did NOT change
+
+- The `oo_*` public symbol *set* (no symbols renamed; only 8
+  signatures changed).
+- The 6 per-domain subdir layout (core, sec, fs, net, hw, app).
+- The cap system architecture: 25 prior cap tokens (Fs, Sys, Env,
+  Net, Tcp, Udp, Bind, Audio, Camera, Usb, Hid, Window, Frame,
+  FsRead, FsWrite, Sign, Process, Time, Rand, Alloc, Arena, Thread,
+  Gpu, Ffi, CompilerRead) plus the new MetricsCap for 26 total.
+  22 of the 26 are implemented inline in `sec/cap/caps.c`; the
+  other 4 (AllocCap, FfiCap, TimeCap, RandCap) are split across
+  `core/mem/alloc.c`, `app/xlang/ffi_sec.c`, and `fs/os/time_rand.c`
+  (this split was already in v2.2.0).
+- The `make_cap_tok` 8-byte-from-getentropy layout; the band byte
+  is still redundant (the comment in caps.c explains why).
+- The `api_surface=57` invariant (no new .c files).
+- The `gcc oodar.c` build command.
+
+### Verification
+
+- `gcc -c oodar.c` → exit 0, 388504 bytes (v2.2.0's umbrella was
+  386952 bytes; the +1552 byte delta is the new cap token state in
+  `g_tok_metrics`, the 3 `oo_cap_require_fsread` calls, the 5
+  `oo_cap_require_metrics` calls, and the 8 new function signatures
+  in `oodar.h`).
+- 8-probe consumer stub: each of the 8 mutators tested with `cap=0`
+  (rejected by cap system) and with the appropriate cap (returned
+  normally). 16/16 probes pass.
+- The internal event-bus listeners (`on_cap_attenuate`, etc.) use
+  `g_metrics_self_cap` and work without an external caller. The
+  constructor in metrics.c subscribes them at library load; the
+  cap is granted on first use via `pthread_once`.
+
+### Deferred to follow-up
+
+- `oo_je_emit` / the `oo_je_*` arm-file mechanism — the v2.2.0
+  item #2 fix already removed the covert exfiltration channel
+  (CWD flag file → oo_je_emit writes raw error data as JSON). The
+  remaining `oo_je_emit` API still has no cap; v3.0.0 does not
+  touch it (no callers in any openOODA repo).
+- The 5 still-reserved cap bits (0x2000 HITL, 0x4000 SYNC, 0x8000
+  MEM, 0x10000 HTTP) remain dead. v3.0.0 re-introduced only the
+  one bit that has a real, needed use (METRICS).
+
 ## v2.2.0 — Patch (24-item audit pass 3: 5 security + 4 North Star gaps + 8 cleanups + 1 OCap feature)
 
 Per RULES.oot §1.21, v2.2.0 is a PATCH bump. No public ABI

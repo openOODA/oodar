@@ -1,4 +1,4 @@
-// # oodar — Gen 1 Host Substrate (v2.2.0)
+// # oodar — Gen 1 Host Substrate (v3.0.0)
 //
 // Logline: The canonical home of the openOODA Gen 1 host substrate. Compiled openOODA binaries link against the oo_* symbols exported from the 7 per-domain subdirs (core, sec, fs, net, hw, app, scripts); the build entry point is `gcc oodar.c`. The umbrella TU is 49 .c files; the public ABI is oodar.h (and the shared type defs in types.h) at the root.
 //
@@ -9,7 +9,7 @@
 //   2. oodar.h          — the public API surface.
 //   3. oodar.c          — the umbrella TU (the canonical single-TU build entry).
 //   4. core/            — mirrors std/core. Universal primitives: str, list, mem, math, anti_emul (formerly meta/).
-//   5. sec/             — mirrors std/sec. Security primitives: cap (25 tokens + OoPathCap attenuator), landlock (Pillar 9), crypto (private internals + public oo_seal/oo_open AEAD), pqc (PQC-by-default).
+//   5. sec/             — mirrors std/sec. Security primitives: cap (26 tokens + OoPathCap attenuator; MetricsCap added in v3.0.0 at the v2.1.0-reserved 0x800 bit), landlock (Pillar 9), crypto (private internals + public oo_seal/oo_open AEAD), pqc (PQC-by-default).
 //   6. fs/              — mirrors std/fs. Host OS: os (syscalls, DNS loopback, rlimit, netfloor).
 //   7. net/             — mirrors std/net. Network primitives: fetch, tls.
 //   8. hw/              — mirrors std/hw. Hardware: gpu (HIP/ROCm, no CPU fallback).
@@ -33,19 +33,19 @@
 //   bash scripts/repro_build.sh           (bit-identical reproducible build)
 //
 // Versioning:
-//   v2.2.0 is a Patch bump from v2.1.0. Closes 24 of the v2.1.0 audit
-//   residuals: 5 security fixes (C-ABI backdoor in oo_sandbox_c_*,
-//   oo_je_emit exfil dropped, band-byte drift, oo_event_emit implicit
-//   decl, layering violation documented), 4 North Star gaps (docs/,
-//   qa/ tier-5, liboodar.a, reproducible build), 8 long-tail cleanups
-//   (list_set.c fold, TLDR fix, dead API removal, oo_ffi_gen kill,
-//   print/io move, anti_emul rename, oo_seal/oo_open wrappers, etc.),
-//   and 1 OCap feature (OoPathCap + oo_attenuate_fsread_to_path +
-//   oo_path_cap_check). The only signature change is the 3
-//   oo_sandbox_c_* functions gaining a sys_cap first arg (zero
-//   callers, safe for v2.2.0). See CHANGES.md for the full migration
-//   table. Per RULES.oot §1.24 + RFC-0006, every push to main
-//   triggers an auto-release via the governance workflow.
+//   v3.0.0 is a Floor break from v2.2.0. The audit pass 3 / v2.1.0
+//   residuals converged on a single remaining gap: the 4 cap-free
+//   public mutator families. v3.0.0 closes them all in one Floor
+//   break. 8 public symbols gain a long long cap first arg:
+//   oo_read_stdin / oo_read_stdin_chunk / oo_file_stamp (FsReadCap)
+//   and oo_metrics_incr / oo_metrics_get / oo_metrics_reset /
+//   oo_metrics_export / oo_metrics_self_test (new MetricsCap at
+//   bit 0x800, the v2.1.0-reserved AUDIT position). The cap system
+//   grows from 25 to 26 tokens. Consumers must rebuild. The
+//   api_surface=57 invariant holds (no new .c files). See CHANGES.md
+//   for the full migration table. Per RULES.oot §1.24 + RFC-0006,
+//   every push to main triggers an auto-release via the governance
+//   workflow.
 //
 // ──▓▓ oodar ANCHOR ──▓▓──
-// :: api_surface = 57 :: VERSION = 2.2.0 :: Pillar 3 + Pillar 5 + Pillar 7 + Pillar 9 ::
+// :: api_surface = 57 :: VERSION = 3.0.0 :: Pillar 3 + Pillar 5 + Pillar 7 + Pillar 9 ::

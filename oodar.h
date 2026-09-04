@@ -95,11 +95,11 @@ OoStr oo_host_check(long long cap, OoStr path);
 OoStr oo_host_token_dump(long long cap, OoStr path);
 OoResS oo_host_build(long long cap, OoStr src, OoStr out_bin);
 
-int oo_metrics_incr(OoStr name);
-long long oo_metrics_get(OoStr name);
-int oo_metrics_reset(OoStr name);
-OoStr oo_metrics_export(void);
-int oo_metrics_self_test(void);
+int oo_metrics_incr(long long cap, OoStr name);
+long long oo_metrics_get(long long cap, OoStr name);
+int oo_metrics_reset(long long cap, OoStr name);
+OoStr oo_metrics_export(long long cap);
+int oo_metrics_self_test(long long cap);
 
 long long oo_byte_at(OoStr s, long long idx);
 long long oo_str_byte_at(OoStr s, long long idx);
@@ -223,9 +223,9 @@ long long oo_rollback(long long cap);
 
 OoResS oo_cap_rpc_send(long long cap, OoStr payload);
 OoResS oo_cap_rpc_recv(long long cap, OoStr sealed);
-OoStr oo_read_stdin(void);
-OoResS oo_read_stdin_chunk(long long timeout_ms);
-OoStr oo_file_stamp(OoStr path);
+OoStr oo_read_stdin(long long cap);
+OoResS oo_read_stdin_chunk(long long cap, long long timeout_ms);
+OoStr oo_file_stamp(long long cap, OoStr path);
 long long oo_import_c(long long cap, OoStr hdr);
 long long oo_lto_xlang_link(long long cap, OoStr a, OoStr b);
 

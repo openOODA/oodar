@@ -40,9 +40,16 @@ typedef struct {
 static metrics_slot g_metrics[METRICS_MAX];
 static pthread_once_t g_metrics_once = PTHREAD_ONCE_INIT;
 static pthread_mutex_t g_metrics_mu = PTHREAD_MUTEX_INITIALIZER;
+/* v3.0.0: self-cap for the metrics module's internal callers (the
+ * event-bus listeners at the bottom of this file). External callers
+ * must obtain a MetricsCap via oo_cap_grant_metrics() and pass it as
+ * the first arg. The internal cap is granted once at first use and
+ * reused for all subsequent internal incr() calls. */
+static long long g_metrics_self_cap = 0;
 
 static void metrics_init_once(void) {
   memset(g_metrics, 0, sizeof g_metrics);
+  g_metrics_self_cap = oo_cap_grant_metrics();
 }
 
 static void oo_metrics_init(void) {
@@ -80,7 +87,8 @@ static metrics_slot *find_slot_unlocked(const char *name, long long n, int creat
   return 0;
 }
 
-int oo_metrics_incr(OoStr name) {
+int oo_metrics_incr(long long cap, OoStr name) {
+  oo_cap_require_metrics(cap, "metrics_incr");
   if (!name_is_safe(name.data, name.len)) return 0;
   oo_metrics_init();
   pthread_mutex_lock(&g_metrics_mu);
@@ -94,7 +102,8 @@ int oo_metrics_incr(OoStr name) {
   return 1;
 }
 
-long long oo_metrics_get(OoStr name) {
+long long oo_metrics_get(long long cap, OoStr name) {
+  oo_cap_require_metrics(cap, "metrics_get");
   if (!name_is_safe(name.data, name.len)) return -1;
   oo_metrics_init();
   pthread_mutex_lock(&g_metrics_mu);
@@ -104,7 +113,8 @@ long long oo_metrics_get(OoStr name) {
   return val;
 }
 
-int oo_metrics_reset(OoStr name) {
+int oo_metrics_reset(long long cap, OoStr name) {
+  oo_cap_require_metrics(cap, "metrics_reset");
   if (!name_is_safe(name.data, name.len)) return 0;
   oo_metrics_init();
   pthread_mutex_lock(&g_metrics_mu);
@@ -114,7 +124,8 @@ int oo_metrics_reset(OoStr name) {
   return 1;
 }
 
-OoStr oo_metrics_export(void) {
+OoStr oo_metrics_export(long long cap) {
+  oo_cap_require_metrics(cap, "metrics_export");
   oo_metrics_init();
   pthread_mutex_lock(&g_metrics_mu);
   /* Build a JSON object: {"counters":{name:value,...}} */
@@ -151,39 +162,45 @@ OoStr oo_metrics_export(void) {
   OoStr r; r.data = buf; r.len = (long long)off; return r;
 }
 
-int oo_metrics_self_test(void) {
+int oo_metrics_self_test(long long cap) {
+  /* v3.0.0: cap-gated. The self-test uses the caller's MetricsCap to
+   * validate the module end-to-end. The internal event-bus listeners
+   * use g_metrics_self_cap (granted at init). */
+  oo_cap_require_metrics(cap, "metrics_self_test");
   /* incr + get round-trip. */
   OoStr nm = oo_str_lit("self_test_counter");
-  oo_metrics_reset(nm);
-  long long v0 = oo_metrics_get(nm);
+  oo_metrics_reset(cap, nm);
+  long long v0 = oo_metrics_get(cap, nm);
   if (v0 != 0) return 0;
-  oo_metrics_incr(nm);
-  oo_metrics_incr(nm);
-  oo_metrics_incr(nm);
-  long long v3 = oo_metrics_get(nm);
+  oo_metrics_incr(cap, nm);
+  oo_metrics_incr(cap, nm);
+  oo_metrics_incr(cap, nm);
+  long long v3 = oo_metrics_get(cap, nm);
   if (v3 != 3) return 0;
   /* Reject bad names. */
   OoStr bad = oo_str_lit("name with spaces");
-  if (oo_metrics_incr(bad) != 0) return 0;
+  if (oo_metrics_incr(cap, bad) != 0) return 0;
   OoStr inj = oo_str_lit("name\"injection");
-  if (oo_metrics_incr(inj) != 0) return 0;
+  if (oo_metrics_incr(cap, inj) != 0) return 0;
   /* Export is non-empty. */
-  OoStr ex = oo_metrics_export();
+  OoStr ex = oo_metrics_export(cap);
   int ok = (ex.data && ex.len > 0);
   if (ex.data) oo_str_release(ex);
   /* Cleanup. */
-  oo_metrics_reset(nm);
+  oo_metrics_reset(cap, nm);
   return ok ? 1 : 0;
 }
 
 /* Event-listener functions invoked by the event bus when a producer emits
  * the corresponding named event. The producer no longer calls into metrics
- * directly; the event bus dispatches. */
-static void on_cap_attenuate(void) { OoStr n = oo_str_lit("cap_attenuate"); oo_metrics_incr(n); }
-static void on_pq_sign(void) { OoStr n = oo_str_lit("pq_sign"); oo_metrics_incr(n); }
-static void on_pq_verify(void) { OoStr n = oo_str_lit("pq_verify"); oo_metrics_incr(n); }
-static void on_aead_seal(void) { OoStr n = oo_str_lit("aead_seal"); oo_metrics_incr(n); }
-static void on_aead_open(void) { OoStr n = oo_str_lit("aead_open"); oo_metrics_incr(n); }
+ * directly; the event bus dispatches. v3.0.0: each listener forwards
+ * g_metrics_self_cap (granted at metrics init) so the public
+ * oo_metrics_incr() cap check is satisfied without an external caller. */
+static void on_cap_attenuate(void) { OoStr n = oo_str_lit("cap_attenuate"); oo_metrics_incr(g_metrics_self_cap, n); }
+static void on_pq_sign(void) { OoStr n = oo_str_lit("pq_sign"); oo_metrics_incr(g_metrics_self_cap, n); }
+static void on_pq_verify(void) { OoStr n = oo_str_lit("pq_verify"); oo_metrics_incr(g_metrics_self_cap, n); }
+static void on_aead_seal(void) { OoStr n = oo_str_lit("aead_seal"); oo_metrics_incr(g_metrics_self_cap, n); }
+static void on_aead_open(void) { OoStr n = oo_str_lit("aead_open"); oo_metrics_incr(g_metrics_self_cap, n); }
 /* v2.1.0: removed on_cap_seal, on_fs_read, on_fs_write (no emitters). */
 
 static void metrics_subscribe_all(void) {

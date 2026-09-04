@@ -200,23 +200,24 @@ OoSList oo_sys_args(long long cap) {
 
 #include <sys/stat.h>
 
-/* Read all stdin (stdio LSP / one-shot). Pipes have no seek. */
-OoStr oo_read_stdin(void) {
+/* Read all stdin (stdio LSP / one-shot). Pipes have no seek. v3.0.0: cap-gated. */
+OoStr oo_read_stdin(long long cap) {
   char *buf;
-  size_t cap = 4096;
+  size_t bcap = 4096;
   size_t n = 0;
-  buf = (char *)malloc(cap);
+  oo_cap_require_fsread(cap, "read_stdin");
+  buf = (char *)malloc(bcap);
   if (!buf) return oo_str_lit("");
   for (;;) {
     size_t got;
-    if (n + 1024 >= cap) {
+    if (n + 1024 >= bcap) {
       char *nb;
-      cap *= 2;
-      if (cap > (1u << 20)) {
+      bcap *= 2;
+      if (bcap > (1u << 20)) {
         free(buf);
         return oo_str_lit("");
       }
-      nb = (char *)realloc(buf, cap);
+      nb = (char *)realloc(buf, bcap);
       if (!nb) {
         free(buf);
         return oo_str_lit("");
@@ -235,11 +236,13 @@ OoStr oo_read_stdin(void) {
   }
 }
 
-/* Fast cache key: size:mtime:nsec. Avoids hashing whole compiler sources. */
-OoStr oo_file_stamp(OoStr path) {
+/* Fast cache key: size:mtime:nsec. Avoids hashing whole compiler sources.
+ * v3.0.0: cap-gated (FsReadCap — stat(2) is a metadata read of a file path). */
+OoStr oo_file_stamp(long long cap, OoStr path) {
   char cpath[PATH_MAX];
   struct stat st;
   char buf[96];
+  oo_cap_require_fsread(cap, "file_stamp");
   if (!path.data || path.len <= 0 || path.len >= PATH_MAX) return oo_str_lit("0:0:0");
   memcpy(cpath, path.data, (size_t)path.len);
   cpath[path.len] = 0;
@@ -263,10 +266,12 @@ void oo_process_exit(long long c) {
      ok=1, val=<chunk> when data is available.
      ok=0, val="" when the poll timed out, EOF was reached, or read() failed.
    The caller loops with a short timeout (e.g. 100ms) and dispatches
-   complete Content-Length or JSON-object frames as they accumulate. */
+   complete Content-Length or JSON-object frames as they accumulate.
+   v3.0.0: cap-gated. */
 #include <poll.h>
-OoResS oo_read_stdin_chunk(long long timeout_ms) {
+OoResS oo_read_stdin_chunk(long long cap, long long timeout_ms) {
   struct pollfd pfd;
+  oo_cap_require_fsread(cap, "read_stdin_chunk");
   pfd.fd = 0;
   pfd.events = POLLIN;
   int rc = poll(&pfd, 1, (int)timeout_ms);
