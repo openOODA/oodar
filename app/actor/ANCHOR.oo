@@ -6,7 +6,7 @@
 //   1. thread.c — the joinable pthread slot table (OoThreadSlot type defined inline in thread.c).
 //   2. actor.c — the OTP-style actor (spawn/send/recv/destroy) + the cap-RPC (cap_rpc_send/recv use SignCap since v2.1.0).
 //   3. channel.c — the typed message channel.
-//   4. closure.h, closure.c — the OoClosure type + capture/dispatch.
+//   4. closure.h, closure.c — the OoClosure type (fn + env + dtor, stack-or-heap). Generic callable primitive, NOT actor-specific. Lives here only because the OTP-style dispatch in actor.c is its primary consumer.
 //
 // ──▓▓ app/actor ANCHOR ──▓▓──
 // :: OTP-style — supervise, restart, no shared state ::

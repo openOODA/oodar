@@ -1,8 +1,8 @@
 // # app — Application Bridges (mirrors std/app)
 //
-// Logline: The "outside" bridges — FFI / xlang for linking against non-C targets, HITL for human-in-the-loop approval, telemetry for metrics + event bus, and the OTP-style actor runtime (the only oodar-native execution model).
+// Logline: The "outside" bridges — FFI / xlang for linking against non-C targets, HITL for human-in-the-loop approval, telemetry for metrics + event bus, the OTP-style actor runtime (the only oodar-native execution model), and the stdout/stderr print bridge.
 //
-// Setup: xlang/ is the FFI surface (cap-gated, signature-verified). hitl/ is the TTY-based approval primitive (env-gated, fail-closed). telemetry/ is the counter export + event bus (subscribes to crypto/FS events via constructor). actor/ is the actor + channel + thread + closure primitives.
+// Setup: xlang/ is the FFI surface (cap-gated, signature-verified). hitl/ is the TTY-based approval primitive (env-gated, fail-closed). telemetry/ is the counter export + event bus (subscribes to crypto/FS events via constructor). actor/ is the actor + channel + thread + closure primitives. io/ is the stdout/stderr print family (moved from fs/io/ in v2.2.0 — it's an output app bridge, not a host primitive).
 //
 // Beats:
 //   1. xlang/ffi.c, ffi_sec.c — dlopen/dlsym and the cap-gated signature-verified wrapper.
@@ -11,6 +11,7 @@
 //   4. telemetry/event.c, event.h — the event bus (oo_event_emit, oo_event_subscribe).
 //   5. telemetry/metrics.c — the counter export (subscribes to events at constructor).
 //   6. actor/actor.c, channel.c, thread.c, closure.c — the actor runtime (OTP-style spawn/send/recv/restart/supervise).
+//   7. io/print.c — stdout/stderr print family (oo_print_str, oo_print_int, oo_print_bool, oo_print_double, oo_println, oo_eprint_str, oo_eprintln).
 //
 // ──▓▓ app ANCHOR ──▓▓──
 // :: FFI is the highest-risk attack surface — every load is cap + signature gated ::

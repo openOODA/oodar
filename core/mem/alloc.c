@@ -48,8 +48,8 @@ static void alloc_init_once(void) {
                               (((unsigned long long)b[4]) << 24) |
                               (((unsigned long long)b[5]) << 16) |
                               (((unsigned long long)b[6]) << 8)  |
-                              ((unsigned long long)b[7])) & 0x00FFFFFFFFFFFFFFULL;
-    g_tok_alloc = ((long long)(0x7 & 0x1F) << 56) | (long long)ent;
+                              ((unsigned long long)b[7]));
+    g_tok_alloc = (long long)ent;
   }
   if (g_tok_alloc == OO_CLASSIC_ALLOC) g_tok_alloc ^= 0x11111111LL;
 }
@@ -242,22 +242,5 @@ long long (oo_read_int)(long long cap, long long ptr, long long offset) {
   }
   long long *src = (long long *)((char *)(uintptr_t)ptr + offset);
   return *src;
-}
-
-long long heap_alloc_test(void) {
-  long long cap = oo_cap_grant_alloc();
-  long long p = oo_alloc(cap, 32);
-  if (!p) { fprintf(stderr, "ERR\tmem\theap_alloc_test failed\n"); exit(1); }
-  (oo_write_int)(cap, p, 0, 77);
-  (oo_write_int)(cap, p, 8, 88);
-  long long v0 = (oo_read_int)(cap, p, 0);
-  long long v1 = (oo_read_int)(cap, p, 8);
-  if (v0 != 77 || v1 != 88) {
-    fprintf(stderr, "ERR\tmem\theap_alloc_test data corruption (v0=%lld, v1=%lld)\n", v0, v1);
-    oo_free(cap, p);
-    exit(1);
-  }
-  oo_free(cap, p);
-  return 77;
 }
 

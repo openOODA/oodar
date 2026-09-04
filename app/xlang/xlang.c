@@ -101,10 +101,6 @@ long long oo_import_c(long long cap, OoStr hdr) {
   return oo_xlang_read_size(p1);
 }
 
-long long oo_ffi_gen(long long cap, OoStr hdr) {
-  return oo_import_c(cap, hdr);
-}
-
 static int oo_xlang_run(char *const argv[]) {
   pid_t pid;
   int st;

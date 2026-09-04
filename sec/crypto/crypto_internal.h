@@ -4,8 +4,11 @@
  *
  * v2.0.0 Floor break: these symbols are no longer in oodar.h.
  * They are visible to .c files in the umbrella (which include this
- * header) but NOT to external consumers. Use the public
- * cap-gated wrappers (e.g., oo_seal, oo_open) instead. */
+ * header) but NOT to external consumers.
+ * v2.2.0: the public cap-gated AEAD surface (oo_seal, oo_open) is
+ * defined in sec/crypto/seal.c and declared in oodar.h. External
+ * consumers must use those wrappers (SignCap-gated), not these
+ * internals. */
 #include "../../types.h"
 
 OoStr crypto_md5_internal(OoStr data);

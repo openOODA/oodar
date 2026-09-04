@@ -329,10 +329,6 @@ OoResS oo_arena_destroy(long long cap, long long id) {
   return r;
 }
 
-void oo_arena_free(long long cap, long long id) {
-  oo_arena_destroy(cap, id);
-}
-
 /* "x:8,y:4" → 12. A bare name is one 8-byte field. Never a constant 1. */
 long long oo_soa_layout(OoStr spec) {
   long long total = 0;

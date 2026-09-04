@@ -1,13 +1,13 @@
 // # oodar Security Substrate Audit TLDR
 //
-// Logline: 8-Dimensional Red Team audit of the oodar security substrate (Landlock FS sandbox, capability-gated POSIX shims, dudect constant-time probes, live-RAM proc_mem reader). Documents the 3 in-scope first-principles fixes applied, the 3 residual structural concerns, and the 256-line-cap violation inventory for the C source tree.
+// Logline: 8-Dimensional Red Team audit of the oodar security substrate (Landlock FS sandbox, capability-gated POSIX shims, dudect constant-time probes, live-RAM proc_mem reader). Documents the 3 in-scope first-principles fixes applied, the 3 residual structural concerns, and the 256-line-cap violation inventory for the C source tree at v2.1.0.
 //
-// Setup: This is a project documentation file (openOODA/oodar/) at the strategic governance plane. The audit covers 5 critical C source files (landlock/landlock.c, landlock/sandbox.c, cap/caps.c, dudect_c_native.c, landlock/proc_mem.c) plus a survey of 65 additional files in oodar/.
+// Setup: This is a project documentation file (openOODA/oodar/) at the strategic governance plane. The audit covers 5 critical C source files (sec/landlock/landlock.c, sec/landlock/sandbox.c, sec/cap/caps.c, qa/dudect_c_native.c, sec/landlock/proc_mem.c) plus a survey of the 48 umbrella .c files included by oodar.c across the 6-subdir layout (sec/ fs/ net/ hw/ app/ core/).
 //
 // Beats:
 //   1. Beat 1: Audit methodology and scope.
 //   2. Beat 2: First-principles fixes applied (3 in-scope concerns addressed).
-//   3. Beat 3: 256-line cap violation inventory for C source files.
+//   3. Beat 3: 256-line cap violation inventory for C source files (v2.1.0 line counts).
 //   4. Beat 4: Residual structural concerns and their risk classification.
 //   5. Beat 5: Empirical verification surface (Tier 5 adversarial test suite).
 
@@ -19,38 +19,40 @@
 // durable record of (a) the fixes applied, (b) the residual concerns, and
 // (c) the 256-line-cap violation inventory.
 
-// Files audited in full:
-//   oodar/landlock/landlock.c   (286 lines, fail-closed Landlock)
-//   oodar/landlock/sandbox.c   (629 lines, platform-detecting probe)
-//   oodar/cap/caps.c      (226 lines, 24 cap tokens from getentropy)
-//   oodar/dudect_c_native.c  (112 lines, Welch t-test on ct primitives)
-//   oodar/landlock/proc_mem.c  (59 lines, /proc/self/mem cap-gated read)
-// Files surveyed by name (65 additional .c/.h files in oodar/)
+// Files audited in full (v2.1.0 line counts):
+//   sec/landlock/landlock.c    (296 lines, fail-closed Landlock)
+//   sec/landlock/sandbox.c    (631 lines, platform-detecting probe)
+//   sec/cap/caps.c            (283 lines, 25 cap tokens from getentropy)
+//   qa/dudect_c_native.c      (196 lines, Welch t-test on ct primitives)
+//   sec/landlock/proc_mem.c    (85 lines, /proc/self/mem cap-gated read)
+// Files surveyed by name (the 48 .c files in the oodar.c umbrella across
+// sec/ fs/ net/ hw/ app/ core/, plus 25 cap tokens in caps.h).
 
 # === Beat 2: First-principles fixes applied ===
 
 // Fix 1: Increased cap token entropy from 7 bytes (56 bits) to 8 bytes
-// (64 bits) in cap/caps.c:make_cap_tok. The original code used 7 bytes
+// (64 bits) in sec/cap/caps.c:make_cap_tok. The original code used 7 bytes
 // of entropy + 1 byte of band in the high position. Since each cap is
 // stored in its own g_tok_* global, the band byte was redundant. Removing
 // the band yields a true 64-bit unforgeable token.
 
-// Fix 2: Added atexit handler in cap/caps.c that calls explicit_bzero
-// on all 24 cap tokens and the kernel HMAC key. This defeats post-mortem
+// Fix 2: Added atexit handler in sec/cap/caps.c that calls explicit_bzero
+// on all 25 cap tokens and the kernel HMAC key. This defeats post-mortem
 // memory dump attacks: the tokens are zeroized before the process image
 // is released. explicit_bzero (not memset) is required to defeat the
 // compiler's dead-store elimination. A portable fallback for older libcs
 // (memset + compiler barrier) is provided.
 
 // Fix 3: Added kernel-mediated Landlock gate at the top of
-// oo_proc_mem_read in landlock/proc_mem.c. The function now refuses to
-// open /proc/self/mem unless oo_landlock_is_available() returns true.
-// This breaks the circular trust between user-space cap token storage
-// (cap/caps.c) and the /proc/self/mem reader: an attacker who reads
-// process memory can extract a user-space cap token, but cannot forge
-// the kernel-mediated Landlock enforcement. Default-deny invariant.
+// oo_proc_mem_read in sec/landlock/proc_mem.c. The function now refuses
+// to open /proc/self/mem unless oo_landlock_is_available() returns true
+// (and, as of v2.1.0, oo_landlock_is_applied() too). This breaks the
+// circular trust between user-space cap token storage (sec/cap/caps.c)
+// and the /proc/self/mem reader: an attacker who reads process memory
+// can extract a user-space cap token, but cannot forge the
+// kernel-mediated Landlock enforcement. Default-deny invariant.
 
-# === Beat 3: 256-line cap violation inventory ===
+# === Beat 3: 256-line cap violation inventory (v2.1.0) ===
 
 // The project's 256-line cap (per FORMAT.oot §1.3) applies to .oo and
 // .oot files. C source files in oodar/ are not subject to the
@@ -59,40 +61,40 @@
 // source files is a separate, larger refactor.
 
 // File                                  Lines   Status
-// oodar/gpu/gpu.c              1109    > 256 (4.3x)
-// oodar/pqc/mldsa.c            757    > 256 (3.0x)
-// oodar/landlock/sandbox.c          629    > 256 (2.5x)
-// oodar/pqc/mlkem.c             520    > 256 (2.0x)
-// oodar/actor/cycle.c            520    > 256 (2.0x)
-// oodar/crypto/aead.c             476    > 256 (1.9x)
-// oodar/pqc/pq_sig.c           456    > 256 (1.8x)
-// oodar/crypto/crypto.c           441    > 256 (1.7x)
-// oodar/types.h            384    > 256 (1.5x)
-// oodar/actor/actor.c            279    > 256 (1.1x)
-// oodar/mem/arena.c            276    > 256 (1.1x)
-// oodar/mem/alloc.c            239    within cap
-// oodar/cap/caps.c             226    within cap
-// oodar/cap/cap.c              198    within cap
-// oodar/dudect_c_native.c         112    within cap
-// oodar/landlock/proc_mem.c          59    within cap
+// hw/gpu/gpu.c                1109    > 256 (4.3x)
+// sec/pqc/mldsa.c              773    > 256 (3.0x)
+// sec/landlock/sandbox.c       631    > 256 (2.5x)
+// sec/pqc/mlkem.c              520    > 256 (2.0x)
+// sec/crypto/aead.c            476    > 256 (1.9x)
+// sec/pqc/pq_sig.c             456    > 256 (1.8x)
+// sec/crypto/crypto.c          441    > 256 (1.7x)
+// core/mem/arena.c             398    > 256 (1.6x)
+// types.h                      384    > 256 (1.5x)
+// sec/landlock/landlock.c      296    > 256 (1.2x)
+// app/actor/actor.c            285    > 256 (1.1x)
+// sec/cap/caps.c               283    > 256 (1.1x)
+// core/mem/alloc.c             257    within cap (1.0x)
+// sec/cap/cap.c                198    within cap
+// qa/dudect_c_native.c         196    within cap
+// sec/landlock/proc_mem.c       85    within cap
 
 # === Beat 4: Residual structural concerns ===
 
-// Concern A: 56-bit cap token entropy is below the 128-bit cryptographic
+// Concern A: 64-bit cap token entropy is below the 128-bit cryptographic
 // identity threshold. The C-level cap token is 64 bits (after Fix 1); to
 // reach 128 bits, the function signature would need to change from
 // long long to a struct of two long longs, breaking all .oo callers.
 // Out of scope for this audit; recommended for a future major version
 // that introduces an oo_cap_extended_* family for high-security tokens.
 
-// Concern B: Static global cap storage. The cap tokens are stored in
-// static globals (cap/caps.c:14-21) and are now zeroized on atexit
+// Concern B: Static global cap storage. The 25 cap tokens are stored in
+// static globals (sec/cap/caps.c:33-39) and are now zeroized on atexit
 // (Fix 2), but a SIGKILL or runtime crash leaves the tokens in memory.
 // A pre-crash snapshot could recover them. Recommended: an opt-in
 // periodic re-randomization with version-stamped tokens, OR a
 // kernel-mediated cap store via Landlock FD-passing.
 
-// Concern C: 256-line cap violations on 11 C source files. Splitting
+// Concern C: 256-line cap violations on 12 C source files. Splitting
 // these files is a mechanical but large refactor. The current
 // single-file design has the benefit of locality (all GPU support in
 // one place, all ML-DSA in one place), but the cap is a project-wide
@@ -104,7 +106,7 @@
 // The Tier 5 adversarial suite provides the empirical proof surface for
 // the substrate. Each test in the suite exercises a different probe:
 //
-//   test_t5_adv01_capability_escape.oo     - 14 capability tokens probed
+//   test_t5_adv01_capability_escape.oo     - 25 capability tokens probed
 //   test_t5_adv01_rasp_tamper_rollback.oo  - RASP rollback on tamper
 //   test_t5_adv02_cfg_bogus_dispatch.oo    - CFG dispatch robustness
 //   test_t5_adv02_crypto_fault_inversion.oo - crypto fault tolerance

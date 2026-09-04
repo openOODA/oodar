@@ -1,5 +1,90 @@
 # Changelog
 
+## v2.2.0 — Patch (8 long-tail cleanups)
+
+Per RULES.oot §1.21, v2.2.0 is a PATCH bump. No public ABI change — every
+public function signature added or removed is either a no-ABI-impact
+fold (inlined file fragment), a true private-internal (no caller
+could see it), or a paired addition/extension of the public cap-gated
+AEAD surface. The oodac-emitted C code surface is byte-identical
+except for the new `oo_seal` / `oo_open` AEAD wrappers (a strict
+superset of the previously-documented-but-missing surface). This
+release is a structural cleanup driven by the same zero-trust re-audit
+that drove v2.1.0.
+
+### Cleanups
+
+1. **`core/list/list_set.c` folded inline into `core/list/list.c`.**
+   The 63-line `list_set.c` fragment was `#include`d by `list.c` and
+   visible in the file tree, which was confusing. v2.2.0 inlines the
+   `oo_ilist_set` / `oo_slist_set` functions at the bottom of
+   `list.c`, deletes `list_set.c`, and updates `core/list/ANCHOR.oo`
+   to drop the list_set beat. The `oo_flist_set` function in
+   `flist.c` is unaffected (it never lived in `list_set.c`).
+
+2. **`SUBSTRATE_AUDIT_TLDR.oot` line counts and paths updated.** The
+   TLDR was stale from the v0.1.x → v1.0.0 reorg era — wrong paths
+   (`oodar/landlock/...` instead of `sec/landlock/...`), wrong line
+   counts, and references to non-existent files (`dudect_c_native.c`
+   in the wrong dir, `actor/cycle.c` instead of `actor.c`). v2.2.0
+   rewrites the file to reflect the v2.1.0 reality: 6-subdir layout
+   (sec/ fs/ net/ hw/ app/ core/), 48 umbrella .c files, 25 cap
+   tokens, current line counts. Now 138 lines (well under the
+   256-line cap).
+
+3. **2 dead oodar.h functions removed.** `heap_alloc_test` (a
+   no-cap smoke test helper) and `oo_arena_free` (a 1-line wrapper
+   around `oo_arena_destroy`). Both had no plausible oodac-emitted
+   caller. Per the "no compat layers" rule, they were removed
+   rather than kept "just in case". See `oodar.h`, `core/mem/alloc.c`,
+   `core/mem/arena.c`.
+
+4. **`oo_ffi_gen` killed (1-line alias for `oo_import_c`).** Per the
+   "no compat layers" rule, the 1-line forwarder is removed from
+   both `oodar.h` and `app/xlang/xlang.c`. Callers (oodac-emitted C
+   code) use `oo_import_c` directly.
+
+5. **`app/actor/closure.c` ANCHOR.oo clarified.** The file
+   implements `OoClosure` (fn + env + dtor) — a generic callable
+   primitive, not actor-specific. The filename is correct (it does
+   implement `OoClosure`); only the ANCHOR.oo was misleading. v2.2.0
+   updates the ANCHOR.oo to clarify it's a generic primitive whose
+   primary consumer is the actor runtime. The file itself is
+   unchanged.
+
+6. **`fs/io/print.c` moved to `app/io/print.c`.** The stdout/stderr
+   print family is an output app bridge (sibling of `hitl/`, `xlang/`),
+   not a host primitive. v2.2.0 moves the file (and its ANCHOR.oo)
+   from `fs/io/` to `app/io/`, deletes `fs/io/`, updates
+   `fs/ANCHOR.oo` to drop the `io/` beat, updates `app/ANCHOR.oo`
+   to add the `io/` beat, and updates the `oodar.c` umbrella. The
+   include path (`../../oodar.h`) is unchanged because the depth
+   from repo root is the same (2 levels).
+
+7. **`core/meta/` renamed to `core/anti_emul/`.** The `meta` prefix
+   suggested meta-circularity (a la Lisp's `meta-` prefix), but the
+   actual content is anti-emulation: a process-local epoch counter,
+   a mix function, path-A detection, and a decoy-touch sink. The
+   function names (`oo_meta_decoy_touch`, `oo_meta_is_path_a`) are
+   domain-specific (decoy = anti-emulation term, path-A = a specific
+   code-path classification). v2.2.0 renames the directory to
+   `core/anti_emul/` and updates the umbrella. The `oo_meta_*`
+   function names are kept (renaming them would be an ABI change).
+
+8. **`oo_seal` / `oo_open` public cap-gated AEAD wrappers added.**
+   The `oodar.h:78` and `sec/crypto/crypto_internal.h:8` comments
+   referenced `oo_seal` / `oo_open` as "the public cap-gated AEAD
+   wrappers" — but those functions did not exist. The actual public
+   AEAD surface was missing. v2.2.0 adds the wrappers in
+   `sec/crypto/seal.c`: `oo_seal(cap, key, nonce, pt, aad)` and
+   `oo_open(cap, key, nonce, ct, tag, aad)`. They call
+   `crypto_aes_gcm_seal_internal` / `crypto_aes_gcm_open_internal`
+   (the private internals in `crypto_internal.h`), gated by
+   `SignCap` (the cap for sign-style symmetric operations; same cap
+   as `oo_cg_sign`). On a bad cap they refuse; on an AEAD failure
+   (bad key/nonce/tag mismatch) they return an `OoResS` with
+   `ok=0` and `val="E_AEAD"` (caller-driven, never `exit(1)`).
+
 ## v2.1.0 — Patch (zero-trust audit pass 2: 6 CRITICAL fixes + 11 HIGH/MEDIUM cleanups)
 
 Per RULES.oot §1.21, v2.1.0 is a PATCH bump. No ABI change — every
