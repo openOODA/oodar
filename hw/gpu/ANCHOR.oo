@@ -4,10 +4,23 @@
 //
 // Beats:
 //   1. gpu.h — the OoGpuDevice, OoGpuBuffer types.
-//   2. gpu.c — device probe, buffer alloc/free, stream/event, launch.
-//   3. gpu_hip.c — liboo_hip.so dynamic loader.
-//   4. hip_kern.hip — the kernel suite.
-//   5. oo_hip_so_smoke.c — smoke test (moves to qa/ in a follow-up).
+//   2. gpu/gpu.c — orchestrator: HIP/ROCm init, device probe, sync.
+//   3. gpu/gpu_pool.c — segregated VRAM pool (alloc/free/get_ptr/get_size/purge).
+//   4. gpu/gpu_mem.c — host↔device copies (sync + async).
+//   5. gpu/gpu_stream.c — streams + events (create/destroy/sync/record/elapsed).
+//   6. gpu/gpu_launch.c — kernel-name + structural-marker classification + dispatch.
+//   7. gpu/gpu_atomic.c — placeholder for the future atomic surface.
+//   8. gpu/gpu_hip.c — orchestrator for the liboo_hip.so backend (avail/load/unload/try_launch).
+//   9. gpu/gpu_hip_dlopen.c — the liboo_hip.so search-path + dlsym of the seven launchers.
+//  10. gpu/gpu_hip_dispatch.c — the seven actual oo_gpu_hip_* launchers + try_launch.
+//  11. hip_kern.hip — the kernel suite.
+//  12. oo_hip_so_smoke.c — smoke test (moves to qa/ in a follow-up).
+//
+// v2.3.0 file split: the original 1109-line gpu.c and 364-line gpu_hip.c
+// were split into a gpu/ sub-folder (9 .c files) so smaller LLMs can
+// hold the file in context. Shared state (g_hip, g_pool_*, g_stream_*,
+// g_event_*, g_pending_copies, g_vram_*) is owned by the orchestrator
+// (gpu/gpu.c) and exposed as extern to the satellite files.
 //
 // ──▓▓ hw/gpu ANCHOR ──▓▓──
 // :: HIP/ROCm only — no CPU fallback ::

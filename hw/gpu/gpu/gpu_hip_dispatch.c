@@ -1,111 +1,17 @@
-#include "gpu.h"
+/* gpu/gpu_hip_dispatch.c — the seven actual kernel launchers
+ * (vec_add / sgemm / rmsnorm / attention / reduce_sum / rope / stencil_3d)
+ * and the try_launch dispatch (oo_gpu_hip_try_launch_dispatch) used by
+ * the gpu_hip.c orchestrator. The liboo_hip.so binding itself lives in
+ * gpu_hip_dlopen.c. Cap token: GpuCap via oo_cap_require_gpu. */
+#include "../gpu.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
-#include <dlfcn.h>
-#include <unistd.h>
-#include <limits.h>
-#include <pthread.h>
 
-typedef struct {
-  int (*vec_add_launch)(const float *, const float *, float *, int);
-  int (*sgemm_launch)(const float *, const float *, float *, int, int, int);
-  int (*rmsnorm_launch)(const float *, const float *, float *, int, int);
-  int (*attention_launch)(const float *, const float *, const float *, float *, int, int);
-  int (*reduce_sum_launch)(const float *, float *, int);
-  int (*rope_launch)(const float *, const float *, const float *, float *, int, int);
-  int (*stencil_3d_launch)(const float *, float *, int, int, int, float, float);
-} OoHipKernels;
-
-static void *g_oo_hip_so = NULL;
-static OoHipKernels g_hip_k;
-static int g_hip_so_bound = 0;
-static pthread_mutex_t g_hip_so_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-static void *oo_dlopen_oo_hip(void) {
-  void *h = NULL;
-
-  /* 1. Check explicit environment variable OODA_HIP_LIB */
-  const char *env_hip_lib = getenv("OODA_HIP_LIB");
-  if (env_hip_lib && env_hip_lib[0] != '\0') {
-    h = dlopen(env_hip_lib, RTLD_LAZY | RTLD_LOCAL);
-    if (h) return h;
-  }
-
-  /* 2. Check OODA_HOME environment variable */
-  const char *env_ooda_home = getenv("OODA_HOME");
-  if (env_ooda_home && env_ooda_home[0] != '\0') {
-    char cand[PATH_MAX];
-    snprintf(cand, sizeof(cand), "%s/ooda/liboo_hip.so", env_ooda_home);
-    h = dlopen(cand, RTLD_LAZY | RTLD_LOCAL);
-    if (h) return h;
-    snprintf(cand, sizeof(cand), "%s/liboo_hip.so", env_ooda_home);
-    h = dlopen(cand, RTLD_LAZY | RTLD_LOCAL);
-    if (h) return h;
-  }
-
-  /* 3. Check relative to CWD (prefer ./liboo_hip.so when cwd is ooda/) */
-  const char *cwd_cands[] = {
-    "./liboo_hip.so",
-    "./ooda/liboo_hip.so",
-    NULL
-  };
-  for (int i = 0; cwd_cands[i]; i++) {
-    h = dlopen(cwd_cands[i], RTLD_LAZY | RTLD_LOCAL);
-    if (h) return h;
-  }
-
-  /* 4. Check relative to the running executable */
-  char exe[PATH_MAX];
-  ssize_t n = readlink("/proc/self/exe", exe, sizeof(exe) - 1);
-  if (n > 0) {
-    exe[n] = '\0';
-    char *slash = strrchr(exe, '/');
-    if (slash) {
-      *slash = '\0';
-      char cand[PATH_MAX];
-      snprintf(cand, sizeof(cand), "%s/liboo_hip.so", exe);
-      h = dlopen(cand, RTLD_LAZY | RTLD_LOCAL);
-      if (h) return h;
-      snprintf(cand, sizeof(cand), "%s/../liboo_hip.so", exe);
-      h = dlopen(cand, RTLD_LAZY | RTLD_LOCAL);
-      if (h) return h;
-    }
-  }
-
-  /* 5. Fallback to LD_LIBRARY_PATH and default system resolution */
-  h = dlopen("liboo_hip.so", RTLD_LAZY | RTLD_LOCAL);
-  if (h) return h;
-
-  return NULL;
-}
-
-static int oo_hip_so_bind(void) {
-  pthread_mutex_lock(&g_hip_so_mutex);
-  if (g_hip_so_bound) {
-    int ok = (g_hip_k.vec_add_launch != NULL);
-    pthread_mutex_unlock(&g_hip_so_mutex);
-    return ok;
-  }
-  g_oo_hip_so = oo_dlopen_oo_hip();
-  if (!g_oo_hip_so) {
-    g_hip_so_bound = 1;
-    pthread_mutex_unlock(&g_hip_so_mutex);
-    return 0;
-  }
-  g_hip_k.vec_add_launch = (int (*)(const float *, const float *, float *, int))dlsym(g_oo_hip_so, "oo_hip_vec_add_launch");
-  g_hip_k.sgemm_launch = (int (*)(const float *, const float *, float *, int, int, int))dlsym(g_oo_hip_so, "oo_hip_sgemm_launch");
-  g_hip_k.rmsnorm_launch = (int (*)(const float *, const float *, float *, int, int))dlsym(g_oo_hip_so, "oo_hip_rmsnorm_launch");
-  g_hip_k.attention_launch = (int (*)(const float *, const float *, const float *, float *, int, int))dlsym(g_oo_hip_so, "oo_hip_attention_launch");
-  g_hip_k.reduce_sum_launch = (int (*)(const float *, float *, int))dlsym(g_oo_hip_so, "oo_hip_reduce_sum_launch");
-  g_hip_k.rope_launch = (int (*)(const float *, const float *, const float *, float *, int, int))dlsym(g_oo_hip_so, "oo_hip_rope_launch");
-  g_hip_k.stencil_3d_launch = (int (*)(const float *, float *, int, int, int, float, float))dlsym(g_oo_hip_so, "oo_hip_stencil_3d_launch");
-  g_hip_so_bound = 1;
-  int ok = (g_hip_k.vec_add_launch != NULL);
-  pthread_mutex_unlock(&g_hip_so_mutex);
-  return ok;
-}
+/* The launcher table typedef is in gpu.c. */
+OoHipKernels *oo_hip_kernels(void);
+int oo_hip_so_bind(void);
+int oo_gpu_init(long long cap);
 
 OoResS oo_gpu_hip_vec_add(long long cap, float *a, float *b, float *c, int n) {
   OoResS r;
@@ -114,16 +20,12 @@ OoResS oo_gpu_hip_vec_add(long long cap, float *a, float *b, float *c, int n) {
   if (!a || !b || !c || n <= 0) {
     r.ok = 0; r.val = oo_str_lit("ERR\thip\tvec_add invalid args"); return r;
   }
-  if (!oo_hip_so_bind() || !g_hip_k.vec_add_launch) {
+  if (!oo_hip_so_bind() || !oo_hip_kernels()->vec_add_launch) {
     r.ok = 0; r.val = oo_str_lit("ERR\thip\tliboo_hip.so absent"); return r;
   }
-  int rc = g_hip_k.vec_add_launch(a, b, c, n);
-  if (rc == 0) {
-    r.ok = 1; r.val = oo_str_lit("hip gfx1100 vec_add MATCH"); return r;
-  }
-  if (rc == 5) {
-    r.ok = 0; r.val = oo_str_lit("ERR\thip\tvec_add numerical mismatch"); return r;
-  }
+  int rc = oo_hip_kernels()->vec_add_launch(a, b, c, n);
+  if (rc == 0) { r.ok = 1; r.val = oo_str_lit("hip gfx1100 vec_add MATCH"); return r; }
+  if (rc == 5) { r.ok = 0; r.val = oo_str_lit("ERR\thip\tvec_add numerical mismatch"); return r; }
   r.ok = 0; r.val = oo_str_lit("ERR\thip\tvec_add launch failed");
   return r;
 }
@@ -135,16 +37,12 @@ OoResS oo_gpu_hip_sgemm(long long cap, const float *a, const float *b, float *c,
   if (!a || !b || !c || m <= 0 || n <= 0 || k <= 0) {
     r.ok = 0; r.val = oo_str_lit("ERR\thip\tsgemm invalid args"); return r;
   }
-  if (!oo_hip_so_bind() || !g_hip_k.sgemm_launch) {
+  if (!oo_hip_so_bind() || !oo_hip_kernels()->sgemm_launch) {
     r.ok = 0; r.val = oo_str_lit("ERR\thip\tliboo_hip.so absent"); return r;
   }
-  int rc = g_hip_k.sgemm_launch(a, b, c, m, n, k);
-  if (rc == 0) {
-    r.ok = 1; r.val = oo_str_lit("hip gfx1100 sgemm MATCH"); return r;
-  }
-  if (rc == 5) {
-    r.ok = 0; r.val = oo_str_lit("ERR\thip\tsgemm numerical mismatch"); return r;
-  }
+  int rc = oo_hip_kernels()->sgemm_launch(a, b, c, m, n, k);
+  if (rc == 0) { r.ok = 1; r.val = oo_str_lit("hip gfx1100 sgemm MATCH"); return r; }
+  if (rc == 5) { r.ok = 0; r.val = oo_str_lit("ERR\thip\tsgemm numerical mismatch"); return r; }
   r.ok = 0; r.val = oo_str_lit("ERR\thip\tsgemm launch failed");
   return r;
 }
@@ -156,16 +54,12 @@ OoResS oo_gpu_hip_rmsnorm(long long cap, const float *x, const float *gamma, flo
   if (!x || !out || rows <= 0 || dim <= 0) {
     r.ok = 0; r.val = oo_str_lit("ERR\thip\trmsnorm invalid args"); return r;
   }
-  if (!oo_hip_so_bind() || !g_hip_k.rmsnorm_launch) {
+  if (!oo_hip_so_bind() || !oo_hip_kernels()->rmsnorm_launch) {
     r.ok = 0; r.val = oo_str_lit("ERR\thip\tliboo_hip.so absent"); return r;
   }
-  int rc = g_hip_k.rmsnorm_launch(x, gamma, out, rows, dim);
-  if (rc == 0) {
-    r.ok = 1; r.val = oo_str_lit("hip gfx1100 rmsnorm MATCH"); return r;
-  }
-  if (rc == 5) {
-    r.ok = 0; r.val = oo_str_lit("ERR\thip\trmsnorm numerical mismatch"); return r;
-  }
+  int rc = oo_hip_kernels()->rmsnorm_launch(x, gamma, out, rows, dim);
+  if (rc == 0) { r.ok = 1; r.val = oo_str_lit("hip gfx1100 rmsnorm MATCH"); return r; }
+  if (rc == 5) { r.ok = 0; r.val = oo_str_lit("ERR\thip\trmsnorm numerical mismatch"); return r; }
   r.ok = 0; r.val = oo_str_lit("ERR\thip\trmsnorm launch failed");
   return r;
 }
@@ -180,16 +74,12 @@ OoResS oo_gpu_hip_attention(long long cap, const float *q, const float *k, const
   if (d_head > 256) {
     r.ok = 0; r.val = oo_str_lit("ERR\thip\tattention d_head exceeds maximum bound 256"); return r;
   }
-  if (!oo_hip_so_bind() || !g_hip_k.attention_launch) {
+  if (!oo_hip_so_bind() || !oo_hip_kernels()->attention_launch) {
     r.ok = 0; r.val = oo_str_lit("ERR\thip\tliboo_hip.so absent"); return r;
   }
-  int rc = g_hip_k.attention_launch(q, k, v, out, seq_len, d_head);
-  if (rc == 0) {
-    r.ok = 1; r.val = oo_str_lit("hip gfx1100 attention MATCH"); return r;
-  }
-  if (rc == 5) {
-    r.ok = 0; r.val = oo_str_lit("ERR\thip\tattention numerical mismatch"); return r;
-  }
+  int rc = oo_hip_kernels()->attention_launch(q, k, v, out, seq_len, d_head);
+  if (rc == 0) { r.ok = 1; r.val = oo_str_lit("hip gfx1100 attention MATCH"); return r; }
+  if (rc == 5) { r.ok = 0; r.val = oo_str_lit("ERR\thip\tattention numerical mismatch"); return r; }
   r.ok = 0; r.val = oo_str_lit("ERR\thip\tattention launch failed");
   return r;
 }
@@ -201,16 +91,12 @@ OoResS oo_gpu_hip_reduce_sum(long long cap, const float *in, float *out, int n) 
   if (!in || !out || n <= 0) {
     r.ok = 0; r.val = oo_str_lit("ERR\thip\treduce_sum invalid args"); return r;
   }
-  if (!oo_hip_so_bind() || !g_hip_k.reduce_sum_launch) {
+  if (!oo_hip_so_bind() || !oo_hip_kernels()->reduce_sum_launch) {
     r.ok = 0; r.val = oo_str_lit("ERR\thip\tliboo_hip.so absent"); return r;
   }
-  int rc = g_hip_k.reduce_sum_launch(in, out, n);
-  if (rc == 0) {
-    r.ok = 1; r.val = oo_str_lit("hip gfx1100 reduce_sum MATCH"); return r;
-  }
-  if (rc == 5) {
-    r.ok = 0; r.val = oo_str_lit("ERR\thip\treduce_sum numerical mismatch"); return r;
-  }
+  int rc = oo_hip_kernels()->reduce_sum_launch(in, out, n);
+  if (rc == 0) { r.ok = 1; r.val = oo_str_lit("hip gfx1100 reduce_sum MATCH"); return r; }
+  if (rc == 5) { r.ok = 0; r.val = oo_str_lit("ERR\thip\treduce_sum numerical mismatch"); return r; }
   r.ok = 0; r.val = oo_str_lit("ERR\thip\treduce_sum launch failed");
   return r;
 }
@@ -222,16 +108,12 @@ OoResS oo_gpu_hip_rope(long long cap, const float *in, const float *cos_val, con
   if (!in || !cos_val || !sin_val || !out || seq_len <= 0 || dim <= 0 || (dim % 2) != 0) {
     r.ok = 0; r.val = oo_str_lit("ERR\thip\trope invalid args"); return r;
   }
-  if (!oo_hip_so_bind() || !g_hip_k.rope_launch) {
+  if (!oo_hip_so_bind() || !oo_hip_kernels()->rope_launch) {
     r.ok = 0; r.val = oo_str_lit("ERR\thip\tliboo_hip.so absent"); return r;
   }
-  int rc = g_hip_k.rope_launch(in, cos_val, sin_val, out, seq_len, dim);
-  if (rc == 0) {
-    r.ok = 1; r.val = oo_str_lit("hip gfx1100 rope MATCH"); return r;
-  }
-  if (rc == 5) {
-    r.ok = 0; r.val = oo_str_lit("ERR\thip\trope numerical mismatch"); return r;
-  }
+  int rc = oo_hip_kernels()->rope_launch(in, cos_val, sin_val, out, seq_len, dim);
+  if (rc == 0) { r.ok = 1; r.val = oo_str_lit("hip gfx1100 rope MATCH"); return r; }
+  if (rc == 5) { r.ok = 0; r.val = oo_str_lit("ERR\thip\trope numerical mismatch"); return r; }
   r.ok = 0; r.val = oo_str_lit("ERR\thip\trope launch failed");
   return r;
 }
@@ -243,16 +125,12 @@ OoResS oo_gpu_hip_stencil_3d(long long cap, const float *in, float *out, int nx,
   if (!in || !out || nx <= 0 || ny <= 0 || nz <= 0) {
     r.ok = 0; r.val = oo_str_lit("ERR\thip\tstencil_3d invalid args"); return r;
   }
-  if (!oo_hip_so_bind() || !g_hip_k.stencil_3d_launch) {
+  if (!oo_hip_so_bind() || !oo_hip_kernels()->stencil_3d_launch) {
     r.ok = 0; r.val = oo_str_lit("ERR\thip\tliboo_hip.so absent"); return r;
   }
-  int rc = g_hip_k.stencil_3d_launch(in, out, nx, ny, nz, c0, c1);
-  if (rc == 0) {
-    r.ok = 1; r.val = oo_str_lit("hip gfx1100 stencil_3d MATCH"); return r;
-  }
-  if (rc == 5) {
-    r.ok = 0; r.val = oo_str_lit("ERR\thip\tstencil_3d numerical mismatch"); return r;
-  }
+  int rc = oo_hip_kernels()->stencil_3d_launch(in, out, nx, ny, nz, c0, c1);
+  if (rc == 0) { r.ok = 1; r.val = oo_str_lit("hip gfx1100 stencil_3d MATCH"); return r; }
+  if (rc == 5) { r.ok = 0; r.val = oo_str_lit("ERR\thip\tstencil_3d numerical mismatch"); return r; }
   r.ok = 0; r.val = oo_str_lit("ERR\thip\tstencil_3d launch failed");
   return r;
 }
@@ -287,14 +165,12 @@ static const char *const oo_hip_ids_attention[] = {
   "attention", "flash_attention", "k_attention", "oo_k_attention", "k_attn", NULL
 };
 
-OoResS oo_gpu_hip_try_launch(long long cap, OoStr shader) {
+OoResS oo_gpu_hip_try_launch_dispatch(OoStr shader) {
   OoResS r;
   const char *p;
   const char *name;
   long long len;
   long long nlen;
-  oo_cap_require_gpu(cap, "gpu_launch");
-  oo_gpu_init(cap);
   p = shader.data ? shader.data : "";
   len = shader.len < 0 ? 0 : shader.len;
   name = p;
@@ -311,6 +187,7 @@ OoResS oo_gpu_hip_try_launch(long long cap, OoStr shader) {
     return r;
   }
 
+  long long cap = 0;
   if (oo_hip_kname_in(name, nlen, oo_hip_ids_vec_add)) {
     float ha[64], hb[64], hc[64];
     int i;
