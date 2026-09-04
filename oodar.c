@@ -44,8 +44,6 @@
 #include "net/tls.c"
 #include "hw/gpu/gpu.c"
 #include "hw/gpu/gpu_hip.c"
-#include "app/actor/thread.c"
-#include "app/actor/channel.c"
 #include "app/actor/actor_thread.c"
 #include "app/actor/actor_channel.c"
 #include "app/actor/actor.c"
