@@ -53,8 +53,26 @@ static int run_one(const char *name, mutator_fn fn) {
   }
   int st = 0;
   waitpid(pid, &st, 0);
-  if (WIFEXITED(st) && WEXITSTATUS(st) != 0) return 1;
-  if (WIFSIGNALED(st)) return 1;  /* SIGABRT from abort() is also a fail-closed */
+  /* v3.4.1 round-6 fix: distinguish a real cap-check fail-closed from a crash.
+   *   - WIFEXITED && WEXITSTATUS != 0: oo_cap_require_X exited 1 → fail-closed ✓
+   *   - WIFSIGNALED && sig == SIGALRM: timed out — function hung (BYPASS, suspicious)
+   *   - WIFSIGNALED && sig == SIGABRT: abort() from getentropy failure → fail-closed ✓
+   *   - WIFSIGNALED && sig in (SIGSEGV, SIGBUS, SIGFPE): CRASH — function dereffed
+   *     a null/invalid pointer before the cap check. This is a DIFFERENT class
+   *     of security defect (it means the cap check is NOT first, or the function
+   *     reads a struct field before the cap check). Counted as bypass. */
+  if (WIFEXITED(st) && WEXITSTATUS(st) != 0) return 1;  /* cap check exit(1) */
+  if (WIFSIGNALED(st)) {
+    int sig = WTERMSIG(st);
+    if (sig == SIGABRT) return 1;     /* abort() from getentropy fail-closed */
+    /* SIGSEGV, SIGBUS, SIGFPE, SIGALRM = crash or hang = bypass */
+    fprintf(stderr, "  CRASH: %s (signal %d — %s) — cap check is NOT first\n",
+            name, sig, sig == SIGSEGV ? "SIGSEGV" :
+                     sig == SIGBUS  ? "SIGBUS"  :
+                     sig == SIGFPE  ? "SIGFPE"  :
+                     sig == SIGALRM ? "SIGALRM (timeout)" : "other");
+    return 0;
+  }
   fprintf(stderr, "  LEAK: %s(child exited %d, signaled=%d)\n",
           name, WIFEXITED(st) ? WEXITSTATUS(st) : -1, WIFSIGNALED(st));
   return 0;

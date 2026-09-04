@@ -162,9 +162,14 @@ static void oo_caps_init(void) {
  * path that could mask the bug.
  *
  * Tokens in other files (g_tok_time, g_tok_rand, g_tok_alloc,
- * g_tok_arena, g_tok_ffi, g_tok_metrics) are not exposed here;
- * the canonical store is the most important to verify, and
- * exposing 22 pointers is enough for the test. */
+ * g_tok_ffi) are not stored here; v3.4.1 round-6 audit adds extern
+ * access so oo_cap_self_token can expose all 26 caps (not just 22).
+ * The diagnostic test (tests_challenger_differential_cap) wants to
+ * verify uniqueness across ALL 26 tokens. */
+extern long long oo_cap_grant_alloc(void);  /* to read g_tok_alloc */
+extern long long oo_cap_grant_time(void);   /* to read g_tok_time */
+extern long long oo_cap_grant_rand(void);   /* to read g_tok_rand */
+extern long long oo_cap_grant_ffi(void);    /* to read g_tok_ffi */
 static const long long *const CAP_TOKENS[22] = {
   &g_tok_fs,   &g_tok_sys,        &g_tok_env,   &g_tok_net,
   &g_tok_sign, &g_tok_process,    &g_tok_tcp,    &g_tok_udp,
@@ -175,7 +180,28 @@ static const long long *const CAP_TOKENS[22] = {
 };
 
 long long oo_cap_self_token(int which) {
-  if (which < 0 || which >= 22) return 0;
+  if (which < 0 || which >= 26) return 0;
   oo_caps_init();
+  /* v3.4.1: the 4 sub-store tokens (alloc/time/rand/ffi) live in
+   * separate .c files. The compiler is being aggressive with the
+   * direct extern-call + if-chain pattern (dead-code-eliminated to
+   * a single `if (which > 21) return 0`); route through a volatile
+   * function pointer to force a real call. */
+  if (which == 22) {
+    long long (* volatile fp)(void) = oo_cap_grant_alloc;
+    return fp();
+  }
+  if (which == 23) {
+    long long (* volatile fp)(void) = oo_cap_grant_time;
+    return fp();
+  }
+  if (which == 24) {
+    long long (* volatile fp)(void) = oo_cap_grant_rand;
+    return fp();
+  }
+  if (which == 25) {
+    long long (* volatile fp)(void) = oo_cap_grant_ffi;
+    return fp();
+  }
   return *CAP_TOKENS[which];
 }

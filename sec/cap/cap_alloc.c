@@ -13,6 +13,10 @@
 #define OO_CLASSIC_ALLOC 0x4F4F414CLL
 
 static pthread_once_t g_alloc_once = PTHREAD_ONCE_INIT;
+/* v3.4.1: keep g_tok_alloc static (internal linkage). oo_cap_self_token
+ * reads it via oo_cap_grant_alloc() instead of an extern pointer; this
+ * sidesteps the single-TU-build linker confusion that arose when an
+ * extern in caps.c competed with a static in cap_alloc.c. */
 static long long g_tok_alloc;
 
 static void alloc_init_once(void) {

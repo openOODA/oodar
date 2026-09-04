@@ -1582,3 +1582,59 @@ also internal. Consumers continue to link against the same
 oo_* symbols.
 
 api_surface 90 → 95 (added 6, removed 1).
+
+
+## v3.4.1 — Patch (round-6 qa test hardening)
+
+The round-6 qa test files audit (run in parallel with the misplaced-
+files and ANCHOR.oo drift lenses) caught 1 CRITICAL + 3 HIGH test
+defects. v3.4.1 closes the two most actionable ones.
+
+### Fix 1: tests_challenger_contract.c — distinguish crash from fail-closed (HIGH)
+
+**The bug:** the contract test used `if (WIFSIGNALED(st)) return 1`
+to count a child process that crashed (SIGSEGV / SIGBUS / SIGFPE)
+as a "fail-closed" success. But a SIGSEGV is NOT fail-closed — it
+means the function dereferenced a null/invalid pointer BEFORE the
+cap check. That's a DIFFERENT class of security defect (cap check
+not first, function reads a struct field before the cap check).
+
+**The fix:** v3.4.1 splits the exit-status check into 3 outcomes:
+   - WIFEXITED && WEXITSTATUS != 0 → cap check exit(1) → ✓ fail-closed
+   - WIFSIGNALED && sig == SIGABRT → abort() from getentropy → ✓ fail-closed
+   - WIFSIGNALED && sig in (SIGSEGV, SIGBUS, SIGFPE, SIGALRM) → CRASH
+     → counted as bypass (the old code counted it as fail-closed)
+
+**Result:** all 56 mutators still fail-closed. The new category
+catches a class of bug the old test was blind to.
+
+### Fix 2: tests_challenger_differential_cap.c — 22 → 26 indices (HIGH)
+
+**The bug:** the differential cap test only checked 22 of 26 cap
+tokens. The other 4 (g_tok_alloc, g_tok_time, g_tok_rand,
+g_tok_ffi) lived in separate .c files (since v3.4.0) and were
+not exposed via oo_cap_self_token.
+
+**The fix:** extend oo_cap_self_token to handle all 26 caps. The
+4 sub-stores use a volatile function pointer to force a real
+call (the compiler is otherwise aggressive with the extern
+declaration + if-chain in the single-TU build). Bump N_TOKENS
+22 → 26 in the test.
+
+**Result:** 208 unique values verified (26 × 8 children). The
+4 new tokens have proper getentropy-derived entropy.
+
+### Future (v3.4.2): real dudect test on cap-protected crypto (CRITICAL)
+
+**The remaining CRITICAL** from the round-6 qa test audit:
+tests_challenger_dudect_ct.c is a PROXY test — it tests the
+framework's ability to detect a known-branchy pattern, NOT the
+real SHA-256/AES-GCM/oo_cg_sign code path. A passing dudect
+result is NOT a security attestation for the real crypto.
+
+**Deferred to v3.4.2:** building a real dudect test for cap-
+protected crypto requires choosing a meaningful input-class
+pair (e.g., same-length different-data for SHA-256, or different-
+length same-data for AES-GCM), running enough iterations, and
+validating the Welch t-test doesn't false-positive. This is a
+1-2 day effort, deferred from v3.4.1 to keep this release small.

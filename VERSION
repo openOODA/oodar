@@ -17,12 +17,12 @@
 # it must match the most recent git tag. See RULES.oot §1.24
 # and rfcs/0006-versioning-and-release-protocol.oot.
 
-oodar=3.4.0
-release_tag=3.4.0
+oodar=3.4.1
+release_tag=3.4.1
 ooda=2.10.0
 ooda_max=2.99.0
 api_surface=95
-# Note: api_surface counts all .c files that ship in v3.4.0
+# Note: api_surface counts all .c files that ship in v3.4.1
 # (distributed across 6 per-domain subdirs: core, sec, fs, net, hw, app).
 # v3.4.0 added 6 new files (cap_attenuate_path.c, cap_attenuate_hmac.c,
 # cap_alloc.c, cap_time.c, cap_ffi.c, random.c) and removed 1

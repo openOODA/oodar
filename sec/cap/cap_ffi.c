@@ -14,6 +14,7 @@
 #endif
 
 static pthread_once_t g_ffi_once = PTHREAD_ONCE_INIT;
+/* v3.4.1: keep g_tok_ffi static. See cap_alloc.c for the reason. */
 static long long g_tok_ffi;
 
 static void ffi_once_init(void) {

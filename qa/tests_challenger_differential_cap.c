@@ -1,7 +1,7 @@
 /* qa/tests_challenger_differential_cap.c — cap token distribution test.
  *
  * Round-5 deep-dive: differential test for cap token derivation.
- * Forks 8 children, reads g_tok_fs (and the other 21 canonical
+ * Forks 8 children, reads g_tok_fs (and the other 25 canonical
  * tokens) from each via oo_cap_self_token(), and verifies the
  * tokens are all unique. An LCG fallback for getentropy()
  * failure (the round-4 CRITICAL) would produce the same token
@@ -18,9 +18,14 @@
  * in sec/cap/caps.h:146.
  *
  * Exit codes:
- *   0 — all 8 cap tokens are unique across all 22 indices
+ *   0 — all 8 cap tokens are unique across all 26 indices
  *   1 — distribution failure (possible LCG fallback)
- */
+ *
+ * v3.4.1 round-6: bumped from 22 → 26 indices. v3.4.0 added 4 new
+ * token sources (g_tok_alloc, g_tok_time, g_tok_rand, g_tok_ffi) now
+ * exposed via oo_cap_self_token. The round-6 audit caught that the
+ * test was only covering 22 of 26 tokens; 4 were unreachable from
+ * the diagnostic. */
 #define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,7 +37,7 @@
 #include "../sec/cap/caps.h"
 
 #define N_CHILDREN 8
-#define N_TOKENS   22
+#define N_TOKENS   26
 
 static int check_uniqueness(void) {
   long long tokens[N_CHILDREN][N_TOKENS];
@@ -44,7 +49,7 @@ static int check_uniqueness(void) {
     pids[i] = fork();
     if (pids[i] < 0) { perror("fork"); return 1; }
     if (pids[i] == 0) {
-      /* Child: close read end, write all 22 cap tokens. */
+      /* Child: close read end, write all 26 cap tokens. */
       alarm(2);
       for (int j = 0; j < N_TOKENS; j++) {
         long long tok = oo_cap_self_token(j);

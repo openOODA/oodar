@@ -10,6 +10,8 @@
  * canonical store in sec/cap/caps.c. */
 
 static pthread_once_t g_tr_once = PTHREAD_ONCE_INIT;
+/* v3.4.1: keep g_tok_time/rand static. See cap_alloc.c for the
+ * reason (single-TU build + extern/static collision). */
 static long long g_tok_time, g_tok_rand;
 
 static void tr_once_init(void) {
