@@ -18,7 +18,8 @@
 #   perfile — best-effort per-file build → liboodar_perfile.a
 #   clean   — remove all .o and the lib artifacts
 #   install — copy liboodar.a to ${DESTDIR}/${LIBDIR}
-#   check   — verify all source files in UMBRELLA_SRCS are present in REPO_ROOT
+#   check    — verify all source files in UMBRELLA_SRCS are present in REPO_ROOT
+#   lint     — run all 3 lint tests (anchors, file size, cap table)
 #
 # Variables:
 #   CC      — C compiler (default: gcc)
@@ -178,7 +179,7 @@ UMBRELLA_SRCS := \
 UMBRELLA_OBJS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(UMBRELLA_SRCS))
 
 # Phony targets
-.PHONY: all clean install check perfile
+.PHONY: all clean install check perfile lint lint-anchors lint-file-size lint-cap-table
 
 # ---------------------------------------------------------------------------
 # Default: build liboodar.a from the umbrella TU (single .o).
@@ -269,3 +270,47 @@ check:
 		fi; \
 	done; \
 	if [ $$missing -eq 0 ]; then echo "CHECK OK: all $(words $(UMBRELLA_SRCS)) source files present in $(REPO_ROOT)"; fi
+
+# ---------------------------------------------------------------------------
+# lint: run all 3 structural lint tests. These verify:
+#   - every directory has ANCHOR.oo (4-element header convention)
+#   - every .c/.h file is ≤ 256 lines (small-LLM context cap)
+#   - cap_table.json matches caps.h (no structural drift)
+# Each can be run individually with `make lint-anchors`, `make lint-file-size`,
+# or `make lint-cap-table`. The tests are built from qa/tests_lint_*.c and
+# run with OODAR_REPO=$(REPO_ROOT) so the paths resolve correctly.
+# v3.1.2 added: this target, after the v2.3.0 file split and v3.1.0
+# audit produced drift in 8 missing ANCHOR.oo files and 2 borderline
+# 256-line files (now fixed in v3.1.0 / v2.3.0).
+# ---------------------------------------------------------------------------
+LINT_BIN_DIR := $(BUILD_DIR)/lint
+LINT_BINS := $(LINT_BIN_DIR)/tests_lint_anchors.o \
+             $(LINT_BIN_DIR)/tests_lint_file_size.o \
+             $(LINT_BIN_DIR)/tests_lint_cap_table.o
+
+$(LINT_BIN_DIR):
+	@mkdir -p $@
+
+$(LINT_BIN_DIR)/%.o: $(REPO_ROOT)/qa/%.c | $(LINT_BIN_DIR)
+	@$(CC) $(filter-out -D_GNU_SOURCE -include oodar.h,$(CFLAGS)) -I$(REPO_ROOT) -c $< -o $@
+
+$(LINT_BIN_DIR)/tests_lint_anchors: $(LINT_BIN_DIR)/tests_lint_anchors.o
+	@$(CC) -o $@ $<
+
+$(LINT_BIN_DIR)/tests_lint_file_size: $(LINT_BIN_DIR)/tests_lint_file_size.o
+	@$(CC) -o $@ $<
+
+$(LINT_BIN_DIR)/tests_lint_cap_table: $(LINT_BIN_DIR)/tests_lint_cap_table.o
+	@$(CC) -o $@ $<
+
+lint-anchors: $(LINT_BIN_DIR)/tests_lint_anchors
+	@OODAR_REPO=$(REPO_ROOT) $(LINT_BIN_DIR)/tests_lint_anchors
+
+lint-file-size: $(LINT_BIN_DIR)/tests_lint_file_size
+	@OODAR_REPO=$(REPO_ROOT) $(LINT_BIN_DIR)/tests_lint_file_size
+
+lint-cap-table: $(LINT_BIN_DIR)/tests_lint_cap_table
+	@OODAR_REPO=$(REPO_ROOT) $(LINT_BIN_DIR)/tests_lint_cap_table
+
+lint: lint-anchors lint-file-size lint-cap-table
+	@echo "LINT OK: all 3 structural lints pass"
