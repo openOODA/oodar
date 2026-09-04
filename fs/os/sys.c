@@ -1,3 +1,9 @@
+/* sys.c — process-exec + args + exit orchestrator.
+ * The stdin/file_stamp/env surfaces live in sys_stdin.c, sys_stamp.c, sys_env.c.
+ * The process-policy getenv filter (oo_process_policy_getenv) is re-exported
+ * here as a forward decl because the ZT path-A contract ties it to the
+ * child-exec flow (oo_sys_exec / oo_child_filter_env).
+ * Cap tokens: oo_sys_exec / oo_sys_args need ProcessCap. */
 #include "../../oodar.h"
 #include <errno.h>
 #include <sys/types.h>
@@ -8,73 +14,10 @@
 #include <string.h>
 #include <limits.h>
 
-/* ZT path A: process-policy getenv — fail-closed for non OODA_/OO_ keys.
- * Product env_get still requires EnvCap via oo_env_get. */
-const char *oo_process_policy_getenv(const char *key) {
-  if (!key || !key[0]) return NULL;
-  if (strncmp(key, "OODA_", 5) != 0 && strncmp(key, "OO_", 3) != 0) {
-    return NULL;
-  }
-  return getenv(key);
-}
-
-/* Child of sys_exec / sys_spawn: keep OODA_/OO_ keys only, then PATH=/usr/bin:/bin. */
-void oo_child_filter_env(void) {
-  extern char **environ;
-  char **src;
-  char **newenv = NULL;
-  size_t n = 0, env_cap = 0;
-  if (environ) {
-    for (src = environ; *src; src++) {
-      const char *eq = strchr(*src, '=');
-      size_t klen;
-      if (!eq) continue;
-      klen = (size_t)(eq - *src);
-      if (klen == 0) continue;
-      if (!((klen >= 5 && strncmp(*src, "OODA_", 5) == 0) ||
-            (klen >= 6 && strncmp(*src, "OODAC_", 6) == 0) ||
-            (klen >= 3 && strncmp(*src, "OO_", 3) == 0)))
-        continue;
-      if (n + 1 >= env_cap) {
-        env_cap = env_cap ? env_cap * 2 : 16;
-        newenv = (char **)realloc(newenv, env_cap * sizeof(char *));
-        if (!newenv) _exit(127);
-      }
-      newenv[n++] = *src;
-    }
-  }
-#if defined(__GLIBC__) || defined(__APPLE__)
-  clearenv();
-#else
-  if (environ) {
-    environ[0] = NULL;
-  }
-#endif
-  if (newenv) {
-    newenv[n] = NULL;
-    environ = newenv;
-  }
-  setenv("PATH", "/usr/bin:/bin", 1);
-}
-
-int oo_policy_write_on(void) {
-  const char *v = oo_process_policy_getenv("OODA_POLICY_WRITE");
-  return v && v[0] == '1' && v[1] == '\0';
-}
-
-int oo_is_policy_path(const char *p) {
-  const char *b;
-  size_t n;
-  if (!p || !p[0]) return 0;
-  if (strstr(p, "/.config/ooda/")) return 1;
-  b = strrchr(p, '/');
-  b = b ? b + 1 : p;
-  if (strcmp(b, "SOUL.md") == 0 || strcmp(b, "soul.md") == 0) return 1;
-  if (strcmp(b, ".bashrc") == 0 || strcmp(b, "ooda.lock") == 0) return 1;
-  n = strlen(b);
-  if (n >= 10 && strcmp(b + (n - 10), ".agent.pin") == 0) return 1;
-  return 0;
-}
+/* The env-typed helpers (oo_child_filter_env, oo_policy_write_on,
+ * oo_is_policy_path, oo_env_get) live in sys_env.c. Forward decls: */
+const char *oo_process_policy_getenv(const char *key);
+void oo_child_filter_env(void);
 
 /* R2/R3: fork + execvp with full argv (no system(3) shell). Captures the
  * child's stdout via a pipe so callers can branch on the captured report
@@ -121,8 +64,6 @@ OoResS oo_sys_exec(long long cap, int argc, OoStr *argv) {
     av[i] = ac;
   }
   av[argc] = NULL;
-  /* Allocate the capture buffer through the ref-counted payload allocator
-   * so that oo_str_release / oo_release_OoResS work without UB. */
   out_buf = oo_str_alloc_payload(OO_SYS_EXEC_MAX_OUT);
   if (!out_buf) {
     for (i = 0; i < argc; i++) free(av[i]);
@@ -133,13 +74,11 @@ OoResS oo_sys_exec(long long cap, int argc, OoStr *argv) {
   if (pid < 0) {
     for (i = 0; i < argc; i++) free(av[i]);
     free(av);
-    /* out_buf has an OoStrHeader in front of it; release via oo_str_release. */
     { OoStr tmp; tmp.data = out_buf; tmp.len = 0; oo_str_release(tmp); }
     close(pipefd[0]); close(pipefd[1]);
     return r;
   }
   if (pid == 0) {
-    /* Child: redirect stdout to the write-end of the pipe, then exec. */
     close(pipefd[0]);
     if (dup2(pipefd[1], STDOUT_FILENO) < 0) _exit(126);
     close(pipefd[1]);
@@ -147,7 +86,6 @@ OoResS oo_sys_exec(long long cap, int argc, OoStr *argv) {
     execvp(av[0], av);
     _exit(127);
   }
-  /* Parent: close the write end so EOF arrives when the child exits. */
   close(pipefd[1]);
   for (;;) {
     ssize_t got = read(pipefd[0], out_buf + out_n, OO_SYS_EXEC_MAX_OUT - out_n);
@@ -198,109 +136,6 @@ OoSList oo_sys_args(long long cap) {
   return l;
 }
 
-#include <sys/stat.h>
-
-/* Read all stdin (stdio LSP / one-shot). Pipes have no seek. v3.0.0: cap-gated. */
-OoStr oo_read_stdin(long long cap) {
-  char *buf;
-  size_t bcap = 4096;
-  size_t n = 0;
-  oo_cap_require_fsread(cap, "read_stdin");
-  buf = (char *)malloc(bcap);
-  if (!buf) return oo_str_lit("");
-  for (;;) {
-    size_t got;
-    if (n + 1024 >= bcap) {
-      char *nb;
-      bcap *= 2;
-      if (bcap > (1u << 20)) {
-        free(buf);
-        return oo_str_lit("");
-      }
-      nb = (char *)realloc(buf, bcap);
-      if (!nb) {
-        free(buf);
-        return oo_str_lit("");
-      }
-      buf = nb;
-    }
-    got = fread(buf + n, 1, 1024, stdin);
-    n += got;
-    if (got < 1024) break;
-  }
-  {
-    OoStr r;
-    r.data = buf;
-    r.len = (long long)n;
-    return r;
-  }
-}
-
-/* Fast cache key: size:mtime:nsec. Avoids hashing whole compiler sources.
- * v3.0.0: cap-gated (FsReadCap — stat(2) is a metadata read of a file path). */
-OoStr oo_file_stamp(long long cap, OoStr path) {
-  char cpath[PATH_MAX];
-  struct stat st;
-  char buf[96];
-  oo_cap_require_fsread(cap, "file_stamp");
-  if (!path.data || path.len <= 0 || path.len >= PATH_MAX) return oo_str_lit("0:0:0");
-  memcpy(cpath, path.data, (size_t)path.len);
-  cpath[path.len] = 0;
-  if (stat(cpath, &st) != 0) return oo_str_lit("0:0:0");
-#if defined(__APPLE__)
-  snprintf(buf, sizeof buf, "%lld:%lld:%lld", (long long)st.st_size, (long long)st.st_mtimespec.tv_sec, (long long)st.st_mtimespec.tv_nsec);
-#elif defined(_WIN32)
-  snprintf(buf, sizeof buf, "%lld:%lld:0", (long long)st.st_size, (long long)st.st_mtime);
-#else
-  snprintf(buf, sizeof buf, "%lld:%lld:%lld", (long long)st.st_size, (long long)st.st_mtim.tv_sec, (long long)st.st_mtim.tv_nsec);
-#endif
-  return oo_str_lit(buf);
-}
-
 void oo_process_exit(long long c) {
   exit((int)c);
-}
-
-/* Non-blocking stdin read for the LSP stdio loop.
-   Returns Result<String, String>:
-     ok=1, val=<chunk> when data is available.
-     ok=0, val="" when the poll timed out, EOF was reached, or read() failed.
-   The caller loops with a short timeout (e.g. 100ms) and dispatches
-   complete Content-Length or JSON-object frames as they accumulate.
-   v3.0.0: cap-gated. */
-#include <poll.h>
-OoResS oo_read_stdin_chunk(long long cap, long long timeout_ms) {
-  struct pollfd pfd;
-  oo_cap_require_fsread(cap, "read_stdin_chunk");
-  pfd.fd = 0;
-  pfd.events = POLLIN;
-  int rc = poll(&pfd, 1, (int)timeout_ms);
-  if (rc <= 0) {
-    OoStr empty = oo_str_lit("");
-    OoResS r = { .ok = 0, .val = empty };
-    return r;
-  }
-  if (!(pfd.revents & POLLIN)) {
-    OoStr empty = oo_str_lit("");
-    OoResS r = { .ok = 0, .val = empty };
-    return r;
-  }
-  char *buf = (char *)malloc(4096);
-  if (!buf) {
-    OoStr empty = oo_str_lit("");
-    OoResS r = { .ok = 0, .val = empty };
-    return r;
-  }
-  ssize_t got = read(0, buf, 4096);
-  if (got <= 0) {
-    free(buf);
-    OoStr empty = oo_str_lit("");
-    OoResS r = { .ok = 0, .val = empty };
-    return r;
-  }
-  OoStr chunk;
-  chunk.data = buf;
-  chunk.len = (long long)got;
-  OoResS r = { .ok = 1, .val = chunk };
-  return r;
 }
