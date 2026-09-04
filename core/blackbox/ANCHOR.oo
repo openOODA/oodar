@@ -1,0 +1,12 @@
+// # core/blackbox/ — Flight Recorder and Crash Autopsy Substrate
+//
+// Logline: Zero-heap crash signal interception, circular flight telemetry recording, and deterministic autopsy generation for openOODA agents.
+//
+// Setup: Intercepts unhandled signals (SIGSEGV, SIGABRT, SIGBUS, SIGILL) and capability violations without dynamic memory allocation, emitting .blackbox/autopsy.json via static BSS buffers.
+//
+// Beats:
+//   1. blackbox.h — public API, BlackboxFlightEvent, BlackboxRingBuffer declarations.
+//   2. blackbox.c — sigaltstack (16KB), sigaction interception, lock-free ring buffer (64 events), zero-heap autopsy formatting, raw POSIX I/O.
+//
+// ──▓▓ core/blackbox ANCHOR ──▓▓──
+// :: Pillar 7 — deterministic, zero heap, fail-closed ::

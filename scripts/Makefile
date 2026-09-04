@@ -177,6 +177,7 @@ UMBRELLA_SRCS := \
 	app/actor/actor_closure.c \
 	core/mem/align.c \
 	core/mem/weak.c \
+	core/blackbox/blackbox.c \
 	sec/crypto/random.c
 
 # Derived: .o files in BUILD_DIR, one per .c. Each .o lives at

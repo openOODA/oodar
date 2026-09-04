@@ -105,3 +105,4 @@
 #include "app/actor/actor_closure.c"
 #include "core/mem/align.c"
 #include "core/mem/weak.c"
+#include "core/blackbox/blackbox.c"

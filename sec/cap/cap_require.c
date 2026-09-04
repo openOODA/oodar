@@ -4,11 +4,14 @@
  * must be included before this file so g_tok_* and oo_caps_init are
  * visible. */
 
+#include "../../core/blackbox/blackbox.h"
+
 int oo_cap_is_arena(long long got) { oo_caps_init(); return got == g_tok_arena; }
 
 void oo_cap_require(long long got, long long want, const char *op) {
   oo_caps_init();
   if (got == 0 || got != want) {
+    blackbox_trap_cap(op ? op : "unknown", __func__, __FILE__, __LINE__);
     fprintf(stderr, "ERR\tcap\t%s: missing or forged capability\n", op ? op : "?");
     exit(1);
   }
@@ -36,6 +39,7 @@ void oo_cap_require_metrics(long long got, const char *op) { oo_cap_require(got,
 void oo_cap_require_tcp(long long got, const char *op) {
   oo_caps_init();
   if (got == 0 || (got != g_tok_tcp && got != g_tok_net)) {
+    blackbox_trap_cap(op ? op : "tcp", __func__, __FILE__, __LINE__);
     fprintf(stderr, "ERR\tcap\t%s: missing or forged capability\n", op ? op : "tcp");
     exit(1);
   }
@@ -43,6 +47,7 @@ void oo_cap_require_tcp(long long got, const char *op) {
 void oo_cap_require_udp(long long got, const char *op) {
   oo_caps_init();
   if (got == 0 || (got != g_tok_udp && got != g_tok_net)) {
+    blackbox_trap_cap(op ? op : "udp", __func__, __FILE__, __LINE__);
     fprintf(stderr, "ERR\tcap\t%s: missing or forged capability\n", op ? op : "udp");
     exit(1);
   }
@@ -50,6 +55,7 @@ void oo_cap_require_udp(long long got, const char *op) {
 void oo_cap_require_bind(long long got, const char *op) {
   oo_caps_init();
   if (got == 0 || (got != g_tok_bind && got != g_tok_net)) {
+    blackbox_trap_cap(op ? op : "bind", __func__, __FILE__, __LINE__);
     fprintf(stderr, "ERR\tcap\t%s: missing or forged capability\n", op ? op : "bind");
     exit(1);
   }
@@ -57,6 +63,7 @@ void oo_cap_require_bind(long long got, const char *op) {
 void oo_cap_require_fsread(long long got, const char *op) {
   oo_caps_init();
   if (got == 0 || (got != g_tok_fsread && got != g_tok_fs)) {
+    blackbox_trap_cap(op ? op : "fsread", __func__, __FILE__, __LINE__);
     fprintf(stderr, "ERR\tcap\t%s: missing or forged capability\n", op ? op : "fsread");
     exit(1);
   }
@@ -64,6 +71,7 @@ void oo_cap_require_fsread(long long got, const char *op) {
 void oo_cap_require_fswrite(long long got, const char *op) {
   oo_caps_init();
   if (got == 0 || (got != g_tok_fswrite && got != g_tok_fs)) {
+    blackbox_trap_cap(op ? op : "fswrite", __func__, __FILE__, __LINE__);
     fprintf(stderr, "ERR\tcap\t%s: missing or forged capability\n", op ? op : "fswrite");
     exit(1);
   }
@@ -71,6 +79,7 @@ void oo_cap_require_fswrite(long long got, const char *op) {
 void oo_cap_require_process(long long got, const char *op) {
   oo_caps_init();
   if (got == 0 || (got != g_tok_process && got != g_tok_sys)) {
+    blackbox_trap_cap(op ? op : "process", __func__, __FILE__, __LINE__);
     fprintf(stderr, "ERR\tcap\t%s: missing or forged capability\n", op ? op : "process");
     exit(1);
   }
