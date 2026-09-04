@@ -151,7 +151,7 @@ static OoStr cap_empty_str(void) {
 OoStr cap_attenuate(OoStr parent_hmac, OoStr child_rights) {
   if (parent_hmac.len <= 0 || !parent_hmac.data || child_rights.len <= 0 || !child_rights.data)
     return cap_empty_str();
-  oo_metrics_cap_attenuate();
+  oo_event_emit(oo_str_lit("cap.attenuate"));
   return crypto_hmac_sha256_internal(parent_hmac, child_rights);
 }
 

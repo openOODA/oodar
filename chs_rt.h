@@ -112,14 +112,6 @@ long long oo_metrics_get(OoStr name);
 int oo_metrics_reset(OoStr name);
 OoStr oo_metrics_export(void);
 int oo_metrics_self_test(void);
-void oo_metrics_cap_seal(void);
-void oo_metrics_cap_attenuate(void);
-void oo_metrics_pq_sign(void);
-void oo_metrics_pq_verify(void);
-void oo_metrics_aead_seal(void);
-void oo_metrics_aead_open(void);
-void oo_metrics_fs_read(void);
-void oo_metrics_fs_write(void);
 
 long long oo_byte_at(OoStr s, long long idx);
 long long oo_str_byte_at(OoStr s, long long idx);

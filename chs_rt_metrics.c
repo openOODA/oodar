@@ -13,8 +13,15 @@
  *   4. Names that look like JSON injection (quotes, braces) are rejected at
  *      the API boundary — they MUST NOT appear in the output.
  *   5. oo_metrics_self_test() returns 1 iff the module is consistent.
+ *
+ * Telemetry integration: this module subscribes to named events emitted by
+ * the crypto and FS subsystems via the chs_rt_event bus. The producers no
+ * longer call into metrics directly. Subscribed events:
+ *   cap.seal, cap.attenuate, pq.sign, pq.verify, aead.seal, aead.open,
+ *   fs.read, fs.write.
  */
 #include "chs_rt.h"
+#include "chs_rt_event.h"
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
@@ -169,14 +176,31 @@ int oo_metrics_self_test(void) {
   return ok ? 1 : 0;
 }
 
-/* Hook the well-known cap/PQC/AEAD counters. These are called from
- * chs_rt_caps.c and chs_rt_pq_sig.c. They are no-ops if the name is invalid;
- * they cannot fail in a way that disrupts the caller. */
-void oo_metrics_cap_seal(void) { OoStr n = oo_str_lit("cap_seal"); oo_metrics_incr(n); }
-void oo_metrics_cap_attenuate(void) { OoStr n = oo_str_lit("cap_attenuate"); oo_metrics_incr(n); }
-void oo_metrics_pq_sign(void) { OoStr n = oo_str_lit("pq_sign"); oo_metrics_incr(n); }
-void oo_metrics_pq_verify(void) { OoStr n = oo_str_lit("pq_verify"); oo_metrics_incr(n); }
-void oo_metrics_aead_seal(void) { OoStr n = oo_str_lit("aead_seal"); oo_metrics_incr(n); }
-void oo_metrics_aead_open(void) { OoStr n = oo_str_lit("aead_open"); oo_metrics_incr(n); }
-void oo_metrics_fs_read(void) { OoStr n = oo_str_lit("fs_read"); oo_metrics_incr(n); }
-void oo_metrics_fs_write(void) { OoStr n = oo_str_lit("fs_write"); oo_metrics_incr(n); }
+/* Event-listener functions invoked by the event bus when a producer emits
+ * the corresponding named event. The producer no longer calls into metrics
+ * directly; the event bus dispatches. */
+static void on_cap_seal(void) { OoStr n = oo_str_lit("cap_seal"); oo_metrics_incr(n); }
+static void on_cap_attenuate(void) { OoStr n = oo_str_lit("cap_attenuate"); oo_metrics_incr(n); }
+static void on_pq_sign(void) { OoStr n = oo_str_lit("pq_sign"); oo_metrics_incr(n); }
+static void on_pq_verify(void) { OoStr n = oo_str_lit("pq_verify"); oo_metrics_incr(n); }
+static void on_aead_seal(void) { OoStr n = oo_str_lit("aead_seal"); oo_metrics_incr(n); }
+static void on_aead_open(void) { OoStr n = oo_str_lit("aead_open"); oo_metrics_incr(n); }
+static void on_fs_read(void) { OoStr n = oo_str_lit("fs_read"); oo_metrics_incr(n); }
+static void on_fs_write(void) { OoStr n = oo_str_lit("fs_write"); oo_metrics_incr(n); }
+
+static void metrics_subscribe_all(void) {
+  oo_event_subscribe(oo_str_lit("cap.seal"), on_cap_seal);
+  oo_event_subscribe(oo_str_lit("cap.attenuate"), on_cap_attenuate);
+  oo_event_subscribe(oo_str_lit("pq.sign"), on_pq_sign);
+  oo_event_subscribe(oo_str_lit("pq.verify"), on_pq_verify);
+  oo_event_subscribe(oo_str_lit("aead.seal"), on_aead_seal);
+  oo_event_subscribe(oo_str_lit("aead.open"), on_aead_open);
+  oo_event_subscribe(oo_str_lit("fs.read"), on_fs_read);
+  oo_event_subscribe(oo_str_lit("fs.write"), on_fs_write);
+}
+
+/* Constructor: subscribe at library load. GCC-specific; the runtime
+ * umbrella is compiled with gcc per the chs_rt.c comment. */
+__attribute__((constructor)) static void metrics_ctor(void) {
+  metrics_subscribe_all();
+}

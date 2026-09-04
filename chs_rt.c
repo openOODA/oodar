@@ -44,4 +44,5 @@
 #include "chs_rt_mldsa.c"
 #include "chs_rt_pq_sig.c"
 #include "chs_rt_metrics.c"
+#include "chs_rt_event.c"
 #include "chs_rt_closure.c"

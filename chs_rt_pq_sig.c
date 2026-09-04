@@ -267,7 +267,7 @@ OoStr crypto_pq_aead_seal_internal(OoStr cap_key32, OoStr aead_key16, OoStr plai
   OoStr noncestr; noncestr.data = (char *)nonce; noncestr.len = AEAD_NONCE_LEN;
   OoStr keystr; keystr.data = (char *)aead_key_raw; keystr.len = AEAD_KEY_LEN;
   OoStr aead_out = crypto_aes_gcm_seal_internal(keystr, noncestr, plaintext, pk_aad);
-  oo_metrics_aead_seal();
+  oo_event_emit(oo_str_lit("aead.seal"));
   if (!aead_out.data || aead_out.len < AEAD_TAG_LEN) {
     if (aead_out.data) crypto_secure_wipe(aead_out.data, (size_t)aead_out.len);
     crypto_secure_wipe(pk, sizeof pk);
@@ -309,7 +309,7 @@ OoStr crypto_pq_aead_seal_internal(OoStr cap_key32, OoStr aead_key16, OoStr plai
   OoStr rnd; rnd.data = (char *)""; rnd.len = 0;
   OoStr signed_msg; signed_msg.data = (char *)signed_buf; signed_msg.len = (long long)signed_len;
   OoStr sig = crypto_mldsa65_sign_internal(skstr, signed_msg, rnd);
-  oo_metrics_pq_sign();
+  oo_event_emit(oo_str_lit("pq.sign"));
   crypto_secure_wipe(sk, sizeof sk);
   free(signed_buf);
   if (!sig.data || sig.len != (long long)(PQ_SIG_LEN * 2)) {
@@ -403,7 +403,7 @@ OoStr crypto_pq_aead_open_internal(OoStr cap_key32, OoStr aead_key16, OoStr seal
   OoStr pkstr; pkstr.data = (char *)pk; pkstr.len = PQ_PK_LEN;
   OoStr signed_msg; signed_msg.data = (char *)signed_buf; signed_msg.len = (long long)signed_len;
   OoStr vr = crypto_mldsa65_verify_internal(pkstr, signed_msg, sighex);
-  oo_metrics_pq_verify();
+  oo_event_emit(oo_str_lit("pq.verify"));
   crypto_secure_wipe(pk, sizeof pk);
   free(signed_buf);
   if (!vr.data || vr.len != 2 || vr.data[0] != 'O' || vr.data[1] != 'K') {
@@ -441,7 +441,7 @@ OoStr crypto_pq_aead_open_internal(OoStr cap_key32, OoStr aead_key16, OoStr seal
   OoStr tagstr; tagstr.data = (char *)tag; tagstr.len = AEAD_TAG_LEN;
 
   OoStr pt = crypto_aes_gcm_open_internal(keystr2, noncestr2, ctstr, tagstr, pk_aad2);
-  oo_metrics_aead_open();
+  oo_event_emit(oo_str_lit("aead.open"));
   crypto_secure_wipe(pk2, sizeof pk2);
   crypto_secure_wipe(aead_key_raw, sizeof aead_key_raw);
 
