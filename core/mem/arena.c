@@ -242,7 +242,10 @@ OoResS oo_arena_alloc(long long cap, long long id, long long n) {
     r.val = oo_str_lit("arena_alloc: bad id");
     return r;
   }
-  if (a->off + (size_t)n > a->cap) {
+  /* v2.1.0: reverse the comparison to prevent wrap.
+   * Was: if (a->off + n > a->cap) — can wrap if a->off + n overflows size_t.
+   * Now: if (n > a->cap - a->off) — the subtraction is exact on a valid arena. */
+  if ((size_t)n > a->cap - a->off) {
     pthread_mutex_unlock(&a->mu);
     r.val = oo_str_lit("arena_alloc: full");
     return r;
@@ -366,6 +369,8 @@ long long oo_soa_layout(OoStr spec) {
 
 long long oo_dod_layout(long long n) {
   if (n < 0) return 0;
+  /* v2.1.0: overflow check. n * 8 can wrap if n > LLONG_MAX/8. */
+  if (n > LLONG_MAX / 8) return 0;
   return n * 8;
 }
 

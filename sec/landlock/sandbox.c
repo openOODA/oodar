@@ -556,7 +556,9 @@ OoResS oo_sandbox_apply_matrix(long long sys_cap, const oo_sandbox_config_t *con
   g_sand_status.backend = backend;
   g_sand_status.active_caps_mask = config->allowed_caps_mask;
   g_sand_status.fs_restricted = (config->read_dirs_colon.len > 0 || config->write_dirs_colon.len > 0 || (nread == 0 && nwrite == 0)) ? 1 : 0;
-  g_sand_status.net_restricted = (config->allowed_caps_mask & (OODAR_CAP_NET | OODAR_CAP_HTTP | OODAR_CAP_TCP | OODAR_CAP_UDP | OODAR_CAP_BIND)) ? 0 : 1;
+  /* v2.1.0: removed OODAR_CAP_HTTP (dead cap). Net restrict now means
+   * NET | TCP | UDP | BIND — i.e., the four live net-class tokens. */
+  g_sand_status.net_restricted = (config->allowed_caps_mask & (OODAR_CAP_NET | OODAR_CAP_TCP | OODAR_CAP_UDP | OODAR_CAP_BIND)) ? 0 : 1;
   g_sand_status.proc_restricted = (config->allowed_caps_mask & (OODAR_CAP_PROCESS | OODAR_CAP_SYS)) ? 0 : 1;
   g_sand_status.quotas_enforced = (config->max_mem_mb > 0 || config->max_cpu_sec > 0 || config->max_nofile > 0) ? 1 : 0;
   g_sand_locked = 1;

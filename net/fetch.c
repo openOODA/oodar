@@ -16,7 +16,7 @@ OoResS oo_fetch(long long cap, OoStr url) {
   char req[1400], *body = NULL, *acc = NULL;
   size_t acc_len = 0, acc_cap = 0;
   ssize_t nr;
-  oo_cap_require_http(cap, "fetch");
+  oo_cap_require_net(cap, "fetch");
   r.ok = 0;
   r.val = oo_str_lit("fetch failed");
   u = url.data ? url.data : "";

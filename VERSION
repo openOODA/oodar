@@ -17,8 +17,8 @@
 # it must match the most recent git tag. See RULES.oot §1.24
 # and rfcs/0006-versioning-and-release-protocol.oot.
 
-oodar=2.0.0
-release_tag=2.0.0
+oodar=2.1.0
+release_tag=2.1.0
 ooda=2.10.0
 ooda_max=2.99.0
 api_surface=52

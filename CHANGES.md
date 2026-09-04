@@ -1,5 +1,143 @@
 # Changelog
 
+## v2.1.0 — Patch (zero-trust audit pass 2: 6 CRITICAL fixes + 11 HIGH/MEDIUM cleanups)
+
+Per RULES.oot §1.21, v2.1.0 is a PATCH bump. No ABI change — every
+public function signature is unchanged. This release is a security
+hardening + dead-code cleanup driven by a zero-trust re-audit of v2.0.0
+(5 parallel subagents, one per lens: structural, REDTEAM, power-law
++ systems, OCap, Blue Ocean).
+
+### CRITICAL — security
+
+1. **oo_write_int / oo_read_int: bounds check inverted (was:
+   arbitrary R/W into the process).** v2.0.0 had the bound check
+   inside an `&&` with the magic-number check, so a foreign pointer
+   (no oodar magic) silently bypassed the bound check. An attacker
+   with any AllocCap could pass an arbitrary address and oodar
+   would happily write to it. v2.1.0 inverts: the magic MUST match
+   (else exit with "foreign pointer refused") AND the offset+sizeof
+   must fit (else exit with "out of bounds"). Both checks are now
+   mandatory, in series. See core/mem/alloc.c.
+
+2. **oo_proc_mem_read: now requires Landlock APPLIED, not just
+   available.** Previously the gate was `oo_landlock_is_available()`
+   (which is true on any modern Linux kernel regardless of whether
+   the process ever called `oo_sandbox_apply()`). An attacker could
+   read /proc/self/mem — and the cap token lives in /proc/self/mem,
+   so they could forge the cap. v2.1.0 adds `oo_landlock_is_applied()`
+   (set to 1 only after a successful `oo_landlock_restrict()`) and
+   requires both checks. The proc_mem reader now refuses unless the
+   kernel-mediated sandbox is genuinely in force. See
+   sec/landlock/landlock.c (new g_ll_applied state + accessor) and
+   sec/landlock/proc_mem.c.
+
+3. **mldsa.c: silent rejection-sampling bug fixed.** The
+   `expand_a_inner` helper had `while (ctr < 256) { ...; break; }` —
+   the `break` made the loop a single iteration, so any rejection
+   failure left the polynomial coefficient uninitialised. FIPS 204
+   §4.1.1 requires deterministic re-sampling. v2.1.0 keeps drawing
+   from SHAKE until the budget is exhausted (with a fail-closed
+   `exit(1)` on exhaustion — never a silent uninitialised output).
+   See sec/pqc/mldsa.c.
+
+4. **fs_file_size removed (declared but never implemented).** It was
+   a v2.0.0 stale declaration. The canonical entry point is
+   `oo_file_size`. See oodar.h.
+
+5. **5 dead cap tokens removed (AUDIT, HITL, SYNC, MEM, HTTP).**
+   These were declared in caps.h (v2.0.0) but either:
+   - Had no grant/require function (AUDIT, HITL — declared but never
+     defined), or
+   - Were granted but never required by any function (SYNC, MEM, HTTP).
+   The bit positions are reserved (no re-use) so a future re-
+   introduction can use a different bit. See sec/cap/caps.h and
+   sec/cap/caps.c (g_tok_* state + make_cap_tok site).
+
+6. **6 dead cap-function declarations removed.** oo_cap_grant_audit,
+   oo_cap_grant_hitl, oo_cap_grant_sync, oo_cap_grant_mem,
+   oo_cap_grant_http, and the matching oo_cap_require_* for each.
+   Plus oo_cap_require_http (was defined but never used). Plus
+   `cap_attenuate` / `cap_attenuate_ok` (no oo_ prefix, declared but
+   never defined; the canonical oo_cap_attenuate / oo_cap_attenuate_ok
+   remain).
+
+### HIGH — security & OCap
+
+7. **oo_cap_rpc_send / oo_cap_rpc_recv: ThreadCap → SignCap.** Cap-rpc
+   is a sign-style operation (HMAC over the payload), not a thread
+   spawn. Previously the cap required was ThreadCap, which was too
+   coarse: every actor recipient would have needed ThreadCap just to
+   verify a signed message. v2.1.0 requires SignCap. See
+   app/actor/actor.c.
+
+8. **Integer overflow fix: oo_arena_alloc (core/mem/arena.c).** Was
+   `if (a->off + (size_t)n > a->cap)` — can wrap if `a->off + n`
+   overflows size_t. Now: `if ((size_t)n > a->cap - a->off)` — the
+   subtraction is exact on a valid arena.
+
+9. **Integer overflow fix: oo_dod_layout (core/mem/arena.c).** Was
+   `return n * 8;` — wraps for n > LLONG_MAX/8. Now: saturate to 0
+   on overflow.
+
+### MEDIUM — cleanup
+
+10. **3 dead event subscriptions removed** in app/telemetry/metrics.c:
+    `cap.seal`, `fs.read`, `fs.write` were subscribed but no
+    `oo_event_emit` call site emits them. The corresponding
+    on_cap_seal / on_fs_read / on_fs_write handlers are also gone.
+    The live subscriptions are cap.attenuate (emitted in caps.c:154),
+    pq.sign, pq.verify, aead.seal, aead.open (emitted in
+    sec/pqc/pq_sig.c).
+
+11. **Test utilities moved from production tree to qa/.** Both
+    `hw/gpu/oo_hip_so_smoke.c` (the HIP/.so smoke test) and
+    `sec/pqc/dudect_c_native.c` (the dudect constant-time
+    statistical test) are now `qa/oo_hip_so_smoke.c` and
+    `qa/dudect_c_native.c`. They were never in the umbrella TU
+    (the test util exclusion was already in place) but their
+    location implied they were production code. They are test
+    utilities and now sit with the test infrastructure.
+
+12. **ANCHOR.oo fixes:**
+    - `app/actor/ANCHOR.oo` was claiming `thread.h` (the
+      OoThreadSlot type) — but no `thread.h` exists. The OoThreadSlot
+      type is defined inline in `thread.c`. Fixed.
+    - `app/actor/ANCHOR.oo` had 5 beats; the new layout has 4
+      (thread + actor + channel + closure — no separate cycle beat
+      since v2.0.0 killed it).
+    - `sec/cap/ANCHOR.oo` was claiming "14 unforgeable capability
+      tokens". The actual count after the dead-cap removal is 25
+      (14 NORTHSTAR core + 11 future-state for not-yet-wired
+      hardware caps). The ANCHOR.oo now states the full breakdown.
+
+### What did NOT change
+
+- Every public function signature. The v2.0.0 ABI is preserved.
+- The 6 per-domain subdir layout (core, sec, fs, net, hw, app).
+- The cap system architecture (still 30 cap bits, but 5 are
+  reserved/dead-now; 25 have working grant/require).
+- The set of files in the umbrella (still 48 .c files; api_surface=52
+  unchanged because the test utilities are still in the repo, just
+  in qa/).
+- The CHANGELOG itself — every prior migration table still applies.
+
+### Residuals (planned for v3.0.0 Floor break)
+
+The next Floor break will add caps to the last 4 cap-free public
+mutators (the rule "no cap-free public symbols"):
+
+- `oo_read_stdin` / `oo_read_stdin_chunk` (fs/os/sys.c) — no cap
+- `oo_file_stamp` (fs/os/sys.c) — no cap
+- `oo_metrics_incr` / `oo_metrics_get` / `oo_metrics_reset` /
+  `oo_metrics_export` / `oo_metrics_self_test` — no cap (potential
+  side channel via counter)
+- `oo_je_emit` / the `oo_je_*` arm-file mechanism — no cap
+  (potential exfiltration via stderr-arming)
+
+Adding a cap to any of these changes the public function signature
+→ Floor break. See CHANGES.md "v3.0.0 plan" (next pass).
+
 ## v2.0.0 — Floor break (audit: cap-gating, dead-code kill, build fix)
 
 Per RULES.oot §1.21, v2.0.0 is a MAJOR (Floor) bump. The super-check

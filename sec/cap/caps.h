@@ -14,12 +14,13 @@
 #define OODAR_CAP_ALLOC 256u
 #define OODAR_CAP_ARENA 512u
 #define OODAR_CAP_FFI 1024u
-#define OODAR_CAP_AUDIT 2048u
+/* v2.1.0: removed OODAR_CAP_AUDIT (0x800), OODAR_CAP_HITL (0x2000),
+ * OODAR_CAP_SYNC (0x4000), OODAR_CAP_MEM (0x8000), OODAR_CAP_HTTP
+ * (0x10000) — dead caps (declared but never granted/required). The
+ * bit positions are reserved; future re-introduction must use a
+ * different bit position to avoid collision with anything that may
+ * have been packed into the gaps. */
 #define OODAR_CAP_SIGN 4096u
-#define OODAR_CAP_HITL 8192u
-#define OODAR_CAP_SYNC 16384u
-#define OODAR_CAP_MEM 32768u
-#define OODAR_CAP_HTTP (1u << 16)
 #define OODAR_CAP_TCP (1u << 17)
 #define OODAR_CAP_UDP (1u << 18)
 #define OODAR_CAP_BIND (1u << 19)
@@ -48,13 +49,14 @@ long long oo_cap_grant_rand(void);
 long long oo_cap_grant_alloc(void);
 long long oo_cap_grant_arena(void);
 long long oo_cap_grant_ffi(void);
-long long oo_cap_grant_audit(void);
+/* v2.1.0: removed oo_cap_grant_audit, oo_cap_grant_hitl, oo_cap_grant_sync,
+ * oo_cap_grant_mem, oo_cap_grant_http — they were declared but never
+ * defined (audit, hitl) or granted-but-never-required dead caps (sync,
+ * mem, http). Future-state: a re-introduction requires a Floor break
+ * (v3.0.0+) with both a real grant + a real require and a documented
+ * purpose. */
 long long oo_cap_grant_sign(void);
-long long oo_cap_grant_hitl(void);
 long long oo_cap_grant_process(void);
-long long oo_cap_grant_sync(void);
-long long oo_cap_grant_mem(void);
-long long oo_cap_grant_http(void);
 long long oo_cap_grant_tcp(void);
 long long oo_cap_grant_udp(void);
 long long oo_cap_grant_bind(void);
@@ -82,13 +84,10 @@ void oo_cap_require_arena(long long got, const char *op);
 int oo_cap_is_arena(long long got);
 int oo_cap_is_alloc(long long got);
 void oo_cap_require_ffi(long long got, const char *op);
-void oo_cap_require_audit(long long got, const char *op);
+/* v2.1.0: removed oo_cap_require_audit, oo_cap_require_hitl (declared but
+ * never defined), oo_cap_require_sync/mem/http (dead). */
 void oo_cap_require_sign(long long got, const char *op);
-void oo_cap_require_hitl(long long got, const char *op);
 void oo_cap_require_process(long long got, const char *op);
-void oo_cap_require_sync(long long got, const char *op);
-void oo_cap_require_mem(long long got, const char *op);
-void oo_cap_require_http(long long got, const char *op);
 void oo_cap_require_tcp(long long got, const char *op);
 void oo_cap_require_udp(long long got, const char *op);
 void oo_cap_require_bind(long long got, const char *op);
@@ -104,8 +103,9 @@ void oo_cap_require_thread(long long got, const char *op);
 void oo_cap_require_gpu(long long got, const char *op);
 void oo_cap_require_compiler_read(long long got, const char *op);
 
-OoStr cap_attenuate(OoStr parent_hmac, OoStr child_rights);
-int cap_attenuate_ok(OoStr parent_hmac, OoStr child_rights);
+/* v2.1.0: cap_attenuate and cap_attenuate_ok (no oo_ prefix) are gone.
+ * They were declared but never defined; the canonical entry points are
+ * oo_cap_attenuate / oo_cap_attenuate_ok. */
 OoStr oo_cap_attenuate(OoStr parent_hmac, OoStr child_rights);
 int oo_cap_attenuate_ok(OoStr parent_hmac, OoStr child_rights);
 OoStr oo_cap_kernel_seal(long long sys, OoStr cap_id);

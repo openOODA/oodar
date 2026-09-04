@@ -31,12 +31,14 @@
 /* Process-local capability tokens (14 core + extended tokens). Fail-closed. */
 static pthread_once_t g_caps_once = PTHREAD_ONCE_INIT;
 static long long g_tok_fs, g_tok_sys, g_tok_env, g_tok_net;
-static long long g_tok_sign, g_tok_process, g_tok_sync, g_tok_mem;
-static long long g_tok_http, g_tok_tcp, g_tok_udp, g_tok_bind;
+static long long g_tok_sign, g_tok_process;
+static long long g_tok_tcp, g_tok_udp, g_tok_bind;
 static long long g_tok_audio, g_tok_camera, g_tok_usb, g_tok_hid;
 static long long g_tok_window, g_tok_frame, g_tok_fsread, g_tok_fswrite;
 static long long g_tok_arena, g_tok_thread, g_tok_gpu;
 static long long g_tok_compiler_read;
+/* v2.1.0: removed g_tok_audit, g_tok_hitl, g_tok_sync, g_tok_mem, g_tok_http
+ * (declared in v2.0.0 caps.h but either never defined or dead-granted). */
 static unsigned char g_kernel_hmac_key[32];
 
 /* First-principles: 8 bytes (64 bits) of entropy per token; the cap is
@@ -66,9 +68,7 @@ static void caps_zeroize(void) {
   explicit_bzero(&g_tok_net, sizeof g_tok_net);
   explicit_bzero(&g_tok_sign, sizeof g_tok_sign);
   explicit_bzero(&g_tok_process, sizeof g_tok_process);
-  explicit_bzero(&g_tok_sync, sizeof g_tok_sync);
-  explicit_bzero(&g_tok_mem, sizeof g_tok_mem);
-  explicit_bzero(&g_tok_http, sizeof g_tok_http);
+  /* v2.1.0: removed sync/mem/http zeroize. */
   explicit_bzero(&g_tok_tcp, sizeof g_tok_tcp);
   explicit_bzero(&g_tok_udp, sizeof g_tok_udp);
   explicit_bzero(&g_tok_bind, sizeof g_tok_bind);
@@ -108,9 +108,7 @@ static void caps_once_init(void) {
   g_tok_net     = make_cap_tok(0x4,  b + 21);
   g_tok_sign    = make_cap_tok(0x5,  b + 28);
   g_tok_process = make_cap_tok(0x6,  b + 35);
-  g_tok_sync    = make_cap_tok(0x7,  b + 42);
-  g_tok_mem     = make_cap_tok(0x8,  b + 49);
-  g_tok_http    = make_cap_tok(0x9,  b + 56);
+  /* v2.1.0: removed sync (0x7), mem (0x8), http (0x9). */
   g_tok_tcp     = make_cap_tok(0xA,  b + 63);
   g_tok_udp     = make_cap_tok(0xB,  b + 70);
   g_tok_bind    = make_cap_tok(0xC,  b + 77);
@@ -158,9 +156,8 @@ long long oo_cap_grant_env(void) { oo_caps_init(); return g_tok_env; }
 long long oo_cap_grant_net(void) { oo_caps_init(); oo_sandbox_note_net(); return g_tok_net; }
 long long oo_cap_grant_sign(void) { oo_caps_init(); return g_tok_sign; }
 long long oo_cap_grant_process(void) { oo_caps_init(); oo_sandbox_note_proc(); return g_tok_process; }
-long long oo_cap_grant_sync(void) { oo_caps_init(); return g_tok_sync; }
-long long oo_cap_grant_mem(void) { oo_caps_init(); return g_tok_mem; }
-long long oo_cap_grant_http(void) { oo_caps_init(); oo_sandbox_note_net(); return g_tok_http; }
+/* v2.1.0: removed oo_cap_grant_sync, oo_cap_grant_mem, oo_cap_grant_http
+ * (dead caps — granted but never required). */
 long long oo_cap_grant_tcp(void) { oo_caps_init(); oo_sandbox_note_net(); return g_tok_tcp; }
 long long oo_cap_grant_udp(void) { oo_caps_init(); oo_sandbox_note_net(); return g_tok_udp; }
 long long oo_cap_grant_bind(void) { oo_caps_init(); oo_sandbox_note_net(); return g_tok_bind; }
@@ -192,8 +189,7 @@ void oo_cap_require_sys(long long got, const char *op) { oo_cap_require(got, g_t
 void oo_cap_require_env(long long got, const char *op) { oo_cap_require(got, g_tok_env, op ? op : "env"); }
 void oo_cap_require_net(long long got, const char *op) { oo_cap_require(got, g_tok_net, op ? op : "net"); }
 void oo_cap_require_sign(long long got, const char *op) { oo_cap_require(got, g_tok_sign, op ? op : "sign"); }
-void oo_cap_require_sync(long long got, const char *op) { oo_cap_require(got, g_tok_sync, op ? op : "sync"); }
-void oo_cap_require_mem(long long got, const char *op) { oo_cap_require(got, g_tok_mem, op ? op : "mem"); }
+/* v2.1.0: removed oo_cap_require_sync, oo_cap_require_mem (dead caps). */
 void oo_cap_require_audio(long long got, const char *op) { oo_cap_require(got, g_tok_audio, op ? op : "audio"); }
 void oo_cap_require_camera(long long got, const char *op) { oo_cap_require(got, g_tok_camera, op ? op : "camera"); }
 void oo_cap_require_usb(long long got, const char *op) { oo_cap_require(got, g_tok_usb, op ? op : "usb"); }
@@ -205,13 +201,7 @@ void oo_cap_require_thread(long long got, const char *op) { oo_cap_require(got, 
 void oo_cap_require_gpu(long long got, const char *op) { oo_cap_require(got, g_tok_gpu, op ? op : "gpu"); }
 void oo_cap_require_compiler_read(long long got, const char *op) { oo_cap_require(got, g_tok_compiler_read, op ? op : "compiler_read"); }
 
-void oo_cap_require_http(long long got, const char *op) {
-  oo_caps_init();
-  if (got == 0 || (got != g_tok_http && got != g_tok_net)) {
-    fprintf(stderr, "ERR\tcap\t%s: missing or forged capability\n", op ? op : "http");
-    exit(1);
-  }
-}
+/* v2.1.0: removed oo_cap_require_http (dead cap). */
 void oo_cap_require_tcp(long long got, const char *op) {
   oo_caps_init();
   if (got == 0 || (got != g_tok_tcp && got != g_tok_net)) {
