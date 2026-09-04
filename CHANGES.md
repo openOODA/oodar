@@ -1500,3 +1500,85 @@ bounded inputs).
 **Why Patch not Thrust:** the public ABI is unchanged. Both
 fixes are internal correctness. The new test file does not
 add a new `oo_*` symbol.
+
+
+## v3.4.0 — Floor (round-6 closes 3 CRITICAL + 4 HIGH misplacements + 5 ANCHOR.oo drift)
+
+The round-6 deep-dive audit (4 parallel lenses: misplaced-files,
+qa-test-files, ANCHOR.oo drift, header-deps) caught 7 misplacements
+and 5+ ANCHOR.oo drift items that the prior rounds missed. v3.4.0
+closes them all in one Floor break. All moves are pure relocations
+within the umbrella TU; no oo_* signatures change.
+
+### Fix 1: oo_cap_attenuate HMAC family — CRITICAL layering inversion
+
+**The bug:** `oo_cap_attenuate`, `oo_cap_attenuate_v2`,
+`oo_cap_attenuate_ok`, and `oo_cap_attenuate_v2_ok` lived in
+`sec/crypto/symmetric/crypto.c`. The cap policy (Rule 2 bitmask
+subset check) belongs with the rest of the cap module, not the
+crypto module — this is a layering inversion.
+
+**Why round-4 + round-5 missed it:** the prior audits read
+"crypto" and saw crypto-y code (HMAC, hex-decode, bitmask) and
+didn't ask "why is the cap policy here?" The misplaced-files
+audit applied the rule "one concept, one location" and caught
+it.
+
+**The fix:** created `sec/cap/cap_attenuate_hmac.c` (the HMAC
+sealed attenuate family + the `cap_parse_rights` helper).
+Renamed `sec/cap/cap_attenuate.c` to `sec/cap/cap_attenuate_path.c`
+to make the file name match its content (path-cap attenuator only).
+Updated `oodar.c` umbrella. 91 lines in the new HMAC file, 189
+in the renamed path file — both under the 256-line cap.
+
+### Fix 2-4: 3 cap-store misplacements (alloc / time+rand / ffi)
+
+**The bug:** the AllocCap, TimeCap/RandCap, and FFICap
+subsystems (state + grant + require + init) lived in
+`core/mem/alloc.c`, `fs/os/time_rand.c`, and `app/xlang/ffi_sec.c`
+respectively. The cap store should live in `sec/cap/` with the
+rest of the cap module.
+
+**The fix:** created `sec/cap/cap_alloc.c`, `sec/cap/cap_time.c`,
+`sec/cap/cap_ffi.c`. The 3 modules (allocator, time, ffi) just
+call the canonical `oo_cap_require_X` macro now. Also moved
+`oo_random` from `fs/os/time_rand.c` to `sec/crypto/random.c`
+(the random source is crypto-grade, not fs/os).
+
+### Fix 5: app/telemetry/metrics.c → core/event/metrics.c
+
+**The bug:** v3.1.0 moved `app/telemetry/event.{c,h}` to
+`core/event/` but left `app/telemetry/metrics.c` behind. The
+`app/telemetry/` directory is now removed entirely. The
+metrics module is a consumer of the event bus and belongs
+with the rest of the event infrastructure.
+
+### Fix 6: ANCHOR.oo drift
+
+**The bug:** 6 ANCHOR.oo files were stale (claimed v3.0.0, 49
+files, or referenced deleted files). The most embarrassing:
+`app/hitl/ANCHOR.oo` described a `hitl.c` that was killed in
+v3.1.0; the directory was a zombie with only an ANCHOR.oo
+inside.
+
+**The fix:** rewrote 6 ANCHOR.oo files (root, qa/, app/, hw/gpu/,
+sec/cap/, scripts/, docs/) to match the v3.4.0 reality. Removed
+`app/hitl/` zombie directory. The `app/ANCHOR.oo` now correctly
+says "xlang + actor + io" (no telemetry, no hitl).
+
+### Test results
+
+11/11 challenger tests + 3/3 lint + adversarial all pass.
+3 lints confirm the new file structure (ANCHOR.oo coverage,
+256-line cap, cap_table.json drift). Build hash is reproducible.
+
+### Public ABI
+
+Unchanged. The 6 new .c files (cap_attenuate_path.c,
+cap_attenuate_hmac.c, cap_alloc.c, cap_time.c, cap_ffi.c,
+random.c) are all internal to the umbrella. The 1 removed file
+(app/telemetry/metrics.c, moved to core/event/metrics.c) is
+also internal. Consumers continue to link against the same
+oo_* symbols.
+
+api_surface 90 → 95 (added 6, removed 1).

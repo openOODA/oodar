@@ -1,25 +1,35 @@
 // # sec/cap — Capability Tokens
 //
-// Logline: The capability token system (Pillar 5). 14 NORTHSTAR core (FsRead, FsWrite, Net, Tcp, Udp, Sys, Process, Env, Time, Rand, Alloc, Thread, Gpu, Ffi) + 12 future-state (Fs, Arena, Sign, Audio, Camera, Usb, Hid, Window, Frame, Bind, CompilerRead, Metrics — the Metrics token re-uses the v2.1.0-reserved bit 0x800, added in v3.0.0 for the cap-gated oo_metrics_* family). Token derivation uses getentropy(3) — fail-closed (no LCG fallback) per NORTHSTAR. Plus the cap helpers (seal, attenuate, OoPathCap).
+// Logline: The capability token system (Pillar 5). 19 implemented tokens (FsRead, FsWrite, Net, Tcp, Udp, Sys, Process, Env, Time, Rand, Alloc, Thread, Gpu, Ffi, Fs, Arena, Sign, CompilerRead, Metrics) + 7 future-state reserved (Audio, Camera, Usb, Hid, Window, Frame, Bind — documented in cap_table.json for forward compat). Token derivation uses getentropy(3) — fail-closed (no LCG fallback) per NORTHSTAR. Plus the cap helpers (grant, require, attenuate, OoPathCap, seal, eq).
 //
 // Beats:
-//   1. caps.h — the OODAR_CAP_* bit-layout and the 14 token kinds.
-//   2. caps.c — orchestrator: the getentropy-derived token creation and attestation; the 26-token bit table.
-//   3. cap.c — seal, attenuate, eq, plus the seccomp-bpf filter application.
-//   4. cap_grant.c — oo_cap_grant (the cap-attenuation grant primitive).
+//   1. caps.h — the OODAR_CAP_* bit-layout and the 19 implemented + 7 reserved token kinds.
+//   2. caps.c — orchestrator: the getentropy-derived token creation and attestation; the 22-token canonical store.
+//   3. cap.c — seal, eq, plus the seccomp-bpf filter application.
+//   4. cap_grant.c — the 22 oo_cap_grant_* primitives (the canonical grant surface).
 //   5. cap_require.c — oo_cap_require_* family (the per-cap predicates used by every public mutator).
-//   6. cap_attenuate.c — oo_cap_attenuate (the OR-mask narrowing primitive).
+//   6. cap_attenuate_path.c — oo_attenuate_fsread_to_path + oo_path_cap_check (OoPathCap with path prefix).
+//   7. cap_attenuate_hmac.c — oo_cap_attenuate / oo_cap_attenuate_v2 (HMAC-sealed; v2 enforces Rule 2).
+//   8. cap_alloc.c — AllocCap subsystem (moved from core/mem/alloc.c in v3.4.0 per the round-6 audit).
+//   9. cap_time.c — TimeCap / RandCap subsystem (moved from fs/os/time_rand.c in v3.4.0).
+//  10. cap_ffi.c — FFICap subsystem (moved from app/xlang/ffi_sec.c in v3.4.0).
 //
 // v2.3.0 file split: the original 428-line caps.c was split into
 // caps.c (orchestrator) + cap_grant.c + cap_require.c + cap_attenuate.c.
 // The split is functional (one cap-primitive per file). The shared
-// state (g_tok_*, g_seal_key) lives in caps.c and is exposed as extern
-// to the satellite files.
+// state (g_tok_*, g_seal_key, g_kernel_hmac_key) lives in caps.c and
+// is exposed as extern to the satellite files.
 //
 // v3.1.0 audit cleanup: removed cap_seal.c (the oo_cap_kernel_seal /
 // oo_enclave_enter primitives had 0 callers in the umbrella; the
 // sealed-cap surface is provided by app/actor/actor_rpc.c and
 // sec/crypto/seal.c).
+//
+// v3.4.0 round-6 cleanup: cap_attenuate.c split into cap_attenuate_path.c
+// (path-cap) + cap_attenuate_hmac.c (HMAC seal, formerly lived in
+// sec/crypto/symmetric/crypto.c — layering-inversion fix). cap_alloc.c
+// + cap_time.c + cap_ffi.c created to host the cap stores that lived
+// in the wrong directories per the round-6 misplaced-files audit.
 //
 // ──▓▓ sec/cap ANCHOR ──▓▓──
 // :: Pillar 5 — unforgeable, kernel-derived ::

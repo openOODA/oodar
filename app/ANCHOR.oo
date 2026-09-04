@@ -1,17 +1,20 @@
 // # app — Application Bridges (mirrors std/app)
 //
-// Logline: The "outside" bridges — FFI / xlang for linking against non-C targets, HITL for human-in-the-loop approval, telemetry for metrics + event bus, the OTP-style actor runtime (the only oodar-native execution model), and the stdout/stderr print bridge.
+// Logline: The "outside" bridges — FFI / xlang for linking against non-C targets, the OTP-style actor runtime (the only oodar-native execution model), and the stdout/stderr print bridge.
 //
-// Setup: xlang/ is the FFI surface (cap-gated, signature-verified). hitl/ is the TTY-based approval primitive (env-gated, fail-closed). telemetry/ is the counter export + event bus (subscribes to crypto/FS events via constructor). actor/ is the actor + channel + thread + closure primitives. io/ is the stdout/stderr print family (moved from fs/io/ in v2.2.0 — it's an output app bridge, not a host primitive).
+// Setup: xlang/ is the FFI surface (cap-gated, signature-verified). actor/ is the actor + channel + thread + closure + RPC primitives. io/ is the stdout/stderr print family (moved from fs/io/ in v2.2.0 — it's an output app bridge, not a host primitive). The cap-gating for the FFI primitives now lives in sec/cap/cap_ffi.c (v3.4.0; moved here from app/xlang/ffi_sec.c per the round-6 misplaced-files audit).
+//
+// v3.4.0 round-6 audit: removed app/telemetry/ (telemetry.{c,h} and metrics.c moved to core/event/ in v3.1.0 and v3.4.0 respectively). Removed app/hitl/ (the verify_human primitive was killed in v3.1.0 — the ANCHOR.oo was a zombie describing a deleted file).
 //
 // Beats:
 //   1. xlang/ffi.c, ffi_sec.c — dlopen/dlsym and the cap-gated signature-verified wrapper.
 //   2. xlang/xlang.c — cross-language dispatch.
-//   3. hitl/hitl.c — verify_human (TTY-based, OODA_HITL_ALLOW-gated).
-//   4. telemetry/event.c, event.h — the event bus (oo_event_emit, oo_event_subscribe).
-//   5. telemetry/metrics.c — the counter export (subscribes to events at constructor).
-//   6. actor/actor.c, channel.c, thread.c, closure.c — the actor runtime (OTP-style spawn/send/recv/restart/supervise).
-//   7. io/print.c — stdout/stderr print family (oo_print_str, oo_print_int, oo_print_bool, oo_print_double, oo_println, oo_eprint_str, oo_eprintln).
+//   3. actor/actor.c — spawn/send/recv/destroy/restart + otp_supervise.
+//   4. actor/actor_channel.c — typed message channel.
+//   5. actor/actor_closure.c — closure-based spawn target.
+//   6. actor/actor_thread.c — joinable pthread path.
+//   7. actor/actor_rpc.c — typed RPC over actor channels.
+//   8. io/print.c — stdout/stderr print family (oo_print_str, oo_print_int, oo_print_bool, oo_print_double, oo_println, oo_eprint_str, oo_eprintln).
 //
 // ──▓▓ app ANCHOR ──▓▓──
 // :: FFI is the highest-risk attack surface — every load is cap + signature gated ::

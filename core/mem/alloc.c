@@ -1,79 +1,16 @@
 /* M17: process-local AllocCap — explicit alloc helpers only.
  * Not OS rlimit / heap isolation / ASAN.
- * Ambient List growth is quota-bounded (list); alloc_bytes raises ceiling. */
+ * Ambient List growth is quota-bounded (list); alloc_bytes raises ceiling.
+ *
+ * v3.4.0 round-6: the AllocCap subsystem (oo_cap_grant_alloc /
+ * oo_cap_require_alloc / oo_cap_is_alloc + the g_tok_alloc state +
+ * the OO_CLASSIC_ALLOC magic) moved to sec/cap/cap_alloc.c per the
+ * misplaced-files audit. The allocator just calls oo_cap_require_alloc()
+ * and stays out of the cap store. */
 #include "../../oodar.h"
 #include <unistd.h>
 #include <pthread.h>
 #include <limits.h>
-#if defined(__linux__)
-#include <sys/random.h>
-#endif
-
-/* CHANGE A: pthread_once replaces ad-hoc g_alloc_ready guard. Eliminates
- * the init race between threads calling oo_cap_grant_alloc /
- * oo_cap_require_alloc concurrently. */
-static pthread_once_t g_alloc_once = PTHREAD_ONCE_INIT;
-static long long g_tok_alloc;
-
-/* Classic forgeable magic OOAL — must never be the live token. */
-#define OO_CLASSIC_ALLOC 0x4F4F414CLL
-
-static void alloc_init_once(void) {
-  unsigned char b[8];
-#if defined(__linux__) || defined(__APPLE__)
-  if (getentropy(b, sizeof b) != 0) {
-    /* Fail-closed: no LCG fallback. getentropy() must succeed for unpredictable alloc token. */
-    fprintf(stderr, "ERR\tcap\tgetentropy() failed; refusing to derive alloc capability token\n");
-    abort();
-  }
-#else
-  /* Fail-closed: no LCG fallback. getentropy() is required. */
-  fprintf(stderr, "ERR\tcap\tgetentropy() not available; refusing to derive alloc capability token\n");
-  abort();
-#endif
-  /* v2.2.0: removed the hardcoded 0x7 "alloc band" in the high byte.
-   * The canonical cap system (sec/cap/caps.c, make_cap_tok) does not
-   * use a band byte at all — the comment there calls the band byte
-   * "redundant and ... consuming entropy" — so the alloc token now
-   * uses the full 8 bytes of getentropy randomness, matching the
-   * caps.c layout. The cap is identified by which g_tok_alloc global
-   * it is stored in, not by a tag in the high byte. */
-  {
-    unsigned long long ent = ((((unsigned long long)b[0]) << 56) |
-                              (((unsigned long long)b[1]) << 48) |
-                              (((unsigned long long)b[2]) << 40) |
-                              (((unsigned long long)b[3]) << 32) |
-                              (((unsigned long long)b[4]) << 24) |
-                              (((unsigned long long)b[5]) << 16) |
-                              (((unsigned long long)b[6]) << 8)  |
-                              ((unsigned long long)b[7]));
-    g_tok_alloc = (long long)ent;
-  }
-  if (g_tok_alloc == OO_CLASSIC_ALLOC) g_tok_alloc ^= 0x11111111LL;
-}
-
-static void oo_alloc_init(void) {
-  pthread_once(&g_alloc_once, alloc_init_once);
-}
-
-long long oo_cap_grant_alloc(void) {
-  oo_alloc_init();
-  return g_tok_alloc;
-}
-
-void oo_cap_require_alloc(long long got, const char *op) {
-  oo_alloc_init();
-  if (got != g_tok_alloc) {
-    fprintf(stderr, "ERR\tcap\t%s: missing or forged capability\n",
-            op ? op : "alloc");
-    exit(1);
-  }
-}
-
-int oo_cap_is_alloc(long long got) {
-  oo_alloc_init();
-  return got == g_tok_alloc;
-}
 
 /* CHANGE B: quota counter is shared process state. Wrap the read-modify-
  * write of oo_list_ambient_quota in a mutex so concurrent alloc_bytes /

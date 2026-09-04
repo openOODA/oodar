@@ -3,7 +3,7 @@
  * arena_reset / arena_destroy live here. SoA / DoD layout calculation in
  * arena_soa.c / arena_dod.c. Checkpoint / rollback + Welch double-run
  * determinism proof in arena_checkpoint.c. CPU pinning in arena_pin.c.
- * Ambient-quota fail-closed via g_quota_mu. Pure runtime/* only. */
+ * Ambient-quota fail-closed via g_quota_mu. Pure runtime only. */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE 1
 #endif

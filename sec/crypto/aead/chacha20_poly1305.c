@@ -163,7 +163,8 @@ OoStr crypto_chacha20poly1305_seal_internal(OoStr key, OoStr nonce, OoStr pt, Oo
   {
     OoStr r = aead_hex_cat(ct, pn, tag, 16);
     free(ct);
-    if (op) free(p); if (oa) free(a);
+    if (op) free(p);
+    if (oa) free(a);
     cc_wipe_secrets(kb, nb, otk, tag, 0);
     return r;
   }
@@ -182,7 +183,8 @@ OoStr crypto_chacha20poly1305_open_internal(OoStr key, OoStr nonce, OoStr ct, Oo
   chacha_block(kb, nb, 0, otk);
   poly_pad_mac(otk, a, an, c, cn, expect);
   if (crypto_ct_cmp(expect, tb, 16) != 0) {
-    if (oc) free(c); if (oa) free(a);
+    if (oc) free(c);
+    if (oa) free(a);
     cc_wipe_secrets(kb, nb, otk, expect, tb);
     return oo_str_lit("");
   }
@@ -192,7 +194,8 @@ OoStr crypto_chacha20poly1305_open_internal(OoStr key, OoStr nonce, OoStr ct, Oo
   {
     OoStr r = aead_bin(pt, cn);
     free(pt);
-    if (oc) free(c); if (oa) free(a);
+    if (oc) free(c);
+    if (oa) free(a);
     cc_wipe_secrets(kb, nb, otk, expect, tb);
     return r;
   }

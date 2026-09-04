@@ -1,17 +1,26 @@
 // # oodar/qa — Substrate Self-Tests
 //
-// Logline: The v2.2.0+ qa/ subdir holds 2 test utilities (dudect_c_native, oo_hip_so_smoke) + 5 tier-5 tests_challenger_*.c files that exercise the 8D Red Team matrix (per openOODA/practices/8d-red-team.oot).
+// Logline: The v2.2.0+ qa/ subdir holds 2 test utilities (dudect_c_native, oo_hip_so_smoke) + 11 tier-5 tests_challenger_*.c files that exercise the 8D Red Team matrix (per openOODA/practices/8d-red-team.oot) plus 3 lint tests that enforce the 256-line cap, ANCHOR.oo coverage, and cap_table.json drift.
 //
-// Setup: Self-tests ship with the package. The 2 utilities are smoke / benchmark tests; the 5 challenger tests are adversarial / regression probes. The umbrella TU (oodar.c) EXCLUDES the qa/ subdir — these are run by the developer, not the runtime.
+// Setup: Self-tests ship with the package. The 2 utilities are smoke / benchmark tests; the 11 challenger tests are adversarial / regression probes (4 added in v3.2.x: contract, differential, fuzz, attenuate_v2; 1 added in v3.3.0: pathcap; 1 added in v3.3.4: actor_race). The 3 lint tests run in CI (Makefile lint target). The umbrella TU (oodar.c) EXCLUDES the qa/ subdir — these are run by the developer, not the runtime.
 //
 // Beats:
 //   1. dudect_c_native.c     — Welch t-test probe (Red 8 dim 7, benchmark).
 //   2. oo_hip_so_smoke.c     — HIP/ROCm kernel load smoke (Red 8 dim 1, functional).
-//   3. tests_challenger_cap_escape.c         — cap system bypass attempt (Red 8 dim 2+8, adversarial).
-//   4. tests_challenger_dudect_ct.c          — constant-time dudect probe (Red 8 dim 7, benchmark).
-//   5. tests_challenger_cap_threat.c         — cap-threat containment (Red 8 dim 2+8, adversarial).
-//   6. tests_challenger_sandbox_containment.c — Landlock containment (Red 8 dim 2+8, redteam).
-//   7. tests_challenger_proc_mem_leak.c      — proc_mem Landlock-APPLIED gate (Red 8 dim 6, regression).
+//   3. tests_challenger_contract.c           — 56 cap=0 fail-closed mutators (v3.2.0).
+//   4. tests_challenger_attenuate_v2.c       — 9 Rule 2 bitmask cases (v3.3.0).
+//   5. tests_challenger_cap_escape.c         — cap system bypass attempt (Red 8 dim 2+8, adversarial).
+//   6. tests_challenger_cap_threat.c         — cap-threat containment (Red 8 dim 2+8, adversarial).
+//   7. tests_challenger_differential_cap.c   — 22 cap tokens × 8 children = 176 unique (v3.2.2).
+//   8. tests_challenger_dudect_ct.c          — constant-time dudect probe (Red 8 dim 7, benchmark).
+//   9. tests_challenger_pathcap.c            — 6 path-cap beats including UAF (v3.3.1+).
+//  10. tests_challenger_proc_mem_leak.c      — proc_mem Landlock-APPLIED gate (Red 8 dim 6, regression).
+//  11. tests_challenger_sandbox_containment.c — Landlock containment (Red 8 dim 2+8, redteam).
+//  12. tests_challenger_actor_race.c         — 8-thread otp_supervise race (v3.3.4).
+//  13. tests_fuzz_smoke.c                    — 200-iteration random-input crash probe (v3.2.3).
+//  14. tests_lint_anchors.c                  — every dir has ANCHOR.oo (CI).
+//  15. tests_lint_file_size.c                — every .c/.h ≤ 256 lines (CI).
+//  16. tests_lint_cap_table.c                — cap_table.json matches caps.h (CI).
 //
 // ──▓▓ oodar/qa ANCHOR ──▓▓──
-// :: 2 utilities + 5 tier-5 challenger tests — 789 lines, all <= 256 ::
+// :: 2 utilities + 11 challenger tests + 3 lint tests — all <= 256 ::

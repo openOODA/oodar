@@ -1,51 +1,10 @@
-// # oodar — Gen 1 Host Substrate (v3.0.0)
+// # oodar — Gen 1 Host Substrate (v3.4.0)
 //
-// Logline: The canonical home of the openOODA Gen 1 host substrate. Compiled openOODA binaries link against the oo_* symbols exported from the 7 per-domain subdirs (core, sec, fs, net, hw, app, scripts); the build entry point is `gcc oodar.c`. The umbrella TU is 49 .c files; the public ABI is oodar.h (and the shared type defs in types.h) at the root.
+// Logline: The canonical home of the openOODA Gen 1 host substrate. Compiled openOODA binaries link against the oo_* symbols exported from the 6 per-domain subdirs (core, sec, fs, net, hw, app); the build entry point is `gcc oodar.c`. The umbrella TU is 90 .c files; the public ABI is oodar.h (and the shared type defs in types.h) at the root.
 //
-// Setup: Pure structural file. The 6 per-domain tactical subdirs mirror std's vocabulary (core, sec, fs, net, hw, app). Each tactical subdir has its own ANCHOR.oo. Some tactical subdirs have nested sub-subdirs (e.g., core/str/, sec/cap/, app/actor/) that also have their own ANCHOR.oo, mirroring std's per-domain organization. The umbrella oodar.c is the single-TU build entry — it #include's the 49 .c files in dependency order. The public API is oodar.h (and the shared type defs in types.h) at the root. The qa/ subdir holds the test utilities and tier-5 tests_challenger_*.c files; they are excluded from the umbrella TU and are not part of the public ABI. The docs/ subdir holds the SSoT documentation (SECURITY_MODEL.oot, PILLARS.oot, CAPABILITIES_TABLE.oot, BUILD_AND_INSTALL.oot, TESTING.oot). The scripts/ subdir holds the Makefile (liboodar.a) and the reproducible-build script (repro_build.sh).
+// Setup: Pure structural file. The 6 per-domain tactical subdirs mirror std's vocabulary (core, sec, fs, net, hw, app). Each tactical subdir has its own ANCHOR.oo. Some tactical subdirs have nested sub-subdirs (e.g., core/event/, sec/cap/, app/actor/) that also have their own ANCHOR.oo, mirroring std's per-domain organization. The umbrella oodar.c is the single-TU build entry — it #include's the 90 .c files in dependency order. The public API is oodar.h (and the shared type defs in types.h) at the root. The qa/ subdir holds the test utilities and tier-5 tests_challenger_*.c files; they are excluded from the umbrella TU and are not part of the public ABI. The scripts/ subdir holds the Makefile (liboodar.a) and the reproducible-build script (repro_build.sh).
 //
 // Beats (read in this order):
 //   1. types.h          — shared type defs (OoStr, OoIList, OoRes*, OoLL*, OoControlBlock, OoWeakRef, OoPathCap, ...).
 //   2. oodar.h          — the public API surface.
 //   3. oodar.c          — the umbrella TU (the canonical single-TU build entry).
-//   4. core/            — mirrors std/core. Universal primitives: str, list, mem, math, anti_emul (formerly meta/).
-//   5. sec/             — mirrors std/sec. Security primitives: cap (26 tokens + OoPathCap attenuator; MetricsCap added in v3.0.0 at the v2.1.0-reserved 0x800 bit), landlock (Pillar 9), crypto (private internals + public oo_seal/oo_open AEAD), pqc (PQC-by-default).
-//   6. fs/              — mirrors std/fs. Host OS: os (syscalls, DNS loopback, rlimit, netfloor).
-//   7. net/             — mirrors std/net. Network primitives: fetch, tls.
-//   8. hw/              — mirrors std/hw. Hardware: gpu (HIP/ROCm, no CPU fallback).
-//   9. app/             — mirrors std/app. Application bridges: actor (OTP-style concurrency), xlang (FFI), hitl (TTY), telemetry (metrics + event bus), io (print family).
-//  10. qa/              — test utilities + tier-5 tests_challenger_*.c; not part of the ABI.
-//  11. docs/            — SSoT documentation (5 .oot files).
-//  12. scripts/         — Makefile (liboodar.a) + repro_build.sh (bit-identical reproducible build).
-//  13. examples/        — scaffolding (unchanged from v1.0.0).
-//
-// Naming convention:
-//   - Files: <tactical>/<sub>.c  (no file prefix; one concept per file)
-//   - Headers: oodar.h + types.h at root, per-subdir <thing>.h
-//   - Symbols: oo_* (the openOODA namespace; language-agnostic, project-namespaced)
-//   - Tactical subdirs each have an ANCHOR.oo
-//   - Sub-subdirs (e.g., core/str/, sec/cap/, app/actor/) each have an ANCHOR.oo
-//
-// Build:
-//   gcc oodar.c                           (the canonical single-TU build; produces 49-TU .o)
-//   gcc -c <tactical>/<sub>/<file>.c      (per-file compile, link all .o)
-//   make -C scripts                       (builds lib/liboodar.a from the umbrella TU)
-//   bash scripts/repro_build.sh           (bit-identical reproducible build)
-//
-// Versioning:
-//   v3.0.0 is a Floor break from v2.2.0. The audit pass 3 / v2.1.0
-//   residuals converged on a single remaining gap: the 4 cap-free
-//   public mutator families. v3.0.0 closes them all in one Floor
-//   break. 8 public symbols gain a long long cap first arg:
-//   oo_read_stdin / oo_read_stdin_chunk / oo_file_stamp (FsReadCap)
-//   and oo_metrics_incr / oo_metrics_get / oo_metrics_reset /
-//   oo_metrics_export / oo_metrics_self_test (new MetricsCap at
-//   bit 0x800, the v2.1.0-reserved AUDIT position). The cap system
-//   grows from 25 to 26 tokens. Consumers must rebuild. The
-//   api_surface=57 invariant holds (no new .c files). See CHANGES.md
-//   for the full migration table. Per RULES.oot §1.24 + RFC-0006,
-//   every push to main triggers an auto-release via the governance
-//   workflow.
-//
-// ──▓▓ oodar ANCHOR ──▓▓──
-// :: api_surface = 57 :: VERSION = 3.0.0 :: Pillar 3 + Pillar 5 + Pillar 7 + Pillar 9 ::

@@ -1,5 +1,23 @@
-/* OoPathCap — v2.2.0 item #22: path-scoped FsReadCap attenuator
- * (NORTHSTAR §4.2).
+/* sec/cap/cap_attenuate.c — cap-attenuation family.
+ *
+ * v3.4.0 round-6 audit: this file now hosts BOTH the path-cap attenuator
+ * (OoPathCap, derived from FsReadCap + a path prefix) AND the HMAC-sealed
+ * cap-attenuate family (oo_cap_attenuate / oo_cap_attenuate_v2).
+ *
+ * Prior to v3.4.0, the HMAC-sealed attenuate family lived in
+ * sec/crypto/symmetric/crypto.c — but cap policy (the Rule 2 bitmask
+ * subset check) belongs with the rest of the cap module, not in the
+ * crypto module. Moving it here is a layering-inversion fix per
+ * the round-6 misplaced-files audit.
+ *
+ * The two sub-families:
+ *   1. Path-cap attenuator (this file, top): OoPathCap derived from
+ *      FsReadCap with a path prefix. Uses g_kernel_hmac_key as the
+ *      HMAC key. See oo_attenuate_fsread_to_path / oo_path_cap_check.
+ *   2. HMAC-sealed cap attenuator (this file, bottom): the
+ *      oo_cap_attenuate / oo_cap_attenuate_v2 family. v2 is Rule 2
+ *      (parent & child == child) checked; v1 is preserved for back-
+ *      compat but not Rule-2-safe.
  *
  * We compute mac = HMAC-SHA-256(g_kernel_hmac_key, parent_cap || prefix).
  * The HMAC domain-separates (parent, prefix) by concatenating an 8-byte

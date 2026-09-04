@@ -216,7 +216,8 @@ OoStr crypto_aes_gcm_open_internal(OoStr key, OoStr nonce, OoStr ct, OoStr tag, 
   aead_aes_encrypt(j0, rk, expect);
   gcm_xor16(expect, s);
   if (crypto_ct_cmp(expect, tb, 16) != 0) {
-    if (oc) free(c); if (oa) free(a);
+    if (oc) free(c);
+    if (oa) free(a);
     gcm_wipe_secrets(kb, nb, rk, h, j0, s, expect, z, tb);
     return oo_str_lit("");
   }
@@ -230,7 +231,8 @@ OoStr crypto_aes_gcm_open_internal(OoStr key, OoStr nonce, OoStr ct, OoStr tag, 
   {
     OoStr r = aead_bin(pt, cn);
     free(pt);
-    if (oc) free(c); if (oa) free(a);
+    if (oc) free(c);
+    if (oa) free(a);
     gcm_wipe_secrets(kb, nb, rk, h, j0, s, expect, z, tb);
     return r;
   }

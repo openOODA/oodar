@@ -1,9 +1,0 @@
-// # app/hitl — Human-in-the-Loop
-//
-// Logline: The verify_human primitive — TTY-based approval with env-gated auto-approve. Fail-closed by default; requires OODA_HITL_ALLOW to enable.
-//
-// Beats:
-//   1. hitl.c — the verify_human TTY path.
-//
-// ──▓▓ app/hitl ANCHOR ──▓▓──
-// :: fail-closed: no env, no HITL ::

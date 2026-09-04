@@ -17,12 +17,17 @@
 # it must match the most recent git tag. See RULES.oot §1.24
 # and rfcs/0006-versioning-and-release-protocol.oot.
 
-oodar=3.3.4
-release_tag=3.3.4
+oodar=3.4.0
+release_tag=3.4.0
 ooda=2.10.0
 ooda_max=2.99.0
-api_surface=90
-# Note: api_surface counts all .c files that ship in v3.3.4
+api_surface=95
+# Note: api_surface counts all .c files that ship in v3.4.0
+# (distributed across 6 per-domain subdirs: core, sec, fs, net, hw, app).
+# v3.4.0 added 6 new files (cap_attenuate_path.c, cap_attenuate_hmac.c,
+# cap_alloc.c, cap_time.c, cap_ffi.c, random.c) and removed 1
+# (app/telemetry/metrics.c, which moved to core/event/metrics.c).
+# Net api_surface delta: +5.
 # (distributed across 6 per-domain subdirs: core, sec, fs, net, hw, app).
 # v2.0.0 removed app/actor/cycle.c (zero callers, Bacon-Rajan
 # cycle detection). v2.3.0 moved dudect_c_native.c and
@@ -121,3 +126,29 @@ api_surface=90
 # runtime umbrella (excludes qa/). The umbrella count is still 90.
 # qa/ tests are out-of-band and not part of the production ABI.
 # See CHANGES.md "v3.3.4" for the audit + fix table.
+
+# v3.4.0 is a Floor break from v3.3.4. The round-6 deep-dive audit
+# (4 parallel lenses: misplaced-files, qa-test-files, ANCHOR.oo drift,
+# header-deps) caught 3 CRITICAL misplacements + 4 HIGH misplacements +
+# 5 CRITICAL ANCHOR.oo drift items. v3.4.0 closes them all in one Floor:
+#   1. CRITICAL: oo_cap_attenuate / oo_cap_attenuate_v2 HMAC family
+#      moved from sec/crypto/symmetric/crypto.c to
+#      sec/cap/cap_attenuate_hmac.c (layering-inversion fix — cap
+#      policy belongs with the cap module, not the crypto module).
+#   2. HIGH: oo_cap_grant_alloc / oo_cap_require_alloc / oo_cap_is_alloc
+#      moved from core/mem/alloc.c to sec/cap/cap_alloc.c.
+#   3. HIGH: oo_cap_grant_time / oo_cap_grant_rand / oo_cap_require_time
+#      / oo_cap_require_rand moved from fs/os/time_rand.c to
+#      sec/cap/cap_time.c. oo_random moved from fs/os/time_rand.c to
+#      sec/crypto/random.c.
+#   4. HIGH: oo_cap_grant_ffi / oo_cap_require_ffi moved from
+#      app/xlang/ffi_sec.c to sec/cap/cap_ffi.c.
+#   5. HIGH: app/telemetry/metrics.c moved to core/event/metrics.c
+#      (v3.1.0 half-completed the event-bus move; v3.4.0 finishes it).
+#   6. ANCHOR.oo drift: 6 stale files updated (root, qa/, app/, hw/gpu/,
+#      sec/cap/, scripts/, docs/). app/hitl/ zombie directory removed
+#      (it described a file killed in v3.1.0).
+# Public ABI: unchanged. All moves are pure relocations within the
+# umbrella TU; no oo_* signatures change. api_surface 90 → 95
+# (added 6 new files, removed 1). See CHANGES.md "v3.4.0" for the
+# full move table.

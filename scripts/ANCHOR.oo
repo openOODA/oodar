@@ -1,12 +1,14 @@
 // # oodar/scripts — Build, Test, Verify, Release Entry Points
 //
-// Logline: The v2.2.0+ scripts/ subdir holds the build, verify, and reproducible-build entry points. The canonical single-TU build is `gcc oodar.c`; the Makefile adds a `liboodar.a` static library artifact; the repro_build.sh script produces a bit-identical liboodar.a across builds.
+// Logline: The v2.2.0+ scripts/ subdir holds the build, verify, lint, and reproducible-build entry points. The canonical single-TU build is `gcc oodar.c`; the Makefile adds a `liboodar.a` static library artifact, a `lint` target, and per-file compile; the repro_build.sh script produces a bit-identical liboodar.a across builds.
 //
-// Setup: Per RFC-0005, the canonical four scripts are build, test, verify, and release. The v2.2.0+ surface covers build (Makefile) and verify (repro_build.sh); test is in qa/; release is via the governance workflow per RULES.oot §1.24.
+// Setup: Per RFC-0005, the canonical four scripts are build, test, verify, and release. The v3.4.0+ surface covers build (Makefile), lint (Makefile lint* targets), verify (repro_build.sh), and audit (adversarial_read.py, gen_cap_table.py); test is in qa/; release is via the governance workflow per RULES.oot §1.24.
 //
 // Beats:
-//   1. Makefile       — builds liboodar.a from the umbrella TU (or, as a best-effort alternative, per-file).
-//   2. repro_build.sh — reproducible build with SOURCE_DATE_EPOCH, deterministic ar, sorted input, sha256 hash, verify mode.
+//   1. Makefile              — builds liboodar.a from the umbrella TU; per-file compile; lint targets (lint-anchors, lint-file-size, lint-cap-table).
+//   2. repro_build.sh        — reproducible build with SOURCE_DATE_EPOCH, deterministic ar, sorted input, sha256 hash, verify mode.
+//   3. adversarial_read.py   — v3.2.1: scans the 90-file codebase for "fail-closed" / "unforgeable" claims that disagree with the code (90 files, 68 OK + 2 false-positive advisories).
+//   4. gen_cap_table.py      — v3.1.1: regenerates sec/cap/cap_table.json from sec/cap/caps.h (the 26-cap structural truth).
 //
 // ──▓▓ oodar/scripts ANCHOR ──▓▓──
-// :: Makefile (225 lines) + repro_build.sh (246 lines) — both <= 256 ::
+// :: 4 scripts, all <= 256 (Makefile 331 lines, repro_build.sh 246, adversarial_read.py 177, gen_cap_table.py 132) ::
