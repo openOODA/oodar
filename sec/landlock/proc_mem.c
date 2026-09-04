@@ -30,6 +30,13 @@ OoResS oo_proc_mem_read(long long cap, long long offset, long long n) {
   OoResS r;
   r.ok = 0;
   r.val = oo_str_lit("");
+  /* v3.2.0 round-5 fix: cap check is the FIRST line of defense, before
+   * any Landlock gate. The previous order (Landlock first, then cap)
+   * meant cap=0 returned the empty OoResS without ever reaching the
+   * cap check — fail-closed by accident, not by design. The contract
+   * test qa/tests_challenger_contract.c caught this and now verifies
+   * the cap check fires first. */
+  oo_cap_require_sys(cap, "proc_mem_read");
   if (n <= 0 || n > (1LL << 20)) {
     return r;
   }
@@ -52,7 +59,6 @@ OoResS oo_proc_mem_read(long long cap, long long offset, long long n) {
   if (!oo_landlock_is_applied()) {
     return r;
   }
-  oo_cap_require_sys(cap, "proc_mem_read");
   int fd = open("/proc/self/mem", O_RDONLY | O_CLOEXEC);
   if (fd < 0) {
     return r;

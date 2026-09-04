@@ -954,3 +954,72 @@ and oodac (`oodac/emit/c`) should be notified of:
   signature to `oo_cap_attenuate_v2(parent_hmac, parent_rights, child_rights)`.
 - `app/telemetry/metrics.c` move to `core/metrics/` (a smaller Floor
   break — same kind of app/-to-core/ boundary fix).
+
+## v3.2.0 — Floor (round-5 contract test: 1 real defense-in-depth bug)
+
+v3.2.0 is a **Floor** break from v3.1.0. The round-5 deep-dive
+(replacing the 6-lens surface-area audit with a depth-first contract
+test) caught **1 real defense-in-depth bug** that round-4 missed.
+
+**The contract:** every public mutator that takes `long long cap` as
+the first argument must fail-closed on `cap=0`. The contract test
+`qa/tests_challenger_contract.c` enumerates all 56 cap-requiring
+public mutators, forks a child for each, calls with `cap=0`, and
+verifies the child either exits non-zero OR aborts (the
+`oo_cap_require_X` macros call `exit(1)`; `abort()` from
+getentropy failure is also a fail-closed signal).
+
+**The bug:**
+
+`oo_proc_mem_read` checked Landlock gates BEFORE the cap check. With
+`cap=0` and no Landlock applied, the function returned the empty
+`OoResS` (ok=0, val="") — fail-closed by accident, not by design.
+The cap check at line 55 was never reached. The defense-in-depth
+contract says: cap is the FIRST line of defense, not the last.
+
+**The fix:** moved `oo_cap_require_sys(cap, "proc_mem_read")` from
+line 55 to the top of the function (before the Landlock gates).
+Now `cap=0` is the first thing checked, and the function exits(1)
+immediately. The Landlock gates are still there as a second
+defense layer (defense in depth), but the cap is no longer
+bypassable by simply not having Landlock applied.
+
+**Why round-4 missed this:** the 6-lens audit (zero trust, REDTEAM,
+power law, systems, OCap, Blue Ocean) is good at surface-area
+coverage. The OCap lens verified that `oo_cap_require_sys` is
+called *somewhere* in the function. But the LENS didn't verify the
+*order* of the checks. The order matters: if the cap check fires
+after another gate, the cap can be bypassed by exploiting the
+earlier gate.
+
+**Why round-5 caught this:** the contract test doesn't care about
+which gate fires. It only checks: "did the function fail-closed on
+cap=0?" The function's previous behavior (returning empty OoResS
+without ever reaching the cap check) failed this contract.
+
+**Test results:**
+
+```
+OK    contract         56/56 cap-requiring mutators fail-closed on cap=0
+PASS  cap_escape       0/4 bypasses succeeded; cap system is sound
+PASS  cap_threat       0/4 cap-threat amplifications succeeded
+PASS  dudect_ct        ct probe verified (branchless |t|<4500, branchy |t|>=4500)
+PASS  proc_mem_leak    v2.1.0 Landlock-APPLIED gate is intact
+PASS  sandbox_containment  Landlock containment verified
+OK    lint_anchors     all directories have ANCHOR.oo
+OK    lint_file_size   all .c/.h files ≤ 256 lines
+OK    lint_cap_table   cap_table.json matches caps.h (26 caps)
+```
+
+**Public ABI:** unchanged (the function signature is the same; only
+the order of internal checks changed).
+
+**Defense-in-depth pattern:** the round-5 contract test enforces
+"cap is the first line of defense" as a per-mutator invariant. Any
+future mutator that checks Landlock, time, rand, or any other gate
+before the cap will fail this test.
+
+**Still open:**
+
+- `oo_cap_attenuate` bitmask subset check (Rule 2) — now a smaller
+  v3.3.0 Floor break (the API change is the only remaining bit).
