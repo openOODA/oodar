@@ -1,7 +1,15 @@
-/* FIPS 203 ML-KEM-768. Uses SHA3-256, SHA3-512, SHAKE128, SHAKE256. */
-#include "../../oodar.h"
+/* FIPS 203 ML-KEM-768 — internal primitives. NTT, sampling, byte
+ * conversions, and the KPKE.KeyGen/Encrypt/Decrypt used by the
+ * orchestrator (mlkem.c) and the KEM ops (mlkem_kem.c).
+ *
+ * The public surface here is non-static: kpke_keygen, kpke_encrypt,
+ * kpke_decrypt are called across the mlkem/ subdir, so they have
+ * external linkage. Everything else is module-local.
+ */
+#include "../../../oodar.h"
 #include <stdint.h>
 
+/* FIPS 203 §8 parameter set ML-KEM-768. */
 #define KQ 3329
 #define KN 256
 #define KK 3
@@ -15,6 +23,7 @@ void oo_sha3_512_bytes(const uint8_t *in, size_t n, uint8_t out[64]);
 void oo_shake128(const uint8_t *in, size_t n, uint8_t *out, size_t outn);
 void oo_shake256(const uint8_t *in, size_t n, uint8_t *out, size_t outn);
 
+/* Zetas for the in-place Cooley-Tukey NTT. FIPS 203 §4.4 / pq-crystals ref. */
 static const int16_t k_zetas[128] = {
   -1044,  -758,  -359, -1517,  1493,  1422,   287,   202,
    -171,   622,  1577,   182,   962, -1202, -1474,  1468,
@@ -34,6 +43,48 @@ static const int16_t k_zetas[128] = {
    -108,  -308,   996,   991,   958, -1460,  1522,  1628
 };
 
+/* === Hex I/O glue shared with mlkem.c (orchestrator) and mlkem_kem.c.
+ * External linkage so sibling TUs in this subdir can call these without
+ * relying on umbrella include order. === */
+
+int k_hex_load(OoStr s, uint8_t *out, size_t want) {
+  size_t i, n;
+  if (!s.data || s.len < 0) return 0;
+  n = (size_t)s.len;
+  if (n == want) { memcpy(out, s.data, want); return 1; }
+  if (n == want * 2) {
+    for (i = 0; i < want; i++) {
+      int hi, lo;
+      char c = s.data[2 * i], d = s.data[2 * i + 1];
+      hi = (c >= '0' && c <= '9') ? c - '0' : (c >= 'a' && c <= 'f') ? c - 'a' + 10 : (c >= 'A' && c <= 'F') ? c - 'A' + 10 : -1;
+      lo = (d >= '0' && d <= '9') ? d - '0' : (d >= 'a' && d <= 'f') ? d - 'a' + 10 : (d >= 'A' && d <= 'F') ? d - 'A' + 10 : -1;
+      if (hi < 0 || lo < 0) return 0;
+      out[i] = (uint8_t)((hi << 4) | lo);
+    }
+    return 1;
+  }
+  return 0;
+}
+
+OoStr k_hex_out(const uint8_t *p, size_t n) {
+  static const char *hx = "0123456789abcdef";
+  char *buf = oo_str_alloc_payload(n * 2);
+  size_t i;
+  for (i = 0; i < n; i++) { buf[i * 2] = hx[(p[i] >> 4) & 0xf]; buf[i * 2 + 1] = hx[p[i] & 0xf]; }
+  { OoStr r; r.data = buf; r.len = (long long)(n * 2); return r; }
+}
+
+OoStr k_hex_out_cat(const uint8_t *a, size_t na, const uint8_t *b, size_t nb) {
+  static const char *hx = "0123456789abcdef";
+  size_t n = na + nb, i;
+  char *buf = oo_str_alloc_payload(n * 2);
+  for (i = 0; i < na; i++) { buf[i * 2] = hx[(a[i] >> 4) & 0xf]; buf[i * 2 + 1] = hx[a[i] & 0xf]; }
+  for (i = 0; i < nb; i++) { buf[(na + i) * 2] = hx[(b[i] >> 4) & 0xf]; buf[(na + i) * 2 + 1] = hx[b[i] & 0xf]; }
+  { OoStr r; r.data = buf; r.len = (long long)(n * 2); return r; }
+}
+
+/* === Field arithmetic: Montgomery, Barrett, FqMul. === */
+
 static int16_t k_montgomery(int32_t a) {
   /* QINV = q^{-1} mod 2^16 = -3327 (pq-crystals / FIPS 203 Montgomery). */
   int16_t t = (int16_t)a * (int16_t)(-3327);
@@ -47,6 +98,8 @@ static int16_t k_barrett(int16_t a) {
 static int16_t k_fqmul(int16_t a, int16_t b) {
   return k_montgomery((int32_t)a * b);
 }
+
+/* === NTT / inverse NTT. === */
 
 static void k_ntt(int16_t r[256]) {
   unsigned int len, start, j, k = 1;
@@ -108,12 +161,16 @@ static void k_poly_tomont(int16_t r[256]) {
   int i; for (i = 0; i < 256; i++) r[i] = k_montgomery((int32_t)r[i] * f);
 }
 
+/* === 24-bit and 32-bit little-endian byte loaders (FIPS 203 §4.2.1). === */
+
 static uint32_t k_load24(const uint8_t *x) {
   uint32_t r = x[0]; r |= (uint32_t)x[1] << 8; r |= (uint32_t)x[2] << 16; return r;
 }
 static uint32_t k_load32(const uint8_t *x) {
   uint32_t r = x[0]; r |= (uint32_t)x[1] << 8; r |= (uint32_t)x[2] << 16; r |= (uint32_t)x[3] << 24; return r;
 }
+
+/* === Sampling: CBD (centered binomial), NTT-domain rejection, PRF. === */
 
 static void k_cbd2(int16_t r[256], const uint8_t buf[128]) {
   unsigned int i, j;
@@ -163,6 +220,8 @@ static void k_prf(uint8_t *out, size_t outn, const uint8_t seed[64], uint8_t non
 static int16_t k_decompress(int16_t y, int d) {
   return (int16_t)(((uint32_t)y * KQ + (1u << (d - 1))) >> d);
 }
+
+/* === Byte <-> polynomial conversion (compress / decompress / 12-bit). === */
 
 static void k_poly_compress(uint8_t *r, const int16_t a[256], int d) {
   unsigned int i, j;
@@ -280,6 +339,8 @@ static void k_poly_decode12(int16_t r[256], const uint8_t *a) {
   }
 }
 
+/* === Matrix generation, eta noise, byte <-> public/secret key. === */
+
 static void k_gen_matrix(int16_t a[KK][KK][256], const uint8_t rho[32], int transposed) {
   int i, j;
   uint8_t seed[34];
@@ -312,7 +373,9 @@ static void k_sk_frombytes(int16_t sk[KK][256], const uint8_t *skbytes) {
   for (i = 0; i < KK; i++) k_poly_decode12(sk[i], skbytes + i * 384);
 }
 
-static void kpke_keygen(const uint8_t d[32], uint8_t pk[1184], uint8_t skc[1152]) {
+/* === KPKE.KeyGen / Encrypt / Decrypt (FIPS 203 §6.1, §6.2.1, §6.2.2). === */
+
+void kpke_keygen(const uint8_t d[32], uint8_t pk[1184], uint8_t skc[1152]) {
   uint8_t buf[64], rho[32], sigma[32];
   int16_t a[KK][KK][256], s[KK][256], e[KK][256], t[KK][256], tmp[256];
   int i, j;
@@ -340,7 +403,7 @@ static void kpke_keygen(const uint8_t d[32], uint8_t pk[1184], uint8_t skc[1152]
   memcpy(pk + KK * 384, rho, 32);
 }
 
-static void kpke_encrypt(const uint8_t pk[1184], const uint8_t m[32], const uint8_t coins[32], uint8_t c[1088]) {
+void kpke_encrypt(const uint8_t pk[1184], const uint8_t m[32], const uint8_t coins[32], uint8_t c[1088]) {
   uint8_t rho[32];
   int16_t pkpv[KK][256], at[KK][KK][256], sp[KK][256], ep[KK][256], bp[KK][256];
   int16_t v[256], kpoly[256], epp[256], tmp[256];
@@ -377,7 +440,7 @@ static void kpke_encrypt(const uint8_t pk[1184], const uint8_t m[32], const uint
   k_poly_compress(c + KK * 320, v, KDV);
 }
 
-static void kpke_decrypt(const uint8_t skc[1152], const uint8_t c[1088], uint8_t m[32]) {
+void kpke_decrypt(const uint8_t skc[1152], const uint8_t c[1088], uint8_t m[32]) {
   int16_t bp[KK][256], v[256], skpv[KK][256], mp[256], tmp[256];
   int i;
   for (i = 0; i < KK; i++) k_poly_decompress(bp[i], c + i * 320, KDU);
@@ -394,127 +457,4 @@ static void kpke_decrypt(const uint8_t skc[1152], const uint8_t c[1088], uint8_t
   k_poly_sub(mp, v, mp);
   k_poly_reduce(mp);
   k_poly_tomsg(m, mp);
-}
-
-static int k_hex_load(OoStr s, uint8_t *out, size_t want) {
-  size_t i, n;
-  if (!s.data || s.len < 0) return 0;
-  n = (size_t)s.len;
-  if (n == want) { memcpy(out, s.data, want); return 1; }
-  if (n == want * 2) {
-    for (i = 0; i < want; i++) {
-      int hi, lo;
-      char c = s.data[2 * i], d = s.data[2 * i + 1];
-      hi = (c >= '0' && c <= '9') ? c - '0' : (c >= 'a' && c <= 'f') ? c - 'a' + 10 : (c >= 'A' && c <= 'F') ? c - 'A' + 10 : -1;
-      lo = (d >= '0' && d <= '9') ? d - '0' : (d >= 'a' && d <= 'f') ? d - 'a' + 10 : (d >= 'A' && d <= 'F') ? d - 'A' + 10 : -1;
-      if (hi < 0 || lo < 0) return 0;
-      out[i] = (uint8_t)((hi << 4) | lo);
-    }
-    return 1;
-  }
-  return 0;
-}
-
-static OoStr k_hex_out(const uint8_t *p, size_t n) {
-  static const char *hx = "0123456789abcdef";
-  char *buf = oo_str_alloc_payload(n * 2);
-  size_t i;
-  for (i = 0; i < n; i++) { buf[i * 2] = hx[(p[i] >> 4) & 0xf]; buf[i * 2 + 1] = hx[p[i] & 0xf]; }
-  { OoStr r; r.data = buf; r.len = (long long)(n * 2); return r; }
-}
-
-static OoStr k_hex_out_cat(const uint8_t *a, size_t na, const uint8_t *b, size_t nb) {
-  static const char *hx = "0123456789abcdef";
-  size_t n = na + nb, i;
-  char *buf = oo_str_alloc_payload(n * 2);
-  for (i = 0; i < na; i++) { buf[i * 2] = hx[(a[i] >> 4) & 0xf]; buf[i * 2 + 1] = hx[a[i] & 0xf]; }
-  for (i = 0; i < nb; i++) { buf[(na + i) * 2] = hx[(b[i] >> 4) & 0xf]; buf[(na + i) * 2 + 1] = hx[b[i] & 0xf]; }
-  { OoStr r; r.data = buf; r.len = (long long)(n * 2); return r; }
-}
-
-/* keygen: input d(32)||z(32) raw or hex. output pk||sk hex. */
-OoStr crypto_mlkem768_keygen_internal(OoStr dz) {
-  uint8_t buf[64], pk[1184], sk[2400], h[32];
-  OoStr r;
-  memset(buf, 0, sizeof buf); memset(sk, 0, sizeof sk);
-  if (!k_hex_load(dz, buf, 64)) {
-    crypto_secure_wipe(buf, sizeof buf);
-    return oo_str_lit("");
-  }
-  kpke_keygen(buf, pk, sk);
-  memcpy(sk + 1152, pk, 1184);
-  oo_sha3_256_bytes(pk, 1184, h);
-  memcpy(sk + 1152 + 1184, h, 32);
-  memcpy(sk + 1152 + 1184 + 32, buf + 32, 32);
-  r = k_hex_out_cat(pk, 1184, sk, 2400);
-  crypto_secure_wipe(buf, sizeof buf);
-  crypto_secure_wipe(sk, sizeof sk);
-  crypto_secure_wipe(h, sizeof h);
-  return r;
-}
-
-OoStr crypto_mlkem768_encaps_internal(OoStr ek, OoStr m) {
-  uint8_t pk[1184], msg[32], kr[64], ct[1088], h[32], min[64];
-  OoStr r;
-  memset(msg, 0, sizeof msg); memset(kr, 0, sizeof kr); memset(min, 0, sizeof min);
-  if (!k_hex_load(ek, pk, 1184)) {
-    crypto_secure_wipe(msg, sizeof msg);
-    return oo_str_lit("");
-  }
-  if (!k_hex_load(m, msg, 32)) {
-    crypto_secure_wipe(msg, sizeof msg);
-    return oo_str_lit("");
-  }
-  oo_sha3_256_bytes(pk, 1184, h);
-  memcpy(min, msg, 32); memcpy(min + 32, h, 32);
-  oo_sha3_512_bytes(min, 64, kr);
-  kpke_encrypt(pk, msg, kr + 32, ct);
-  r = k_hex_out_cat(ct, 1088, kr, 32);
-  crypto_secure_wipe(msg, sizeof msg);
-  crypto_secure_wipe(kr, sizeof kr);
-  crypto_secure_wipe(min, sizeof min);
-  crypto_secure_wipe(h, sizeof h);
-  return r;
-}
-
-OoStr crypto_mlkem768_decaps_internal(OoStr dk, OoStr ct_in) {
-  uint8_t sk[2400], ct[1088], m[32], cmp[1088], kr[64], h[32], min[64], kbar[32];
-  const uint8_t *pk, *z;
-  OoStr r;
-  memset(sk, 0, sizeof sk); memset(m, 0, sizeof m); memset(kr, 0, sizeof kr);
-  memset(min, 0, sizeof min); memset(kbar, 0, sizeof kbar);
-  if (!k_hex_load(dk, sk, 2400)) {
-    crypto_secure_wipe(sk, sizeof sk);
-    return oo_str_lit("");
-  }
-  if (!k_hex_load(ct_in, ct, 1088)) {
-    crypto_secure_wipe(sk, sizeof sk);
-    return oo_str_lit("");
-  }
-  kpke_decrypt(sk, ct, m);
-  pk = sk + 1152;
-  memcpy(h, sk + 1152 + 1184, 32);
-  z = sk + 1152 + 1184 + 32;
-  memcpy(min, m, 32); memcpy(min + 32, h, 32);
-  oo_sha3_512_bytes(min, 64, kr);
-  kpke_encrypt(pk, m, kr + 32, cmp);
-  {
-    uint8_t fail = 0, buf[32 + 1088];
-    size_t i;
-    for (i = 0; i < 1088; i++) fail |= (uint8_t)(ct[i] ^ cmp[i]);
-    memcpy(buf, z, 32); memcpy(buf + 32, ct, 1088);
-    oo_shake256(buf, 32 + 1088, kbar, 32);
-    fail = (uint8_t)((-fail) >> 8);
-    for (i = 0; i < 32; i++) kr[i] = (uint8_t)((kr[i] & ~fail) | (kbar[i] & fail));
-    crypto_secure_wipe(buf, sizeof buf);
-  }
-  r = k_hex_out(kr, 32);
-  crypto_secure_wipe(sk, sizeof sk);
-  crypto_secure_wipe(m, sizeof m);
-  crypto_secure_wipe(kr, sizeof kr);
-  crypto_secure_wipe(min, sizeof min);
-  crypto_secure_wipe(kbar, sizeof kbar);
-  crypto_secure_wipe(h, sizeof h);
-  crypto_secure_wipe(cmp, sizeof cmp);
-  return r;
 }

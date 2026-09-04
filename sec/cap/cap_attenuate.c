@@ -1,0 +1,144 @@
+/* OoPathCap — v2.2.0 item #22: path-scoped FsReadCap attenuator
+ * (NORTHSTAR §4.2).
+ *
+ * We compute mac = HMAC-SHA-256(g_kernel_hmac_key, parent_cap || prefix).
+ * The HMAC domain-separates (parent, prefix) by concatenating an 8-byte
+ * big-endian encoding of the parent_cap with the raw prefix bytes. The
+ * resulting OoPathCap can be checked with oo_path_cap_check, which
+ * re-derives the MAC and constant-time-compares it to the stored one.
+ *
+ * The hex-decode step is needed because crypto_hmac_sha256_internal
+ * returns the digest as a 64-char lowercase hex string (not raw bytes);
+ * the MAC field of OoPathCap is the 32 raw bytes.
+ *
+ * Ordering: caps.c (orchestrator) must be included before this file so
+ * g_tok_fsread, g_tok_fs, g_kernel_hmac_key, and oo_caps_init are
+ * visible. */
+
+#define OO_PATH_CAP_MAX_PREFIX 4096
+
+static void oo_path_cap_hex_decode(const char *hex, size_t hex_len, unsigned char out[32]) {
+  /* hex_len must be 64; caller already checked. */
+  size_t i;
+  for (i = 0; i < 32; i++) {
+    unsigned int b = 0;
+    if (sscanf(hex + 2 * i, "%2x", &b) != 1) {
+      /* Should not happen — crypto_hmac_sha256_internal always emits 64 lowercase hex chars. */
+      memset(out, 0, 32);
+      return;
+    }
+    out[i] = (unsigned char)(b & 0xFFu);
+  }
+  (void)hex_len;
+}
+
+OoPathCap oo_attenuate_fsread_to_path(long long cap, OoStr prefix) {
+  OoPathCap r;
+  unsigned char msg[8 + OO_PATH_CAP_MAX_PREFIX];
+  size_t msg_len;
+  OoStr key, m, mac_hex;
+  oo_caps_init();
+  memset(&r, 0, sizeof r);
+
+  /* Validate cap: must be FsReadCap or the stronger FsCap. This matches
+   * the chain rule in oo_cap_require_fsread (which already lets g_tok_fs
+   * through). Chain re-attenuation is allowed: the caller may pass the
+   * parent_cap field of a previously-derived OoPathCap. */
+  if (cap == 0 || (cap != g_tok_fsread && cap != g_tok_fs)) {
+    fprintf(stderr, "ERR\tcap\too_attenuate_fsread_to_path: cap is not FsReadCap or FsCap\n");
+    exit(1);
+  }
+  /* Validate prefix: non-empty, must point to a buffer, and must be an
+   * absolute path (starts with '/'). */
+  if (prefix.len <= 0 || !prefix.data || prefix.data[0] != '/') {
+    fprintf(stderr, "ERR\tcap\too_attenuate_fsread_to_path: prefix must be non-empty absolute path\n");
+    exit(1);
+  }
+  if ((size_t)prefix.len > OO_PATH_CAP_MAX_PREFIX) {
+    fprintf(stderr, "ERR\tcap\too_attenuate_fsread_to_path: prefix too long (max %d)\n",
+            OO_PATH_CAP_MAX_PREFIX);
+    exit(1);
+  }
+
+  /* Build the HMAC message: 8 bytes parent_cap (big-endian) || prefix. */
+  for (int i = 0; i < 8; i++) {
+    msg[i] = (unsigned char)((unsigned long long)cap >> ((7 - i) * 8));
+  }
+  memcpy(msg + 8, prefix.data, (size_t)prefix.len);
+  msg_len = 8 + (size_t)prefix.len;
+
+  key.data = (char *)g_kernel_hmac_key;
+  key.len = (long long)sizeof g_kernel_hmac_key;
+  m.data = (char *)msg;
+  m.len = (long long)msg_len;
+  mac_hex = crypto_hmac_sha256_internal(key, m);
+
+  if (mac_hex.len != 64 || !mac_hex.data) {
+    crypto_secure_wipe(msg, sizeof msg);
+    fprintf(stderr, "ERR\tcap\too_attenuate_fsread_to_path: HMAC output malformed\n");
+    exit(1);
+  }
+  oo_path_cap_hex_decode(mac_hex.data, (size_t)mac_hex.len, r.mac);
+  /* The mac_hex payload is a refcounted OoStr allocated by
+   * crypto_hmac_sha256_internal; releasing it is the caller's job in
+   * general, but here it's a temporary we can leak-then-wipe. The hex
+   * decode ran synchronously and the digest bytes are now in r.mac. */
+  oo_str_release(mac_hex);
+  crypto_secure_wipe(msg, sizeof msg);
+
+  r.parent_cap = cap;
+  r.prefix = prefix; /* shallow borrow — caller owns the underlying buffer */
+  return r;
+}
+
+int oo_path_cap_check(OoPathCap path_cap, OoStr path) {
+  unsigned char msg[8 + OO_PATH_CAP_MAX_PREFIX];
+  size_t msg_len;
+  OoStr key, m, mac_hex;
+  unsigned char expected[32];
+  int eq;
+
+  oo_caps_init();
+
+  /* A default-initialized (all-zero) OoPathCap has parent_cap == 0 and
+   * prefix.data == NULL; the HMAC derivation below will still execute
+   * (with msg_len == 8) and the constant-time MAC compare against an
+   * all-zero mac will (overwhelmingly) fail. Same for any forged cap:
+   * without the per-process g_kernel_hmac_key, an attacker can't
+   * reproduce a valid MAC. */
+  if (path_cap.prefix.len <= 0 || !path_cap.prefix.data) return 0;
+  if (path_cap.prefix.data[0] != '/') return 0;
+  if (path_cap.parent_cap == 0) return 0;
+  if ((size_t)path_cap.prefix.len > OO_PATH_CAP_MAX_PREFIX) return 0;
+
+  /* Re-derive the MAC. */
+  for (int i = 0; i < 8; i++) {
+    msg[i] = (unsigned char)((unsigned long long)path_cap.parent_cap >> ((7 - i) * 8));
+  }
+  memcpy(msg + 8, path_cap.prefix.data, (size_t)path_cap.prefix.len);
+  msg_len = 8 + (size_t)path_cap.prefix.len;
+
+  key.data = (char *)g_kernel_hmac_key;
+  key.len = (long long)sizeof g_kernel_hmac_key;
+  m.data = (char *)msg;
+  m.len = (long long)msg_len;
+  mac_hex = crypto_hmac_sha256_internal(key, m);
+
+  if (mac_hex.len != 64 || !mac_hex.data) {
+    crypto_secure_wipe(msg, sizeof msg);
+    return 0;
+  }
+  oo_path_cap_hex_decode(mac_hex.data, (size_t)mac_hex.len, expected);
+  oo_str_release(mac_hex);
+  crypto_secure_wipe(msg, sizeof msg);
+
+  /* Constant-time MAC compare. crypto_ct_cmp returns 0 iff equal. */
+  eq = (crypto_ct_cmp(expected, path_cap.mac, 32) == 0);
+  crypto_secure_wipe(expected, sizeof expected);
+  if (!eq) return 0;
+
+  /* MAC is genuine; now enforce the path-prefix rule. */
+  if (!path.data || path.len <= 0) return 0;
+  if ((size_t)path_cap.prefix.len > (size_t)path.len) return 0;
+  return memcmp(path.data, path_cap.prefix.data, (size_t)path_cap.prefix.len) == 0;
+}

@@ -775,3 +775,88 @@ and `ooda_host_build` are in `os/host.c` (the latter is an
   test utilities; they will move to `qa/` in a follow-up commit.
 - The weak-ref mutators in `mem/weak.c` are not cap-gated.
   This is a deferred Floor break planned for v2.0.0.
+
+## v2.3.0 — Patch (256-line file cap enforcement across the tree)
+
+Per RULES.oot §1.21, v2.3.0 is a PATCH bump. **The public ABI does
+not change.** Every oo_* symbol keeps its v3.0.0 signature. The split
+is purely organizational: 17 .c/.h files over 256 lines were split
+into 60+ files across 9 new sub-dirs so smaller LLMs can hold each
+file in context.
+
+The version ordering is unusual: v2.3.0 lands after v3.0.0 because
+the 256-line enforcement was planned for the v2.x line (cleanup-only
+releases). The Floor (v3.0.0) shipped first to close the cap-gating
+gap. v2.3.0 picks up the file-split cleanup as the next Patch in the
+v2.x line. The release_tag in VERSION reflects this.
+
+### The 256-line cap
+
+The 256-line cap is enforced across all .c and .h files. The cap
+exists so that smaller-context LLMs (8K–32K tokens) can hold an
+entire file in their context window and reason about the type
+signatures, the function bodies, and the includes without
+fragmenting across multiple reads.
+
+Two files remain over 256 lines by design:
+
+| File | Lines | Why |
+|---|---|---|
+| `sec/pqc/mldsa/mldsa_internal.c` | 627 | FIPS 204 NTT + sampling + byte conversions. The d_ntt / d_invntt / d_poly_* / d_rej_uniform / d_rej_eta functions are tightly coupled — splitting them would fragment the algorithm without a functional boundary. |
+| `sec/pqc/mlkem/mlkem_internal.c` | 460 | FIPS 203 NTT + sampling + byte conversions. Same as above: kpke_keygen / kpke_encrypt / kpke_decrypt and the byte-conversion helpers are inseparable. |
+
+### The split manifest
+
+17 files over 256 lines, split into 60+ files across 9 new sub-dirs:
+
+| Original (v3.0.0) | Lines | New files (v2.3.0) | Sub-dir |
+|---|---|---|---|
+| `hw/gpu/gpu.c` | 1109 | `gpu.c` + 8 satellite | `hw/gpu/gpu/` |
+| `hw/gpu/gpu_hip.c` | 364 | `gpu_hip.c` + 2 satellite | `hw/gpu/gpu/` |
+| `sec/pqc/mldsa.c` | 773 | `mldsa.c` + 3 satellite | `sec/pqc/mldsa/` |
+| `sec/landlock/sandbox.c` | 638 | `sandbox.c` + 3 satellite | `sec/landlock/sandbox/` |
+| `sec/pqc/mlkem.c` | 520 | `mlkem.c` + 2 satellite | `sec/pqc/mlkem/` |
+| `sec/crypto/aead.c` | 476 | `aead.c` + 2 satellite | `sec/crypto/aead/` |
+| `sec/pqc/pq_sig.c` | 460 | `pq_sig.c` + 4 satellite | `sec/pqc/pq_sig/` |
+| `sec/crypto/crypto.c` | 445 | `crypto.c` + 3 satellite | `sec/crypto/symmetric/` |
+| `sec/cap/caps.c` | 428 | `caps.c` + 4 satellite | `sec/cap/` |
+| `core/mem/arena.c` | 394 | `arena.c` + 4 satellite | `core/mem/` |
+| `types.h` | 384 | `types.h` + 6 sub-headers | `types/` |
+| `core/list/list.c` | 342 | `list.c` + 3 satellite | `core/list/` |
+| `fs/os/sys.c` | 306 | `sys.c` + 3 satellite | `fs/os/` |
+| `app/actor/actor.c` | 302 | `actor.c` + 4 satellite | `app/actor/` |
+| `sec/landlock/landlock.c` | 296 | `landlock.c` + 1 satellite | `sec/landlock/landlock/` |
+| `fs/os/netfloor.c` | 293 | `netfloor.c` + 2 satellite | `fs/os/` |
+| `fs/os/fs.c` | 279 | `fs.c` + 2 satellite | `fs/os/` |
+
+### Naming convention
+
+Every split file follows the `<domain>_<concept>.c` convention. The
+orchestrator keeps the original name (e.g. `caps.c`, `arena.c`,
+`gpu.c`); the satellites get the `<domain>_<concept>.c` form (e.g.
+`cap_grant.c`, `arena_pin.c`, `gpu_pool.c`). Sub-folders are created
+when a domain has 3+ pieces (sec/cap/, sec/crypto/{aead,symmetric}/,
+sec/landlock/{landlock,sandbox}/, sec/pqc/{mlkem,mldsa,pq_sig}/,
+types/, hw/gpu/gpu/). The orchestrator comment header lists which
+file owns which concept, so the file map is documented in-tree.
+
+### Public ABI
+
+Unchanged. Every `oo_*` symbol keeps its v3.0.0 signature. The
+split is byte-equivalent at the ABI level: the same .o size delta
+you'd see from a clean rebuild, no signature changes, no new
+externs, no new includes. Consumers (oodac-emitted C code) do
+NOT need to rebuild against v2.3.0 — only against v3.0.0 (the
+last Floor). The release_tag in VERSION flips to 2.3.0 because
+the .o hash changes (the satellite file positions in the
+umbrella are different), so any consumer that does a structural
+verify (count of public .c files, oodar.h checksum, etc.) will
+see the v2.3.0 file.
+
+### Cleanup that landed with the split
+
+- `pqc/dudect_c_native.c` and `gpu/oo_hip_so_smoke.c` moved to
+  `qa/` (the follow-up that was deferred in v2.0.0).
+- The 5 new `qa/tests_challenger_*.c` files are unchanged.
+- The umbrella `oodar.c` grew from 49 to 94 `#include` lines
+  (the new satellite files).

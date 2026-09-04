@@ -3,10 +3,28 @@
 // Logline: ML-KEM-768 (key encapsulation), ML-DSA-65 (digital signature), the PQ AEAD seal/open that binds ciphertexts to a keypair via pk-as-AAD, and the dudect constant-time test harness.
 //
 // Beats:
-//   1. mlkem.c — ML-KEM-768 keygen/encaps/decaps.
-//   2. mldsa.c — ML-DSA-65 keygen/sign/verify.
-//   3. pq_sig.c — PQ AEAD seal/open with pk-as-AAD binding.
-//   4. dudect_c_native.c — constant-time test util (moves to qa/ in a follow-up).
+//   1. mlkem/mlkem.c — orchestrator: ML-KEM-768 keygen/encaps/decaps.
+//   2. mlkem/mlkem_internal.c — FIPS 203 NTT + sampling + byte conversions (the algorithm core; over 256 lines by design).
+//   3. mlkem/mlkem_kem.c — the KEM primitives (Encaps/Decaps key derivation).
+//   4. mldsa/mldsa.c — orchestrator: ML-DSA-65 keygen/sign/verify.
+//   5. mldsa/mldsa_internal.c — FIPS 204 NTT + sampling + byte conversions (the algorithm core; over 256 lines by design).
+//   6. mldsa/mldsa_sign.c — the Sign primitive (matrix expand + challenge + hint).
+//   7. mldsa/mldsa_verify.c — the Verify primitive (challenge + hint + use_hint).
+//   8. pq_sig/pq_sig.c — orchestrator: PQ AEAD seal/open with pk-as-AAD binding (public API).
+//   9. pq_sig/pq_aead.c — orchestrator (public API docs only): the PQ AEAD seal/open layout.
+//  10. pq_sig/pq_aead_seal.c — the encrypt + sign side.
+//  11. pq_sig/pq_aead_open.c — the verify + decrypt side.
+//  12. pq_sig/pq_hmac.c — the HMAC + ML-DSA hybrid seal (pq_aead_seal_internal delegates to this for the cap-IDs that don't need AES-GCM).
+//
+// v2.3.0 file split: the original 520-line mlkem.c was split into
+// mlkem/ subdir (3 files), the original 773-line mldsa.c was split
+// into mldsa/ subdir (4 files), and the original 460-line pq_sig.c
+// was split into pq_sig/ subdir (5 files). The split is functional
+// (one algorithm step per file). The mldsa_internal.c (627) and
+// mlkem_internal.c (460) are algorithm cores that stay over 256
+// lines by design — the NTT, sampling, and polynomial arithmetic
+// are tightly coupled and splitting them would fragment the
+// algorithm without a functional boundary.
 //
 // ──▓▓ sec/pqc ANCHOR ──▓▓──
 // :: PQC-by-default — first-class in the runtime ::

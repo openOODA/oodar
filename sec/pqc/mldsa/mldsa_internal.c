@@ -1,16 +1,29 @@
-/* FIPS 204 ML-DSA-65 (Dilithium3). KeyGen/Sign/Verify_internal. */
-#include "../../oodar.h"
+/* FIPS 204 ML-DSA-65 (Dilithium3) — internal primitives. Matrix expand,
+ * NTT, sampling, rejection sampling, byte conversions, and keygen/sign/
+ * verify-supporting helpers.
+ *
+ * The public surface here is non-static: d_keygen, d_unpack_pk, d_unpack_sk,
+ * d_pack_sig, d_unpack_sig, d_ntt, d_invntt, d_expand_a, d_matrix_pointwise,
+ * d_chknorm, d_poly_uniform_gamma1, d_poly_challenge, d_make_hint, d_use_hint,
+ * d_polyz_pack, d_polyz_unpack, d_polyw1_pack, d_decompose, d_poly_reduce,
+ * d_poly_caddq, d_poly_add, d_poly_sub, d_poly_shiftl, d_poly_pointwise,
+ * d_unpack_sk — called by the orchestrator (mldsa.c), sign (mldsa_sign.c),
+ * and verify (mldsa_verify.c). Hex I/O (d_hex_*) is also external so the
+ * sibling TUs can share it.
+ */
+#include "../../../oodar.h"
 #include <stdint.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-void oo_shake256(const uint8_t *in, size_t n, uint8_t *out, size_t outn);
-void oo_shake128(const uint8_t *in, size_t n, uint8_t *out, size_t outn);
-
+/* FIPS 204 §5 parameter set ML-DSA-65. */
 #define DQ 8380417
 #define DN 256
 #define DK 6
 #define DL 5
-#define DETA 4
 #define DTAU 49
+#define DETA 4
 #define DBETA 196
 #define DGAMMA1 (1 << 19)
 #define DGAMMA2 261888
@@ -30,6 +43,11 @@ void oo_shake128(const uint8_t *in, size_t n, uint8_t *out, size_t outn);
 #define DPOLYW1 128
 #define DQINV 58728449
 
+/* Forward decls of SHAKE family. */
+void oo_shake256(const uint8_t *in, size_t n, uint8_t *out, size_t outn);
+void oo_shake128(const uint8_t *in, size_t n, uint8_t *out, size_t outn);
+
+/* Zetas for the in-place Cooley-Tukey NTT. FIPS 204 §4.4 / pq-crystals ref. */
 static const int32_t d_zetas[256] = {
          0,    25847, -2608894,  -518909,   237124,  -777960,  -876248,   466468,
    1826347,  2353451,  -359251, -2091905,  3119733, -2884855,  3111497,  2680103,
@@ -65,6 +83,8 @@ static const int32_t d_zetas[256] = {
    -554416,  3919660,   -48306, -1362209,  3937738,  1400424,  -846154,  1976782
 };
 
+/* === Field arithmetic: Montgomery reduce, reduce32, conditional add q. === */
+
 static int32_t d_mont_reduce(int64_t a) {
   int32_t t = (int32_t)a * DQINV;
   t = (int32_t)((a - (int64_t)t * DQ) >> 32);
@@ -78,7 +98,10 @@ static int32_t d_caddq(int32_t a) {
   a += (a >> 31) & DQ;
   return a;
 }
-static void d_ntt(int32_t a[256]) {
+
+/* === NTT / inverse NTT. === */
+
+void d_ntt(int32_t a[256]) {
   unsigned int len, start, j, k = 0;
   for (len = 128; len > 0; len >>= 1) {
     for (start = 0; start < 256; start = j + len) {
@@ -91,7 +114,7 @@ static void d_ntt(int32_t a[256]) {
     }
   }
 }
-static void d_invntt(int32_t a[256]) {
+void d_invntt(int32_t a[256]) {
   unsigned int start, len, j, k = 256;
   const int32_t f = 41978;
   for (len = 1; len < 256; len <<= 1) {
@@ -107,30 +130,36 @@ static void d_invntt(int32_t a[256]) {
   }
   for (j = 0; j < 256; ++j) a[j] = d_mont_reduce((int64_t)f * a[j]);
 }
-static void d_poly_reduce(int32_t a[256]) {
+
+/* === Polynomial operations. === */
+
+void d_poly_reduce(int32_t a[256]) {
   unsigned int i; for (i = 0; i < 256; i++) a[i] = d_reduce32(a[i]);
 }
-static void d_poly_caddq(int32_t a[256]) {
+void d_poly_caddq(int32_t a[256]) {
   unsigned int i; for (i = 0; i < 256; i++) a[i] = d_caddq(a[i]);
 }
-static void d_poly_add(int32_t c[256], const int32_t a[256], const int32_t b[256]) {
+void d_poly_add(int32_t c[256], const int32_t a[256], const int32_t b[256]) {
   unsigned int i; for (i = 0; i < 256; i++) c[i] = a[i] + b[i];
 }
-static void d_poly_sub(int32_t c[256], const int32_t a[256], const int32_t b[256]) {
+void d_poly_sub(int32_t c[256], const int32_t a[256], const int32_t b[256]) {
   unsigned int i; for (i = 0; i < 256; i++) c[i] = a[i] - b[i];
 }
-static void d_poly_shiftl(int32_t a[256]) {
+void d_poly_shiftl(int32_t a[256]) {
   unsigned int i; for (i = 0; i < 256; i++) a[i] <<= DD;
 }
-static void d_poly_pointwise(int32_t c[256], const int32_t a[256], const int32_t b[256]) {
+void d_poly_pointwise(int32_t c[256], const int32_t a[256], const int32_t b[256]) {
   unsigned int i; for (i = 0; i < 256; i++) c[i] = d_mont_reduce((int64_t)a[i] * b[i]);
 }
+
+/* Power2Round, decompose, make_hint, use_hint — see FIPS 204 §4.1 (Hint). */
+
 static int32_t d_power2round(int32_t *a0, int32_t a) {
   int32_t a1 = (a + (1 << (DD - 1)) - 1) >> DD;
   *a0 = a - (a1 << DD);
   return a1;
 }
-static int32_t d_decompose(int32_t *a0, int32_t a) {
+int32_t d_decompose(int32_t *a0, int32_t a) {
   int32_t a1 = (a + 127) >> 7;
   a1 = (a1 * 1025 + (1 << 21)) >> 22;
   a1 &= 15;
@@ -138,7 +167,7 @@ static int32_t d_decompose(int32_t *a0, int32_t a) {
   *a0 -= (((DQ - 1) / 2 - *a0) >> 31) & DQ;
   return a1;
 }
-static unsigned int d_make_hint(int32_t a0, int32_t a1) {
+unsigned int d_make_hint(int32_t a0, int32_t a1) {
   /* Constant-time: build three 0/1 flags and OR them.
    *   gt  = 1 iff a0 >  DGAMMA2
    *   lt  = 1 iff a0 < -DGAMMA2
@@ -152,7 +181,7 @@ static unsigned int d_make_hint(int32_t a0, int32_t a1) {
   uint32_t lt  = ((uint32_t)(a0 + DGAMMA2) >> 31) & 1u;
   return (gt | lt | (eq_neg & a1_nz)) & 1u;
 }
-static int32_t d_use_hint(int32_t a, unsigned int hint) {
+int32_t d_use_hint(int32_t a, unsigned int hint) {
   int32_t a0, a1 = d_decompose(&a0, a);
   /* Constant-time: pick (a1+1)&15 if a0 > 0, else (a1-1)&15, gated by
    * the hint bit. All selects via bitmasks, no branches. */
@@ -166,7 +195,9 @@ static int32_t d_use_hint(int32_t a, unsigned int hint) {
   uint32_t sel      = (hmask & sel_step) | ((~hmask) & (uint32_t)a1);
   return (int32_t)(sel & 15u);
 }
-static int d_chknorm(const int32_t a[256], int32_t B) {
+
+/* Chknorm: returns 1 iff any |a[i]| >= B, else 0. Used for rejection. */
+int d_chknorm(const int32_t a[256], int32_t B) {
   unsigned int i;
   if (B > (DQ - 1) / 8) return 1;
   for (i = 0; i < 256; i++) {
@@ -176,6 +207,8 @@ static int d_chknorm(const int32_t a[256], int32_t B) {
   }
   return 0;
 }
+
+/* === Sampling: rejection sampling for A-matrix and eta, and γ1. === */
 
 static unsigned int d_rej_uniform(int32_t *a, unsigned int len, const uint8_t *buf, unsigned int buflen) {
   unsigned int ctr = 0, pos = 0;
@@ -230,7 +263,7 @@ static unsigned int d_rej_eta(int32_t *a, unsigned int len, const uint8_t *buf, 
   }
   return ctr;
 }
-static void d_poly_uniform_eta(int32_t a[256], const uint8_t seed[64], uint16_t nonce) {
+void d_poly_uniform_eta(int32_t a[256], const uint8_t seed[64], uint16_t nonce) {
   uint8_t in[66], buf[544];
   memcpy(in, seed, 64);
   in[64] = (uint8_t)nonce;
@@ -238,9 +271,8 @@ static void d_poly_uniform_eta(int32_t a[256], const uint8_t seed[64], uint16_t 
   oo_shake256(in, 66, buf, sizeof buf);
   d_rej_eta(a, 256, buf, sizeof buf);
 }
-
-static void d_polyz_unpack(int32_t r[256], const uint8_t *a);
-static void d_poly_uniform_gamma1(int32_t a[256], const uint8_t seed[64], uint16_t nonce) {
+void d_polyz_unpack(int32_t r[256], const uint8_t *a);
+void d_poly_uniform_gamma1(int32_t a[256], const uint8_t seed[64], uint16_t nonce) {
   uint8_t in[66], buf[816];
   memcpy(in, seed, 64);
   in[64] = (uint8_t)nonce;
@@ -248,7 +280,7 @@ static void d_poly_uniform_gamma1(int32_t a[256], const uint8_t seed[64], uint16
   oo_shake256(in, 66, buf, sizeof buf);
   d_polyz_unpack(a, buf);
 }
-static void d_poly_challenge(int32_t c[256], const uint8_t seed[48]) {
+void d_poly_challenge(int32_t c[256], const uint8_t seed[48]) {
   unsigned int i, b, pos;
   uint64_t signs = 0;
   uint8_t buf[544];
@@ -266,7 +298,9 @@ static void d_poly_challenge(int32_t c[256], const uint8_t seed[48]) {
   }
 }
 
-static void d_polyeta_pack(uint8_t *r, const int32_t a[256]) {
+/* === Byte <-> polynomial pack/unpack. === */
+
+void d_polyeta_pack(uint8_t *r, const int32_t a[256]) {
   unsigned int i;
   for (i = 0; i < 128; ++i) {
     uint8_t t0 = (uint8_t)(DETA - a[2 * i + 0]);
@@ -281,7 +315,7 @@ static void d_polyeta_unpack(int32_t r[256], const uint8_t *a) {
     r[2 * i + 1] = DETA - (int32_t)(a[i] >> 4);
   }
 }
-static void d_polyt1_pack(uint8_t *r, const int32_t a[256]) {
+void d_polyt1_pack(uint8_t *r, const int32_t a[256]) {
   unsigned int i;
   for (i = 0; i < 64; ++i) {
     r[5 * i + 0] = (uint8_t)(a[4 * i + 0] >> 0);
@@ -375,7 +409,7 @@ static void d_polyt0_unpack(int32_t r[256], const uint8_t *a) {
     r[8 * i + 7] = (1 << (DD - 1)) - r[8 * i + 7];
   }
 }
-static void d_polyz_pack(uint8_t *r, const int32_t a[256]) {
+void d_polyz_pack(uint8_t *r, const int32_t a[256]) {
   unsigned int i;
   uint32_t t[2];
   for (i = 0; i < 128; ++i) {
@@ -389,7 +423,7 @@ static void d_polyz_pack(uint8_t *r, const int32_t a[256]) {
     r[5 * i + 4] = (uint8_t)(t[1] >> 12);
   }
 }
-static void d_polyz_unpack(int32_t r[256], const uint8_t *a) {
+void d_polyz_unpack(int32_t r[256], const uint8_t *a) {
   unsigned int i;
   for (i = 0; i < 128; ++i) {
     r[2 * i + 0] = a[5 * i + 0];
@@ -403,19 +437,21 @@ static void d_polyz_unpack(int32_t r[256], const uint8_t *a) {
     r[2 * i + 1] = DGAMMA1 - r[2 * i + 1];
   }
 }
-static void d_polyw1_pack(uint8_t *r, const int32_t a[256]) {
+void d_polyw1_pack(uint8_t *r, const int32_t a[256]) {
   unsigned int i;
   for (i = 0; i < 128; ++i)
     r[i] = (uint8_t)(a[2 * i + 0] | (a[2 * i + 1] << 4));
 }
 
-static int d_hex_digit(char c) {
+/* === Hex I/O glue (shared with mldsa.c, mldsa_sign.c, mldsa_verify.c). === */
+
+int d_hex_digit(char c) {
   if (c >= '0' && c <= '9') return c - '0';
   if (c >= 'a' && c <= 'f') return c - 'a' + 10;
   if (c >= 'A' && c <= 'F') return c - 'A' + 10;
   return -1;
 }
-static int d_hex_load(OoStr s, uint8_t *out, size_t want) {
+int d_hex_load(OoStr s, uint8_t *out, size_t want) {
   size_t i, n;
   if (!s.data || s.len < 0) return 0;
   n = (size_t)s.len;
@@ -428,7 +464,7 @@ static int d_hex_load(OoStr s, uint8_t *out, size_t want) {
   }
   return 1;
 }
-static int d_load_msg(OoStr s, uint8_t *out, size_t *n, size_t maxn) {
+int d_load_msg(OoStr s, uint8_t *out, size_t *n, size_t maxn) {
   size_t i;
   if (!s.data || s.len < 0) { *n = 0; return 1; }
   if (s.len % 2 == 0 && (size_t)s.len / 2 <= maxn && (size_t)s.len > 0) {
@@ -448,14 +484,14 @@ static int d_load_msg(OoStr s, uint8_t *out, size_t *n, size_t maxn) {
   *n = (size_t)s.len;
   return 1;
 }
-static OoStr d_hex_out(const uint8_t *p, size_t n) {
+OoStr d_hex_out(const uint8_t *p, size_t n) {
   static const char *hx = "0123456789abcdef";
   char *buf = oo_str_alloc_payload(n * 2);
   size_t i;
   for (i = 0; i < n; i++) { buf[i * 2] = hx[(p[i] >> 4) & 0xf]; buf[i * 2 + 1] = hx[p[i] & 0xf]; }
   { OoStr r; r.data = buf; r.len = (long long)(n * 2); return r; }
 }
-static OoStr d_hex_out_cat(const uint8_t *a, size_t na, const uint8_t *b, size_t nb) {
+OoStr d_hex_out_cat(const uint8_t *a, size_t na, const uint8_t *b, size_t nb) {
   static const char *hx = "0123456789abcdef";
   size_t n = na + nb, i;
   char *buf = oo_str_alloc_payload(n * 2);
@@ -464,13 +500,15 @@ static OoStr d_hex_out_cat(const uint8_t *a, size_t na, const uint8_t *b, size_t
   { OoStr r; r.data = buf; r.len = (long long)(n * 2); return r; }
 }
 
-static void d_expand_a(int32_t mat[DK][DL][256], const uint8_t rho[32]) {
+/* === Matrix expand / multiply + packing. === */
+
+void d_expand_a(int32_t mat[DK][DL][256], const uint8_t rho[32]) {
   int i, j;
   for (i = 0; i < DK; i++)
     for (j = 0; j < DL; j++)
       d_poly_uniform(mat[i][j], rho, (uint16_t)((i << 8) + j));
 }
-static void d_matrix_pointwise(int32_t t[DK][256], int32_t mat[DK][DL][256], int32_t v[DL][256]) {
+void d_matrix_pointwise(int32_t t[DK][256], int32_t mat[DK][DL][256], int32_t v[DL][256]) {
   int i, j;
   int32_t tmp[256];
   for (i = 0; i < DK; i++) {
@@ -498,13 +536,14 @@ static void d_pack_sk(uint8_t sk[DSK], const uint8_t rho[32], const uint8_t tr[6
   for (i = 0; i < DK; i++) { d_polyeta_pack(p, s2[i]); p += DPOLYETA; }
   for (i = 0; i < DK; i++) { d_polyt0_pack(p, t0[i]); p += DPOLYT0; }
 }
-static void d_unpack_pk(uint8_t rho[32], int32_t t1[DK][256], const uint8_t pk[DPK]) {
+void d_unpack_pk(uint8_t rho[32], int32_t t1[DK][256], const uint8_t pk[DPK]) {
   int i;
   memcpy(rho, pk, 32);
   for (i = 0; i < DK; i++) d_polyt1_unpack(t1[i], pk + 32 + i * DPOLYT1);
 }
-static void d_unpack_sk(uint8_t rho[32], uint8_t tr[64], uint8_t key[32],
-                       int32_t t0[DK][256], int32_t s1[DL][256], int32_t s2[DK][256], const uint8_t sk[DSK]) {
+void d_unpack_sk(uint8_t rho[32], uint8_t tr[64], uint8_t key[32],
+                 int32_t t0[DK][256], int32_t s1[DL][256], int32_t s2[DK][256],
+                 const uint8_t sk[DSK]) {
   int i;
   const uint8_t *p = sk;
   memcpy(rho, p, 32); p += 32;
@@ -514,7 +553,7 @@ static void d_unpack_sk(uint8_t rho[32], uint8_t tr[64], uint8_t key[32],
   for (i = 0; i < DK; i++) { d_polyeta_unpack(s2[i], p); p += DPOLYETA; }
   for (i = 0; i < DK; i++) { d_polyt0_unpack(t0[i], p); p += DPOLYT0; }
 }
-static void d_pack_sig(uint8_t sig[DSIG], const uint8_t c[DCTILDE], int32_t z[DL][256], int32_t h[DK][256]) {
+void d_pack_sig(uint8_t sig[DSIG], const uint8_t c[DCTILDE], int32_t z[DL][256], int32_t h[DK][256]) {
   unsigned int i, j, k;
   memcpy(sig, c, DCTILDE);
   for (i = 0; i < DL; i++) d_polyz_pack(sig + DCTILDE + i * DPOLYZ, z[i]);
@@ -537,7 +576,7 @@ static void d_pack_sig(uint8_t sig[DSIG], const uint8_t c[DCTILDE], int32_t z[DL
     }
   }
 }
-static int d_unpack_sig(uint8_t c[DCTILDE], int32_t z[DL][256], int32_t h[DK][256], const uint8_t sig[DSIG]) {
+int d_unpack_sig(uint8_t c[DCTILDE], int32_t z[DL][256], int32_t h[DK][256], const uint8_t sig[DSIG]) {
   unsigned int i, j, k;
   const uint8_t *hs;
   memcpy(c, sig, DCTILDE);
@@ -557,7 +596,9 @@ static int d_unpack_sig(uint8_t c[DCTILDE], int32_t z[DL][256], int32_t h[DK][25
   return 0;
 }
 
-static void d_keygen(const uint8_t xi[32], uint8_t pk[DPK], uint8_t sk[DSK]) {
+/* === d_keygen: FIPS 204 §6.1 (ML-DSA.KeyGen). === */
+
+void d_keygen(const uint8_t xi[32], uint8_t pk[DPK], uint8_t sk[DSK]) {
   uint8_t seedbuf[34 + 128];
   uint8_t tr[DTR];
   const uint8_t *rho, *rhoprime, *key;
@@ -583,191 +624,4 @@ static void d_keygen(const uint8_t xi[32], uint8_t pk[DPK], uint8_t sk[DSK]) {
   d_pack_pk(pk, rho, t1);
   oo_shake256(pk, DPK, tr, DTR);
   d_pack_sk(sk, rho, tr, key, t0, s1, s2);
-}
-
-static int d_sign_internal(uint8_t sig[DSIG], const uint8_t *m, size_t mlen,
-                           const uint8_t rnd[32], const uint8_t sk[DSK]) {
-  uint8_t rho[32], tr[64], key[32], mu[64], rhoprime[64], w1pack[DK * DPOLYW1];
-  int32_t mat[DK][DL][256], s1[DL][256], y[DL][256], z[DL][256];
-  int32_t t0[DK][256], s2[DK][256], w1[DK][256], w0[DK][256], h[DK][256], cp[256];
-  uint16_t nonce = 0;
-  unsigned int i, n, tries;
-  uint8_t *concat;
-  d_unpack_sk(rho, tr, key, t0, s1, s2, sk);
-  concat = (uint8_t *)malloc(64 + mlen);
-  if (!concat) return -1;
-  memcpy(concat, tr, 64);
-  if (mlen) memcpy(concat + 64, m, mlen);
-  oo_shake256(concat, 64 + mlen, mu, 64);
-  free(concat);
-  {
-    uint8_t in[32 + 32 + 64];
-    memcpy(in, key, 32);
-    memcpy(in + 32, rnd, 32);
-    memcpy(in + 64, mu, 64);
-    oo_shake256(in, 128, rhoprime, 64);
-  }
-  d_expand_a(mat, rho);
-  for (i = 0; i < DL; i++) d_ntt(s1[i]);
-  for (i = 0; i < DK; i++) { d_ntt(s2[i]); d_ntt(t0[i]); }
-  for (tries = 0; tries < 10000; tries++) {
-    int reject = 0;
-    for (i = 0; i < DL; i++) d_poly_uniform_gamma1(y[i], rhoprime, nonce++);
-    for (i = 0; i < DL; i++) { memcpy(z[i], y[i], sizeof y[i]); d_ntt(z[i]); }
-    d_matrix_pointwise(w1, mat, z);
-    for (i = 0; i < DK; i++) { d_poly_reduce(w1[i]); d_invntt(w1[i]); d_poly_caddq(w1[i]); }
-    for (i = 0; i < DK; i++) {
-      unsigned int j;
-      for (j = 0; j < 256; j++) w1[i][j] = d_decompose(&w0[i][j], w1[i][j]);
-    }
-    for (i = 0; i < DK; i++) d_polyw1_pack(w1pack + i * DPOLYW1, w1[i]);
-    {
-      uint8_t in[64 + DK * DPOLYW1];
-      memcpy(in, mu, 64);
-      memcpy(in + 64, w1pack, DK * DPOLYW1);
-      oo_shake256(in, 64 + DK * DPOLYW1, sig, DCTILDE);
-    }
-    d_poly_challenge(cp, sig);
-    d_ntt(cp);
-    for (i = 0; i < DL; i++) {
-      d_poly_pointwise(z[i], cp, s1[i]);
-      d_invntt(z[i]);
-      d_poly_add(z[i], z[i], y[i]);
-      d_poly_reduce(z[i]);
-      if (d_chknorm(z[i], DGAMMA1 - DBETA)) reject = 1;
-    }
-    if (reject) continue;
-    for (i = 0; i < DK; i++) {
-      d_poly_pointwise(h[i], cp, s2[i]);
-      d_invntt(h[i]);
-      d_poly_sub(w0[i], w0[i], h[i]);
-      d_poly_reduce(w0[i]);
-      if (d_chknorm(w0[i], DGAMMA2 - DBETA)) reject = 1;
-    }
-    if (reject) continue;
-    n = 0;
-    for (i = 0; i < DK; i++) {
-      unsigned int j;
-      d_poly_pointwise(h[i], cp, t0[i]);
-      d_invntt(h[i]);
-      d_poly_reduce(h[i]);
-      if (d_chknorm(h[i], DGAMMA2)) { reject = 1; break; }
-      d_poly_add(w0[i], w0[i], h[i]);
-      for (j = 0; j < 256; j++) {
-        h[i][j] = (int32_t)d_make_hint(w0[i][j], w1[i][j]);
-        n += (unsigned int)h[i][j];
-      }
-    }
-    if (reject || n > DOMEGA) continue;
-    d_pack_sig(sig, sig, z, h);
-    return 0;
-  }
-  return -1;
-}
-
-static int d_verify_internal(const uint8_t sig[DSIG], const uint8_t *m, size_t mlen, const uint8_t pk[DPK]) {
-  uint8_t rho[32], mu[64], c[DCTILDE], c2[DCTILDE], w1pack[DK * DPOLYW1], tr[DTR];
-  int32_t mat[DK][DL][256], z[DL][256], t1[DK][256], w1[DK][256], h[DK][256], cp[256];
-  unsigned int i;
-  uint8_t *concat;
-  d_unpack_pk(rho, t1, pk);
-  if (d_unpack_sig(c, z, h, sig)) return -1;
-  for (i = 0; i < DL; i++) if (d_chknorm(z[i], DGAMMA1 - DBETA)) return -1;
-  oo_shake256(pk, DPK, tr, DTR);
-  concat = (uint8_t *)malloc(64 + mlen);
-  if (!concat) return -1;
-  memcpy(concat, tr, 64);
-  if (mlen) memcpy(concat + 64, m, mlen);
-  oo_shake256(concat, 64 + mlen, mu, 64);
-  free(concat);
-  d_poly_challenge(cp, c);
-  d_expand_a(mat, rho);
-  for (i = 0; i < DL; i++) d_ntt(z[i]);
-  d_matrix_pointwise(w1, mat, z);
-  d_ntt(cp);
-  for (i = 0; i < DK; i++) {
-    d_poly_shiftl(t1[i]);
-    d_ntt(t1[i]);
-    d_poly_pointwise(t1[i], cp, t1[i]);
-    d_poly_sub(w1[i], w1[i], t1[i]);
-    d_poly_reduce(w1[i]);
-    d_invntt(w1[i]);
-    d_poly_caddq(w1[i]);
-    {
-      unsigned int j;
-      for (j = 0; j < 256; j++) w1[i][j] = d_use_hint(w1[i][j], (unsigned int)h[i][j]);
-    }
-    d_polyw1_pack(w1pack + i * DPOLYW1, w1[i]);
-  }
-  {
-    uint8_t in[64 + DK * DPOLYW1];
-    memcpy(in, mu, 64);
-    memcpy(in + 64, w1pack, DK * DPOLYW1);
-    oo_shake256(in, 64 + DK * DPOLYW1, c2, DCTILDE);
-  }
-  return crypto_ct_cmp(c, c2, DCTILDE) == 0 ? 0 : -1;
-}
-
-OoStr crypto_mldsa65_keygen_internal(OoStr seed) {
-  uint8_t xi[32], pk[DPK], sk[DSK];
-  OoStr r;
-  memset(xi, 0, sizeof xi); memset(sk, 0, sizeof sk);
-  if (!d_hex_load(seed, xi, 32)) {
-    crypto_secure_wipe(xi, sizeof xi);
-    return oo_str_lit("");
-  }
-  d_keygen(xi, pk, sk);
-  r = d_hex_out_cat(pk, DPK, sk, DSK);
-  crypto_secure_wipe(xi, sizeof xi);
-  crypto_secure_wipe(sk, sizeof sk);
-  return r;
-}
-
-OoStr crypto_mldsa65_sign_internal(OoStr sk, OoStr msg, OoStr rnd) {
-  uint8_t skb[DSK], rndb[32], sig[DSIG], mbuf[4096];
-  size_t mn;
-  OoStr r;
-  memset(rndb, 0, 32); memset(skb, 0, sizeof skb); memset(mbuf, 0, sizeof mbuf);
-  if (!d_hex_load(sk, skb, DSK)) {
-    crypto_secure_wipe(skb, sizeof skb);
-    crypto_secure_wipe(rndb, sizeof rndb);
-    return oo_str_lit("");
-  }
-  if (!d_load_msg(msg, mbuf, &mn, sizeof mbuf)) {
-    crypto_secure_wipe(skb, sizeof skb);
-    crypto_secure_wipe(rndb, sizeof rndb);
-    crypto_secure_wipe(mbuf, sizeof mbuf);
-    return oo_str_lit("");
-  }
-  if (rnd.data && rnd.len > 0) {
-    if (!d_hex_load(rnd, rndb, 32) && rnd.len == 32) memcpy(rndb, rnd.data, 32);
-  }
-  if (d_sign_internal(sig, mbuf, mn, rndb, skb) != 0) {
-    crypto_secure_wipe(skb, sizeof skb);
-    crypto_secure_wipe(rndb, sizeof rndb);
-    crypto_secure_wipe(mbuf, sizeof mbuf);
-    return oo_str_lit("");
-  }
-  r = d_hex_out(sig, DSIG);
-  crypto_secure_wipe(skb, sizeof skb);
-  crypto_secure_wipe(rndb, sizeof rndb);
-  crypto_secure_wipe(mbuf, sizeof mbuf);
-  return r;
-}
-
-OoStr crypto_mldsa65_verify_internal(OoStr pk, OoStr msg, OoStr sig) {
-  uint8_t pkb[DPK], sigb[DSIG], mbuf[4096];
-  size_t mn;
-  int ok;
-  memset(mbuf, 0, sizeof mbuf);
-  if (!d_hex_load(pk, pkb, DPK)) return oo_str_lit("");
-  if (!d_hex_load(sig, sigb, DSIG)) return oo_str_lit("");
-  if (!d_load_msg(msg, mbuf, &mn, sizeof mbuf)) {
-    crypto_secure_wipe(mbuf, sizeof mbuf);
-    return oo_str_lit("");
-  }
-  ok = d_verify_internal(sigb, mbuf, mn, pkb);
-  crypto_secure_wipe(mbuf, sizeof mbuf);
-  if (ok == 0) return oo_str_lit("OK");
-  return oo_str_lit("");
 }

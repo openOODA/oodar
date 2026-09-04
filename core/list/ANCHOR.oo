@@ -3,8 +3,17 @@
 // Logline: The OoIList / OoSList / OoFList family and the nested list types (OoLL_*, OoLLL_*, OoLLLL_*). The 3-element and 4-element variants are compressed via X-macro in llist.c.
 //
 // Beats:
-//   1. list.c — OoIList / OoSList (retain/release/new/push/get/set/len). The set operations live inline at the bottom of list.c (folded from list_set.c in v2.2.0).
-//   2. flist.c — OoFList (the same shape, float element, including oo_flist_set).
-//   3. llist.c — nested lists, 9 type families via X-macro (Int/String/Float × 2D/3D/4D). The X-macro generates _set for each nested list type (OoLL_*, OoLLL_*, OoLLLL_*) inline.
+//   1. list.c — OoIList / OoSList (retain/release/new/push/get/len).
+//   2. list_alloc.c — bulk-list allocation helpers (oo_list_alloc_n / free / set).
+//   3. list_atomic.c — atomic variants of push/get for concurrent actors.
+//   4. list_set.c — the OoIList / OoSList set operations.
+//   5. flist.c — OoFList (the same shape, float element, including oo_flist_set).
+//   6. llist.c — nested lists, 9 type families via X-macro (Int/String/Float × 2D/3D/4D). The X-macro generates _set for each nested list type (OoLL_*, OoLLL_*, OoLLLL_*) inline.
+//
+// v2.3.0 file split: the original 342-line list.c was split into
+// list.c (orchestrator) + list_alloc.c + list_atomic.c + list_set.c
+// so smaller LLMs can hold each file in context. The set operations
+// fold back inline in list.c at the bottom (the folded form, per
+// the v2.2.0 cleanup).
 //
 // ──▓▓ core/list ANCHOR ──▓▓──

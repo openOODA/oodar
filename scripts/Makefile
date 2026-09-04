@@ -7,7 +7,7 @@
 #
 # Setup: The Makefile is self-contained and works on any Linux system
 # with GNU make and GCC. It does not require autotools or any package
-# manager. The 48 .c files in the umbrella are listed in UMBRELLA_SRCS
+# manager. The 94 .c files in the umbrella are listed in UMBRELLA_SRCS
 # below (mirrors oodar.c:13-60). For the `perfile` target, each .c is
 # compiled individually — note that some .c files in the umbrella rely
 # on transitive includes (they don't #include oodar.h themselves),
@@ -18,7 +18,7 @@
 #   perfile — best-effort per-file build → liboodar_perfile.a
 #   clean   — remove all .o and the lib artifacts
 #   install — copy liboodar.a to ${DESTDIR}/${LIBDIR}
-#   check   — verify all 48 source files are present in REPO_ROOT
+#   check   — verify all 94 source files are present in REPO_ROOT
 #
 # Variables:
 #   CC      — C compiler (default: gcc)
@@ -71,17 +71,29 @@ LIB := $(LIB_DIR)/liboodar.a
 PERFILE_LIB := $(LIB_DIR)/liboodar_perfile.a
 
 # ---------------------------------------------------------------------------
-# The 48 .c files in the umbrella TU (mirrors oodar.c:13-60). The order
+# The 94 .c files in the umbrella TU (mirrors oodar.c:13-106). The order
 # is dependency order from oodar.c; the order does not matter for .o
 # files (only for #include chains, which are resolved at compile time
-# per-file).
+# per-file). v2.3.0: 17 files over 256 lines were split into 60+ files
+# across 9 new sub-dirs (hw/gpu/gpu/, types/, sec/cap/, sec/crypto/
+# {aead,symmetric}/, sec/landlock/{landlock,sandbox}/, sec/pqc/
+# {mlkem,mldsa,pq_sig}/, core/mem/arena_*, core/list/list_*, app/
+# actor/actor_*). The order below mirrors the umbrella includes.
 # ---------------------------------------------------------------------------
 UMBRELLA_SRCS := \
 	sec/cap/caps.c \
-	sec/landlock/landlock.c \
-	sec/landlock/sandbox.c \
-	sec/landlock/proc_mem.c \
 	sec/cap/cap.c \
+	sec/cap/cap_grant.c \
+	sec/cap/cap_require.c \
+	sec/cap/cap_attenuate.c \
+	sec/cap/cap_seal.c \
+	sec/landlock/landlock/landlock.c \
+	sec/landlock/landlock/landlock_restrict.c \
+	sec/landlock/sandbox/sandbox.c \
+	sec/landlock/sandbox/sandbox_matrix.c \
+	sec/landlock/sandbox/sandbox_config.c \
+	sec/landlock/sandbox/sandbox_c.c \
+	sec/landlock/proc_mem.c \
 	core/str/str.c \
 	core/str/str_intern.c \
 	core/str/str_from_int.c \
@@ -89,40 +101,78 @@ UMBRELLA_SRCS := \
 	core/str/str_ops.c \
 	app/telemetry/event.c \
 	core/list/list.c \
+	core/list/list_alloc.c \
+	core/list/list_atomic.c \
+	core/list/list_set.c \
 	core/list/flist.c \
 	core/list/llist.c \
+	fs/os/sys_env.c \
+	fs/os/sys_stamp.c \
+	fs/os/sys_stdin.c \
 	fs/os/sys.c \
 	net/fetch.c \
 	app/xlang/ffi_sec.c \
 	app/xlang/ffi.c \
 	sec/crypto/hash.c \
 	fs/os/netfloor.c \
+	fs/os/netfloor_tcp.c \
+	fs/os/netfloor_udp.c \
 	net/tls.c \
-	hw/gpu/gpu.c \
-	hw/gpu/gpu_hip.c \
-	app/actor/thread.c \
-	app/actor/channel.c \
+	hw/gpu/gpu/gpu.c \
+	hw/gpu/gpu/gpu_atomic.c \
+	hw/gpu/gpu/gpu_pool.c \
+	hw/gpu/gpu/gpu_mem.c \
+	hw/gpu/gpu/gpu_stream.c \
+	hw/gpu/gpu/gpu_classify.c \
+	hw/gpu/gpu/gpu_launch.c \
+	hw/gpu/gpu/gpu_hip_dlopen.c \
+	hw/gpu/gpu/gpu_hip_dispatch.c \
+	hw/gpu/gpu/gpu_hip.c \
+	app/actor/actor_thread.c \
+	app/actor/actor_channel.c \
 	app/actor/actor.c \
+	app/actor/actor_rpc.c \
 	app/hitl/hitl.c \
 	fs/os/time_rand.c \
 	core/mem/alloc.c \
 	core/mem/arena.c \
+	core/mem/arena_pin.c \
+	core/mem/arena_soa.c \
+	core/mem/arena_dod.c \
+	core/mem/arena_checkpoint.c \
+	fs/os/fs_lowlevel.c \
+	fs/os/fs_dir.c \
 	fs/os/fs.c \
 	app/io/print.c \
 	core/math/math.c \
-	sec/crypto/crypto.c \
+	sec/crypto/symmetric/crypto.c \
+	sec/crypto/symmetric/hash.c \
+	sec/crypto/symmetric/hmac.c \
+	sec/crypto/symmetric/secure.c \
 	core/anti_emul/anti_emul.c \
 	fs/os/host.c \
 	fs/os/rlimit.c \
 	fs/os/dns.c \
 	app/xlang/xlang.c \
 	sec/crypto/sha3.c \
-	sec/crypto/aead.c \
-	sec/pqc/mlkem.c \
-	sec/pqc/mldsa.c \
-	sec/pqc/pq_sig.c \
+	sec/crypto/aead/aead.c \
+	sec/crypto/aead/aes_gcm.c \
+	sec/crypto/aead/chacha20_poly1305.c \
+	sec/crypto/seal.c \
+	sec/pqc/mlkem/mlkem_internal.c \
+	sec/pqc/mlkem/mlkem.c \
+	sec/pqc/mlkem/mlkem_kem.c \
+	sec/pqc/mldsa/mldsa_internal.c \
+	sec/pqc/mldsa/mldsa.c \
+	sec/pqc/mldsa/mldsa_sign.c \
+	sec/pqc/mldsa/mldsa_verify.c \
+	sec/pqc/pq_sig/pq_sig.c \
+	sec/pqc/pq_sig/pq_aead_seal.c \
+	sec/pqc/pq_sig/pq_aead_open.c \
+	sec/pqc/pq_sig/pq_aead.c \
+	sec/pqc/pq_sig/pq_hmac.c \
 	app/telemetry/metrics.c \
-	app/actor/closure.c \
+	app/actor/actor_closure.c \
 	core/mem/align.c \
 	core/mem/weak.c
 
@@ -210,7 +260,7 @@ clean:
 	@rm -rf $(BUILD_DIR) $(LIB_DIR)
 
 # ---------------------------------------------------------------------------
-# Check: verify all 48 source files are present in REPO_ROOT.
+# Check: verify all 94 source files are present in REPO_ROOT.
 # Useful as a CI gate.
 # ---------------------------------------------------------------------------
 check:
@@ -222,4 +272,4 @@ check:
 			missing=$$((missing+1)); \
 		fi; \
 	done; \
-	if [ $$missing -eq 0 ]; then echo "CHECK OK: all 48 source files present in $(REPO_ROOT)"; fi
+	if [ $$missing -eq 0 ]; then echo "CHECK OK: all 94 source files present in $(REPO_ROOT)"; fi
