@@ -2,6 +2,7 @@
  * actor_spawn → joinable pthread worker + private mailbox channel; Ok("actor:N").
  * actor_send / actor_recv are mutex/condvar-synchronized mailbox wrappers. */
 #include "../../oodar.h"
+#include "../../sec/crypto/crypto_internal.h"
 #include <pthread.h>
 #include <stdint.h>
 

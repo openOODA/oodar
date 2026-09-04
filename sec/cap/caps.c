@@ -1,4 +1,5 @@
 #include "../../oodar.h"
+#include "../crypto/crypto_internal.h"
 #include <errno.h>
 #include <sys/types.h>
 #include <unistd.h>

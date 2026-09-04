@@ -137,7 +137,8 @@ typedef struct OoRawAllocHeader {
 #define OO_ALLOC_BUCKETS 1024
 static OoRawAllocHeader *g_alloc_table[OO_ALLOC_BUCKETS];
 
-long long oo_alloc(long long size) {
+long long oo_alloc(long long cap, long long size) {
+  oo_cap_require_alloc(cap, "alloc");
   if (size <= 0 || size > OO_ALLOC_BYTES_MAX) return 0;
   oo_list_quota_init_public();
   size_t total_sz = sizeof(OoRawAllocHeader) + (size_t)size;
@@ -174,7 +175,8 @@ long long oo_alloc(long long size) {
   return (long long)(uintptr_t)user_ptr;
 }
 
-void oo_free(long long ptr) {
+void oo_free(long long cap, long long ptr) {
+  oo_cap_require_alloc(cap, "free");
   if (!ptr) return;
   uintptr_t target = (uintptr_t)ptr;
   size_t b = (target >> 4) % OO_ALLOC_BUCKETS;
@@ -197,7 +199,8 @@ void oo_free(long long ptr) {
   pthread_mutex_unlock(&g_quota_mu);
 }
 
-void (oo_write_int)(long long ptr, long long offset, long long val) {
+void (oo_write_int)(long long cap, long long ptr, long long offset, long long val) {
+  oo_cap_require_alloc(cap, "write_int");
   if (!ptr) { fprintf(stderr, "ERR\tmem\tnull pointer dereference in oo_write_int\n"); exit(1); }
   if (offset < 0) { fprintf(stderr, "ERR\tmem\tnegative offset in oo_write_int\n"); exit(1); }
   OoRawAllocHeader *hdr = (OoRawAllocHeader *)((char *)(uintptr_t)ptr - sizeof(OoRawAllocHeader));
@@ -209,7 +212,8 @@ void (oo_write_int)(long long ptr, long long offset, long long val) {
   *dest = val;
 }
 
-long long (oo_read_int)(long long ptr, long long offset) {
+long long (oo_read_int)(long long cap, long long ptr, long long offset) {
+  oo_cap_require_alloc(cap, "read_int");
   if (!ptr) { fprintf(stderr, "ERR\tmem\tnull pointer dereference in oo_read_int\n"); exit(1); }
   if (offset < 0) { fprintf(stderr, "ERR\tmem\tnegative offset in oo_read_int\n"); exit(1); }
   OoRawAllocHeader *hdr = (OoRawAllocHeader *)((char *)(uintptr_t)ptr - sizeof(OoRawAllocHeader));
@@ -222,18 +226,19 @@ long long (oo_read_int)(long long ptr, long long offset) {
 }
 
 long long heap_alloc_test(void) {
-  long long p = oo_alloc(32);
+  long long cap = oo_cap_grant_alloc();
+  long long p = oo_alloc(cap, 32);
   if (!p) { fprintf(stderr, "ERR\tmem\theap_alloc_test failed\n"); exit(1); }
-  (oo_write_int)(p, 0, 77);
-  (oo_write_int)(p, 8, 88);
-  long long v0 = (oo_read_int)(p, 0);
-  long long v1 = (oo_read_int)(p, 8);
+  (oo_write_int)(cap, p, 0, 77);
+  (oo_write_int)(cap, p, 8, 88);
+  long long v0 = (oo_read_int)(cap, p, 0);
+  long long v1 = (oo_read_int)(cap, p, 8);
   if (v0 != 77 || v1 != 88) {
     fprintf(stderr, "ERR\tmem\theap_alloc_test data corruption (v0=%lld, v1=%lld)\n", v0, v1);
-    oo_free(p);
+    oo_free(cap, p);
     exit(1);
   }
-  oo_free(p);
+  oo_free(cap, p);
   return 77;
 }
 

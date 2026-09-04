@@ -1,12 +1,12 @@
 // # core/mem — Linear Arena + ARC + Alignment
 //
-// Logline: The O(1) bulk-reset linear arena, the deterministic ARC (atomic ref-counted), and the 64-byte aligned payload allocator (OO_PAYLOAD_ALIGN = 64).
+// Logline: The O(1) bulk-reset linear arena, the deterministic ARC (atomic ref-counted), and the 64-byte aligned payload allocator (OO_PAYLOAD_ALIGN = 64). v2.0.0: all weak-ref and control-block mutators require AllocCap.
 //
 // Beats:
 //   1. weak.h — OoControlBlock + OoWeakRef + OO_FLAG_* values.
-//   2. weak.c — the C11-atomic retain/release semantics.
+//   2. weak.c — the C11-atomic retain/release semantics (v2.0.0: cap-gated).
 //   3. arena.c — linear arena (create/alloc/reset/destroy).
-//   4. alloc.c — bulk allocator that backs the arena.
+//   4. alloc.c — bulk allocator that backs the arena (v2.0.0: oo_alloc/free/write_int/read_int cap-gated).
 //   5. align.c — 64-byte aligned payload primitive.
 //
 // ──▓▓ core/mem ANCHOR ──▓▓──

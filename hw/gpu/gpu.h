@@ -2,7 +2,7 @@
 #define OODAR_GPU_H
 
 #include "../../oodar.h"
-#include "caps.h"
+#include "../../sec/cap/caps.h"
 #include "../../types.h"
 #include <stddef.h>
 

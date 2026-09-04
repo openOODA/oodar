@@ -1,11 +1,13 @@
 #define _GNU_SOURCE 1
 #include "weak.h"
+#include "../../oodar.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 
-void oo_control_block_init(OoControlBlock *ctrl, void (*dtor)(void *)) {
+void oo_control_block_init(long long cap, OoControlBlock *ctrl, void (*dtor)(void *)) {
+  oo_cap_require_alloc(cap, "control_block_init");
   if (!ctrl) return;
   ctrl->strong_count = 1;
   ctrl->weak_count = 1;
@@ -14,15 +16,17 @@ void oo_control_block_init(OoControlBlock *ctrl, void (*dtor)(void *)) {
   ctrl->dtor = dtor;
 }
 
-OoControlBlock *oo_control_block_create(void *payload, void (*dtor)(void *)) {
+OoControlBlock *oo_control_block_create(long long cap, void *payload, void (*dtor)(void *)) {
+  oo_cap_require_alloc(cap, "control_block_create");
   (void)payload;
   OoControlBlock *ctrl = (OoControlBlock *)calloc(1, sizeof(OoControlBlock));
   if (!ctrl) return NULL;
-  oo_control_block_init(ctrl, dtor);
+  oo_control_block_init(cap, ctrl, dtor);
   return ctrl;
 }
 
-void oo_control_block_retain(OoControlBlock *ctrl) {
+void oo_control_block_retain(long long cap, OoControlBlock *ctrl) {
+  oo_cap_require_alloc(cap, "control_block_retain");
   if (!ctrl) return;
   uint32_t sc = __atomic_load_n(&ctrl->strong_count, __ATOMIC_ACQUIRE);
   uint32_t fl = __atomic_load_n(&ctrl->flags, __ATOMIC_ACQUIRE);
@@ -42,7 +46,8 @@ void oo_control_block_retain(OoControlBlock *ctrl) {
   }
 }
 
-void oo_control_block_release(OoControlBlock *ctrl, void *payload) {
+void oo_control_block_release(long long cap, OoControlBlock *ctrl, void *payload) {
+  oo_cap_require_alloc(cap, "control_block_release");
   if (!ctrl) return;
   uint32_t fl = __atomic_load_n(&ctrl->flags, __ATOMIC_ACQUIRE);
   if ((fl & OO_FLAG_STATIC) || fl == 0xFFFFFFFFu) return;
@@ -63,21 +68,24 @@ void oo_control_block_release(OoControlBlock *ctrl, void *payload) {
   }
 }
 
-void oo_control_block_free(OoControlBlock *ctrl) {
+void oo_control_block_free(long long cap, OoControlBlock *ctrl) {
+  oo_cap_require_alloc(cap, "control_block_free");
   if (ctrl) {
     free(ctrl);
   }
 }
 
-OoWeakRef oo_weak_new(void) {
+OoWeakRef oo_weak_new(long long cap) {
+  oo_cap_require_alloc(cap, "weak_new");
   OoWeakRef ref;
   ref.payload = NULL;
   ref.ctrl = NULL;
   return ref;
 }
 
-OoWeakRef oo_weak_create(void *payload, OoControlBlock *ctrl) {
-  OoWeakRef ref = oo_weak_new();
+OoWeakRef oo_weak_create(long long cap, void *payload, OoControlBlock *ctrl) {
+  oo_cap_require_alloc(cap, "weak_create");
+  OoWeakRef ref = oo_weak_new(cap);
   if (!ctrl || !payload) return ref;
 
   uint32_t sc = __atomic_load_n(&ctrl->strong_count, __ATOMIC_ACQUIRE);
@@ -89,7 +97,8 @@ OoWeakRef oo_weak_create(void *payload, OoControlBlock *ctrl) {
   return ref;
 }
 
-void *oo_weak_upgrade(OoWeakRef *ref) {
+void *oo_weak_upgrade(long long cap, OoWeakRef *ref) {
+  oo_cap_require_alloc(cap, "weak_upgrade");
   if (!ref || !ref->ctrl || !ref->payload) return NULL;
   OoControlBlock *ctrl = ref->ctrl;
 
@@ -112,20 +121,22 @@ void *oo_weak_upgrade(OoWeakRef *ref) {
   return NULL;
 }
 
-void *oo_weak_upgrade_val(OoWeakRef ref) {
-  return oo_weak_upgrade(&ref);
+void *oo_weak_upgrade_val(long long cap, OoWeakRef ref) {
+  return oo_weak_upgrade(cap, &ref);
 }
 
-void oo_weak_retain(OoWeakRef *ref) {
+void oo_weak_retain(long long cap, OoWeakRef *ref) {
+  oo_cap_require_alloc(cap, "weak_retain");
   if (!ref || !ref->ctrl) return;
   __atomic_fetch_add(&ref->ctrl->weak_count, 1, __ATOMIC_ACQ_REL);
 }
 
-void oo_weak_retain_val(OoWeakRef ref) {
-  oo_weak_retain(&ref);
+void oo_weak_retain_val(long long cap, OoWeakRef ref) {
+  oo_weak_retain(cap, &ref);
 }
 
-void oo_weak_release(OoWeakRef *ref) {
+void oo_weak_release(long long cap, OoWeakRef *ref) {
+  oo_cap_require_alloc(cap, "weak_release");
   if (!ref || !ref->ctrl) return;
   OoControlBlock *ctrl = ref->ctrl;
   ref->payload = NULL;
@@ -141,8 +152,8 @@ void oo_weak_release(OoWeakRef *ref) {
   }
 }
 
-void oo_weak_release_val(OoWeakRef ref) {
-  oo_weak_release(&ref);
+void oo_weak_release_val(long long cap, OoWeakRef ref) {
+  oo_weak_release(cap, &ref);
 }
 
 int oo_weak_is_alive(OoWeakRef ref) {

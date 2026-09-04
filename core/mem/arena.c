@@ -369,7 +369,8 @@ long long oo_dod_layout(long long n) {
   return n * 8;
 }
 
-long long oo_checkpoint(long long v) {
+long long oo_checkpoint(long long cap, long long v) {
+  oo_cap_require_arena(cap, "checkpoint");
   long long ret = -1;
   pthread_mutex_lock(&g_ck_mu);
   if (g_ck_n < OO_CK_MAX) {
@@ -380,7 +381,8 @@ long long oo_checkpoint(long long v) {
   return ret;
 }
 
-long long oo_rollback(void) {
+long long oo_rollback(long long cap) {
+  oo_cap_require_arena(cap, "rollback");
   long long ret = 0;
   pthread_mutex_lock(&g_ck_mu);
   if (g_ck_n > 0) {

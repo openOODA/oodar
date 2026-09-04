@@ -1,5 +1,145 @@
 # Changelog
 
+## v2.0.0 — Floor break (audit: cap-gating, dead-code kill, build fix)
+
+Per RULES.oot §1.21, v2.0.0 is a MAJOR (Floor) bump. The super-check
+audit (zero-trust pass over every file) found 1 broken build, 3
+production .c files missing from the umbrella, 4 cap-gating gaps in
+the public API, and 520 lines of dead code. v2.0.0 closes all of them.
+
+### What changed (ABI break — consumers must rebuild)
+
+1. **Cap-gating gaps closed (6 public symbols now require caps).**
+   These were the last 4 cap-gating gaps flagged in v1.0.1's
+   CHANGES.md "residuals" section:
+
+   | v1.0.1 | v2.0.0 |
+   |---|---|
+   | `long long oo_alloc(long long size);` | `long long oo_alloc(long long cap, long long size);` |
+   | `void oo_free(long long ptr);` | `void oo_free(long long cap, long long ptr);` |
+   | `void (oo_write_int)(long long ptr, ...);` | `void (oo_write_int)(long long cap, long long ptr, ...);` |
+   | `long long (oo_read_int)(long long ptr, ...);` | `long long (oo_read_int)(long long cap, long long ptr, ...);` |
+   | `long long oo_checkpoint(long long v);` | `long long oo_checkpoint(long long cap, long long v);` |
+   | `long long oo_rollback(void);` | `long long oo_rollback(long long cap);` |
+
+   All 6 now call `oo_cap_require_alloc` (or `oo_cap_require_arena`
+   for checkpoint/rollback). Consumers must thread a capability
+   token through every alloc/free/checkpoint/rollback call. The
+   `oo_write_int` / `oo_read_int` variadic macros in `oodar.h`
+   are updated to match the new signatures.
+
+2. **Weak-ref mutators now require AllocCap (12 public symbols).**
+   All `oo_weak_*` and `oo_control_block_*` mutators gain a
+   `long long cap` first arg and call `oo_cap_require_alloc`.
+   Pure queries (`oo_weak_is_alive`, `oo_weak_expired`,
+   `oo_weak_strong_count`, `oo_weak_weak_count`) remain cap-free.
+   Oodac-emitted `Weak[T]` code that previously called
+   `oo_retain_OoWeakRef` / `oo_release_OoWeakRef` (the in-`types.h`
+   macros that operate on the `OoWeakRef` payload) is unaffected
+   — those macros do not call the mutators.
+
+   | v1.0.1 | v2.0.0 |
+   |---|---|
+   | `oo_control_block_create(payload, dtor)` | `oo_control_block_create(cap, payload, dtor)` |
+   | `oo_control_block_init(ctrl, dtor)` | `oo_control_block_init(cap, ctrl, dtor)` |
+   | `oo_control_block_retain(ctrl)` | `oo_control_block_retain(cap, ctrl)` |
+   | `oo_control_block_release(ctrl, payload)` | `oo_control_block_release(cap, ctrl, payload)` |
+   | `oo_control_block_free(ctrl)` | `oo_control_block_free(cap, ctrl)` |
+   | `oo_weak_create(payload, ctrl)` | `oo_weak_create(cap, payload, ctrl)` |
+   | `oo_weak_new()` | `oo_weak_new(cap)` |
+   | `oo_weak_upgrade(ref)` | `oo_weak_upgrade(cap, ref)` |
+   | `oo_weak_upgrade_val(ref)` | `oo_weak_upgrade_val(cap, ref)` |
+   | `oo_weak_retain(ref)` | `oo_weak_retain(cap, ref)` |
+   | `oo_weak_retain_val(ref)` | `oo_weak_retain_val(cap, ref)` |
+   | `oo_weak_release(ref)` | `oo_weak_release(cap, ref)` |
+   | `oo_weak_release_val(ref)` | `oo_weak_release_val(cap, ref)` |
+
+3. **22 `crypto_*_internal` symbols moved out of the public header.**
+   They were always named `_internal` but were still in `oodar.h`.
+   v2.0.0 moves them to a private header `sec/crypto/crypto_internal.h`.
+   External consumers who were calling them directly must now use
+   the cap-gated public wrappers (`oo_seal`, `oo_open`, `oo_sign`,
+   `oo_verify`) or define `OODAR_CRYPTO_INTERNAL` before
+   `#include <oodar.h>` to opt back in (deliberate compat escape
+   hatch, not a guarantee). The umbrella build always sees them
+   via the `crypto_internal.h` include from `aead.c`, `crypto.c`,
+   `caps.c`, `actor.c`, etc.
+
+4. **app/actor/cycle.{c,h} removed (520 + 60 = 580 lines killed).**
+   The Bacon-Rajan trial-deletion cycle detector had zero callers
+   in oodar, oodac, or any other openOODA repo. Per the
+   "old code is killed not deprecated" rule, it is removed entirely.
+   `app/actor/ANCHOR.oo` and the parent `app/ANCHOR.oo` are
+   updated to drop the cycle beat.
+
+5. **Build paths fixed (was: `gcc oodar.c` would not compile).**
+   v1.0.1's `oodar.h` had `#include "../types.h"` (path doesn't
+   resolve from the root) and `#include "caps.h"` (file is at
+   `sec/cap/caps.h`). v2.0.0 fixes to `#include "types.h"` and
+   `#include "sec/cap/caps.h"`. Same fix for `sec/cap/caps.h`
+   (`sandbox.h` → `../landlock/sandbox.h`) and `hw/gpu/gpu.h`
+   (`caps.h` → `../../sec/cap/caps.h`). The `oodar.c` comment
+   that showed `../../../oodar.h` (3-level path) is fixed to
+   the actual 2-level path used by every leaf file.
+
+6. **3 production .c files were not in the umbrella build.**
+   `core/mem/weak.c` and `sec/landlock/proc_mem.c` are now
+   included in `oodar.c` (their public APIs `OoWeakRef` /
+   `oo_proc_mem_read` were declared in `oodar.h` but the
+   definitions were not compiled — silent linker errors for
+   any consumer). The umbrella also reorders `app/telemetry/event.c`
+   to be included before `sec/crypto/crypto.c`, since crypto.c
+   calls `oo_event_emit`.
+
+7. **Misc cleanups:**
+   - Removed duplicate `str_split` / `str_trim` declarations in
+     `oodar.h` (declared twice each at lines 199/222 and 200/223).
+   - `api_surface` 53 → 52 (cycle.c removed).
+   - `sec/ANCHOR.oo` updated to reflect the actual 30 cap tokens
+     (14 NORTHSTAR core + 16 future-state extensions), not just
+     the 14 the v1.0.0 text claimed.
+   - `core/ANCHOR.oo` corrected: types.h is at the **repo root**,
+     not at `core/`.
+
+### What consumers must change
+
+You must rebuild. Concretely:
+
+- Any caller of `oo_alloc` / `oo_free` / `oo_write_int` /
+  `oo_read_int` / `oo_checkpoint` / `oo_rollback` must now
+  pass a capability token (e.g., `oo_cap_grant_alloc()`).
+- Any caller of `oo_weak_*` / `oo_control_block_*` mutators
+  must now pass `oo_cap_grant_alloc()`. The pure queries
+  are unchanged.
+- Any caller of `crypto_*_internal` from outside the umbrella
+  must either switch to the public cap-gated wrapper, define
+  `OODAR_CRYPTO_INTERNAL` to opt back in, or move the call
+  into a file inside the oodar umbrella.
+- Any caller of `app/actor/cycle_*` will now fail to link —
+  the API is gone. (No callers found in any openOODA repo.)
+- The build command is unchanged: `gcc oodar.c` still works
+  and now actually produces an `.o`.
+
+### What did NOT change
+
+- The `oo_*` public symbol *set* (no symbols renamed; only
+  signatures changed for the 18 listed above).
+- `oodar.h` and `types.h` are still at the repo root.
+- The 6 per-domain subdir layout (core, sec, fs, net, hw, app)
+  from v1.0.1 is unchanged.
+- The cap system itself (14 core + 16 extensions, all defined
+  in `sec/cap/caps.h`).
+- The set of exported cap-gated mutators from v1.0.1.
+
+### Residuals (planned for follow-up)
+
+- `sec/pqc/dudect_c_native.c` and `hw/gpu/oo_hip_so_smoke.c`
+  are test utilities; they will move to `qa/` in a follow-up
+  commit.
+- `oo_res_eq_s` and 13 other public OCap-pure utility symbols
+  (no cap arg, side-effect-free): no cap added since they
+  don't touch any privileged state.
+
 ## v1.0.1 — Thrust (internal reorg, no consumer change)
 
 Per RULES.oot §1.21, v1.0.1 is a MINOR (Thrust) bump. The

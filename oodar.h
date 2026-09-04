@@ -1,7 +1,7 @@
 #ifndef OODAR_H
 #define OODAR_H
-#include "../types.h"
-#include "caps.h"
+#include "types.h"
+#include "sec/cap/caps.h"
 
 #ifndef __has_builtin
   #define __has_builtin(x) 0
@@ -74,6 +74,12 @@ void oo_child_filter_env(void);
 void oo_process_exit(long long c);
 OoResS oo_proc_mem_read(long long cap, long long offset, long long n);
 
+/* v2.0.0 Floor break: crypto_*_internal primitives moved to sec/crypto/crypto_internal.h.
+ * External consumers must use the cap-gated wrappers (oo_seal, oo_open) instead. */
+#ifdef OODAR_CRYPTO_INTERNAL
+#include "sec/crypto/crypto_internal.h"
+#endif
+
 OoResS oo_dlopen(long long cap, OoStr path);
 OoResS oo_dlsym(long long cap, OoStr handle, OoStr name);
 OoResS oo_dlclose(long long cap, OoStr handle);
@@ -81,31 +87,6 @@ OoStr oo_host_ast_dump(long long cap, OoStr path);
 OoStr oo_host_check(long long cap, OoStr path);
 OoStr oo_host_token_dump(long long cap, OoStr path);
 OoResS oo_host_build(long long cap, OoStr src, OoStr out_bin);
-
-OoStr crypto_md5_internal(OoStr data);
-OoStr crypto_sha1_internal(OoStr data);
-OoStr crypto_aes_encrypt_internal(OoStr key, OoStr plain);
-OoStr crypto_sha256_internal(OoStr data);
-OoStr crypto_sha512_internal(OoStr data);
-OoStr crypto_hmac_sha256_internal(OoStr key, OoStr msg);
-void crypto_secure_wipe(void *p, size_t n);
-int crypto_ct_cmp(const void *a, const void *b, size_t n);
-OoStr crypto_sha3_256_internal(OoStr data);
-OoStr crypto_aes_gcm_seal_internal(OoStr key, OoStr nonce, OoStr pt, OoStr aad);
-OoStr crypto_aes_gcm_open_internal(OoStr key, OoStr nonce, OoStr ct, OoStr tag, OoStr aad);
-OoStr crypto_chacha20poly1305_seal_internal(OoStr key, OoStr nonce, OoStr pt, OoStr aad);
-OoStr crypto_chacha20poly1305_open_internal(OoStr key, OoStr nonce, OoStr ct, OoStr tag, OoStr aad);
-OoStr crypto_mlkem768_keygen_internal(OoStr dz);
-OoStr crypto_mlkem768_encaps_internal(OoStr ek, OoStr m);
-OoStr crypto_mlkem768_decaps_internal(OoStr dk, OoStr ct);
-OoStr crypto_mldsa65_keygen_internal(OoStr seed);
-OoStr crypto_mldsa65_sign_internal(OoStr sk, OoStr msg, OoStr rnd);
-OoStr crypto_mldsa65_verify_internal(OoStr pk, OoStr msg, OoStr sig);
-OoStr crypto_pq_hmac_sha256_internal(OoStr key, OoStr msg);
-int crypto_pq_hmac_sha256_verify_internal(OoStr seal, OoStr msg);
-int crypto_pq_hmac_self_test(void);
-OoStr crypto_pq_aead_seal_internal(OoStr cap_key32, OoStr aead_key16, OoStr plaintext);
-OoStr crypto_pq_aead_open_internal(OoStr cap_key32, OoStr aead_key16, OoStr seal);
 
 int oo_metrics_incr(OoStr name);
 long long oo_metrics_get(OoStr name);
@@ -174,24 +155,24 @@ long long oo_random(long long cap);
 #endif
 long long oo_alloc_bytes(long long cap, long long n);
 void oo_free_bytes(long long cap, long long p);
-long long oo_alloc(long long size);
-void oo_free(long long ptr);
-void (oo_write_int)(long long ptr, long long offset, long long val);
-long long (oo_read_int)(long long ptr, long long offset);
+long long oo_alloc(long long cap, long long size);
+void oo_free(long long cap, long long ptr);
+void (oo_write_int)(long long cap, long long ptr, long long offset, long long val);
+long long (oo_read_int)(long long cap, long long ptr, long long offset);
 long long heap_alloc_test(void);
 
 #ifndef oo_write_int
-#define OO_WRITE_INT_GET_MACRO(_1, _2, _3, NAME, ...) NAME
-#define oo_write_int_2(p, v) (oo_write_int)((p), 0LL, (v))
-#define oo_write_int_3(p, o, v) (oo_write_int)((p), (o), (v))
-#define oo_write_int(...) OO_WRITE_INT_GET_MACRO(__VA_ARGS__, oo_write_int_3, oo_write_int_2)(__VA_ARGS__)
+#define OO_WRITE_INT_GET_MACRO(_1, _2, _3, _4, NAME, ...) NAME
+#define oo_write_int_3(c, p, v) (oo_write_int)((c), (p), 0LL, (v))
+#define oo_write_int_4(c, p, o, v) (oo_write_int)((c), (p), (o), (v))
+#define oo_write_int(...) OO_WRITE_INT_GET_MACRO(__VA_ARGS__, oo_write_int_4, oo_write_int_3)(__VA_ARGS__)
 #endif
 
 #ifndef oo_read_int
-#define OO_READ_INT_GET_MACRO(_1, _2, NAME, ...) NAME
-#define oo_read_int_1(p) (oo_read_int)((p), 0LL)
-#define oo_read_int_2(p, o) (oo_read_int)((p), (o))
-#define oo_read_int(...) OO_READ_INT_GET_MACRO(__VA_ARGS__, oo_read_int_2, oo_read_int_1)(__VA_ARGS__)
+#define OO_READ_INT_GET_MACRO(_1, _2, _3, NAME, ...) NAME
+#define oo_read_int_2(c, p) (oo_read_int)((c), (p), 0LL)
+#define oo_read_int_3(c, p, o) (oo_read_int)((c), (p), (o))
+#define oo_read_int(...) OO_READ_INT_GET_MACRO(__VA_ARGS__, oo_read_int_3, oo_read_int_2)(__VA_ARGS__)
 #endif
 long long oo_cg_sign(long long cap);
 int oo_cg_verify(long long cap, long long sig);
@@ -219,8 +200,6 @@ void oo_reso_ls_release(OoResO_LS v);
 void oo_reso_lf_retain(OoResO_LF v);
 void oo_reso_lf_release(OoResO_LF v);
 
-OoSList str_split(OoStr s, OoStr delim);
-OoStr str_trim(OoStr s);
 int oo_res_eq_s(OoResS a, OoResS b);
 
 int oo_landlock_is_available(void);
@@ -233,8 +212,8 @@ OoResS oo_arena_destroy(long long cap, long long id);
 void oo_arena_free(long long cap, long long id);
 long long oo_soa_layout(OoStr name);
 long long oo_dod_layout(long long n);
-long long oo_checkpoint(long long v);
-long long oo_rollback(void);
+long long oo_checkpoint(long long cap, long long v);
+long long oo_rollback(long long cap);
 
 OoResS oo_cap_rpc_send(long long cap, OoStr payload);
 OoResS oo_cap_rpc_recv(long long cap, OoStr sealed);
