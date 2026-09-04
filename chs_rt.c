@@ -11,8 +11,6 @@
 #include "chs_rt_list.c"
 #include "chs_rt_flist.c"
 #include "chs_rt_llist.c"
-#include "chs_rt_llist_s.c"
-#include "chs_rt_llist_f.c"
 #include "chs_rt_caps.c"
 #include "chs_rt_sys.c"
 #include "chs_rt_fetch.c"
