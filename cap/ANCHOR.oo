@@ -1,0 +1,13 @@
+// # cap — Capability Tokens
+//
+// Logline: The 14 unforgeable capability tokens derived from getentropy (per Pillar 5), plus the cap helpers (seal, attenuate, eq).
+//
+// Setup: caps.c implements the 14 token creation/attestation logic; cap.c implements the higher-level seal/attenuate/eq operations. All operations are fail-closed; no LCG fallback (per the audit).
+//
+// Beats:
+//   1. Read caps.h — the OoCapBits bit-layout and the 14 token kinds.
+//   2. Read caps.c — the getentropy-derived token creation and attestation.
+//   3. Read cap.c — seal, attenuate, eq.
+//
+// ──▓▓ cap ANCHOR ──▓▓──
+// :: Pillar 5 — unforgeable, kernel-derived ::

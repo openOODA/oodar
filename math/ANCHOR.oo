@@ -1,0 +1,10 @@
+// # math — Math Primitives
+//
+// Logline: The sin, cos, ln, exp, sqrt, pow math functions. Thin wrappers around the C math library (no FP env control in v0.1.0).
+//
+// Setup: math.c is the wrappers.
+//
+// Beats:
+//   1. Read math.c — sin, cos, ln, exp, sqrt, pow.
+//
+// ──▓▓ math ANCHOR ──▓▓──

@@ -1,0 +1,14 @@
+// # gpu — HIP/ROCm + Compute Kernels
+//
+// Logline: The GPU device, buffer, stream, event, and launch surface (HIP/ROCm only — no CPU fallback, no "noop" prefix). The liboo_hip.so dynamic loader. The compute kernel suite (vec_add, sgemm, rmsnorm, attention, reduce_sum, rope, stencil_3d).
+//
+// Setup: gpu.c is the device + buffer + stream + event API; gpu_hip.c is the dlopen(liboo_hip.so) loader; hip_kern.hip is the compute kernel suite. All operations require GpuCap. Empty shader / unknown prefix fails closed.
+//
+// Beats:
+//   1. Read gpu.h — the OoGpuDevice, OoGpuBuffer types.
+//   2. Read gpu.c — device probe, buffer alloc/free, stream/event.
+//   3. Read gpu_hip.c — liboo_hip.so dynamic loader.
+//   4. Read hip_kern.hip — the kernel suite (vec_add, sgemm, etc.).
+//
+// ──▓▓ gpu ANCHOR ──▓▓──
+// :: HIP/ROCm only — no CPU fallback ::

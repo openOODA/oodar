@@ -1,0 +1,18 @@
+// # os — Operating System Surface
+//
+// Logline: The OS syscall shims (sys_exec, sys_args, sys_prctl), the policy getenv filter (OODA_/OO_ keys only), the file I/O surface, the net-floor loopback constraint, the host process info, the rlimit setter, the time+rand source, the DNS resolver (loopback-only), and the Landlock-gated proc_mem.
+//
+// Setup: All operations are cap-gated. Process control and FS require their respective caps. DNS resolution is loopback-only by design (no getaddrinfo).
+//
+// Beats:
+//   1. Read sys.c — sys_exec, sys_args, policy getenv, child filter env.
+//   2. Read fs.c — file I/O with cap-gated path safety.
+//   3. Read netfloor.c — net-floor loopback constraint.
+//   4. Read host.c — host process info (pid, ppid, etc.).
+//   5. Read dns.h — the OoDNS resolver type and loopback constraint.
+//   6. Read dns.c — the resolver; only loopback allowed.
+//   7. Read rlimit.c — setrlimit wrapper (RLIMIT_AS, RLIMIT_NOFILE, RLIMIT_CPU).
+//   8. Read time_rand.c — monotonic time + secure random.
+//
+// ──▓▓ os ANCHOR ──▓▓──
+// :: fail-closed: no getaddrinfo, no unrestricted env ::

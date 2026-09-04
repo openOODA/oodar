@@ -1,0 +1,10 @@
+// # io — I/O Primitives
+//
+// Logline: The stdout/stderr print family used by compiled .oo programs. print_str, print_int, print_bool, print_double, println, eprint_str, eprintln.
+//
+// Setup: All operations are no-cap (output is not capability-gated in v0.1.0).
+//
+// Beats:
+//   1. Read print.c — the print family.
+//
+// ──▓▓ io ANCHOR ──▓▓──

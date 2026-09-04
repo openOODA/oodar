@@ -1,0 +1,13 @@
+// # pqc — Post-Quantum Cryptography
+//
+// Logline: The ML-KEM-768 (key encapsulation) and ML-DSA-65 (digital signature) primitives, plus the PQ AEAD seal/open that binds ciphertexts to a keypair via pk-as-AAD.
+//
+// Setup: mlkem.c is ML-KEM-768; mldsa.c is ML-DSA-65; pq_sig.c is the higher-level PQ AEAD. PQC is shipped by default — no external crypto dep needed for a compiled .oo program to sign/verify.
+//
+// Beats:
+//   1. Read mlkem.c — ML-KEM-768 keygen/encaps/decaps.
+//   2. Read mldsa.c — ML-DSA-65 keygen/sign/verify.
+//   3. Read pq_sig.c — PQ AEAD seal/open with pk-as-AAD binding.
+//
+// ──▓▓ pqc ANCHOR ──▓▓──
+// :: PQC-by-default — first-class in the runtime ::
