@@ -1,9 +1,15 @@
 // # oodar/docs — Per-Package Documentation
 //
-// Logline: Empty placeholder for the v0.1.0 release. Per-package docs will land here per RFC-0005 §6.
+// Logline: Per-package documentation for the oodar v2.1.0+ substrate. Five .oot files (SECURITY_MODEL, PILLARS, CAPABILITIES_TABLE, BUILD_AND_INSTALL, TESTING) cover the 8D Red Team documentation surface, the cap+Landlock security model, the polyrepo build convention, and the 25-token cap inventory.
 //
-// Setup: Per RFC-0005, per-package docs replace global LLMS.oot-style codex dumps.
+// Setup: Per RFC-0005, per-package docs replace global LLMS.oot-style codex dumps. The 5 .oot files are the v2.1.0+ authoritative references; each file is <= 256 lines per RFC-0003.
 //
 // Beats:
-//   1. Empty in v0.1.0.
-//   2. Future: per-package API docs, security substrate model, capability token model.
+//   1. SECURITY_MODEL.oot      — the 25-token cap system, the 4 hard rules, the 6-step cap flow.
+//   2. PILLARS.oot             — how oodar maps to the 10 NORTHSTAR Pillars (5-of-10 wired: 3, 4, 5, 7, 9).
+//   3. CAPABILITIES_TABLE.oot  — the 25 cap tokens, 5 reserved bits, grant/require/attenuate/used-by table.
+//   4. BUILD_AND_INSTALL.oot   — canonical `gcc oodar.c`, per-file compile, polyrepo, liboodar.a.
+//   5. TESTING.oot             — the 8D Red Team matrix and the 5 tier-5 tests_challenger_*.c files.
+//
+// ──▓▓ oodar/docs ANCHOR ──▓▓──
+// :: 5 .oot files, 981 total lines, all <= 256 ::

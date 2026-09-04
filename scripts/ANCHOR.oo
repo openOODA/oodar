@@ -1,9 +1,12 @@
 // # oodar/scripts — Build, Test, Verify, Release Entry Points
 //
-// Logline: Empty placeholder for the v0.1.0 release. The build, test, verify, and release entry points per RFC-0005 §4 will land here.
+// Logline: The v2.2.0+ scripts/ subdir holds the build, verify, and reproducible-build entry points. The canonical single-TU build is `gcc oodar.c`; the Makefile adds a `liboodar.a` static library artifact; the repro_build.sh script produces a bit-identical liboodar.a across builds.
 //
-// Setup: Per RFC-0005, the canonical four scripts are build.oo, test.oo, verify.oo, and release.oo.
+// Setup: Per RFC-0005, the canonical four scripts are build, test, verify, and release. The v2.2.0+ surface covers build (Makefile) and verify (repro_build.sh); test is in qa/; release is via the governance workflow per RULES.oot §1.24.
 //
 // Beats:
-//   1. Empty in v0.1.0.
-//   2. Future: build, test, verify, release entry points land here.
+//   1. Makefile       — builds liboodar.a from the umbrella TU (or, as a best-effort alternative, per-file).
+//   2. repro_build.sh — reproducible build with SOURCE_DATE_EPOCH, deterministic ar, sorted input, sha256 hash, verify mode.
+//
+// ──▓▓ oodar/scripts ANCHOR ──▓▓──
+// :: Makefile (225 lines) + repro_build.sh (246 lines) — both <= 256 ::

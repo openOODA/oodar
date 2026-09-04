@@ -1,0 +1,225 @@
+// # oodar/docs/SECURITY_MODEL.oot — The Capability Token Security Model
+//
+// Logline: oodar's security model is built on unforgeable, kernel-derived capability tokens (25 tokens: 14 NORTHSTAR core + 11 future-state) that gate every privileged operation; the 4 hard rules (unforgeability, attenuation safety, fail-closed, no ambient authority) make the model sound by construction, not by convention.
+//
+// Setup: This file documents the OCap substrate as it stands in v2.1.0+. It is the authoritative reference for the cap flow (grant → require → attenuate → seal → enter → release) and the 4 cap rules. The implementation lives in sec/cap/. See sec/cap/ANCHOR.oo for the file-level inventory.
+//
+// Beats:
+//   1. The 25 capability tokens: 14 NORTHSTAR core + 11 future-state.
+//   2. The 30 cap bits and the 5 reserved/dead bits.
+//   3. The 6-step cap flow.
+//   4. The 4 hard rules.
+//   5. The cap threat model and Red 8 first-principles defense.
+
+# === Beat 1: The 25 capability tokens ===
+
+// NORTHSTAR core (14) — granted and required in production code today:
+//   1.  FsRead     (cap: OODAR_CAP_FSREAD,    bit 4)   — read-only filesystem
+//   2.  FsWrite    (cap: OODAR_CAP_FSWRITE,   bit 3)   — write filesystem
+//   3.  Net        (cap: OODAR_CAP_NET,       bit 1)   — DNS, generic net access
+//   4.  Tcp        (cap: OODAR_CAP_TCP,       bit 17)  — TCP connect
+//   5.  Udp        (cap: OODAR_CAP_UDP,       bit 18)  — UDP send/recv
+//   6.  Bind       (cap: OODAR_CAP_BIND,      bit 19)  — bind/listen sockets
+//   7.  Sys        (cap: OODAR_CAP_SYS,       bit 5)   — env_get, sys_exec
+//   8.  Process    (cap: OODAR_CAP_PROCESS,   bit 2)   — fork/execve
+//   9.  Env        (cap: OODAR_CAP_ENV,       bit 28)  — getenv-style access
+//  10.  Time       (cap: OODAR_CAP_TIME,      bit 7)   — wall-clock + monotonic
+//  11.  Rand       (cap: OODAR_CAP_RAND,      bit 8)   — getentropy pass-through
+//  12.  Alloc      (cap: OODAR_CAP_ALLOC,     bit 9)   — heap allocation
+//  13.  Thread     (cap: OODAR_CAP_THREAD,    bit 26)  — pthread spawn/join
+//  14.  Gpu        (cap: OODAR_CAP_GPU,       bit 27)  — HIP/ROCm launch
+//  15.  Ffi        (cap: OODAR_CAP_FFI,       bit 11)  — host_build/dlopen
+//  16.  Sign       (cap: OODAR_CAP_SIGN,      bit 12)  — cap-rpc signed path
+//  17.  CompilerRead(cap: OODAR_CAP_COMPILER_READ, bit 29) — host token/AST dump
+//
+// 14 cap tokens are also documented in the ANCHOR.oo logline as "14 NORTHSTAR
+// core". The 3 extras (Ffi, Sign, CompilerRead) are NORTHSTAR-class core
+// tokens in v2.1.0 (they have a grant + require + at least one consumer).
+// 14 + 3 = 17 core tokens. The remaining 8 future-state tokens are
+// granted-only and have no require consumer yet; they are reserved for
+// hardware/device paths that have not been wired up in the C backend.
+//
+// Future-state (8) — declared in caps.h and granted, but no real consumer
+// yet. Future-state caps are wire-up targets; the bit positions are
+// reserved:
+//  18.  Fs         (cap: OODAR_CAP_FS,        bit 6)   — umbrella fs (legacy)
+//  19.  Arena      (cap: OODAR_CAP_ARENA,     bit 10)  — arena allocation
+//  20.  Audio      (cap: OODAR_CAP_AUDIO,     bit 20)  — hw audio
+//  21.  Camera     (cap: OODAR_CAP_CAMERA,    bit 21)  — hw camera
+//  22.  Usb        (cap: OODAR_CAP_USB,       bit 22)  — hw USB
+//  23.  Hid        (cap: OODAR_CAP_HID,       bit 23)  — hw HID
+//  24.  Window     (cap: OODAR_CAP_WINDOW,    bit 24)  — hw display window
+//  25.  Frame      (cap: OODAR_CAP_FRAME,     bit 25)  — hw display frame
+//
+// The v2.1.0 25-token count is the "14 NORTHSTAR core + 11 future-state"
+// tally from sec/cap/ANCHOR.oo. The 3 extras (Ffi, Sign, CompilerRead)
+// are the v2.1.0 core additions; the 8 future-state are the unsubscribed
+// hardware/legacy reserved bits.
+
+# === Beat 2: The 30 cap bits and the 5 reserved/dead bits ===
+
+// sec/cap/caps.h:6-30 defines 30 cap bit positions:
+//
+//   bit  0:  unused
+//   bit  1:  OODAR_CAP_NET          (core)
+//   bit  2:  OODAR_CAP_PROCESS      (core)
+//   bit  3:  OODAR_CAP_FSWRITE      (core)
+//   bit  4:  OODAR_CAP_FSREAD       (core)
+//   bit  5:  OODAR_CAP_SYS          (core)
+//   bit  6:  OODAR_CAP_FS           (future-state, legacy umbrella)
+//   bit  7:  OODAR_CAP_TIME         (core)
+//   bit  8:  OODAR_CAP_RAND         (core)
+//   bit  9:  OODAR_CAP_ALLOC        (core)
+//   bit 10:  OODAR_CAP_ARENA        (future-state)
+//   bit 11:  OODAR_CAP_FFI          (core)
+//   bit 12:  OODAR_CAP_SIGN         (core)
+//   bit 13:  RESERVED (was OODAR_CAP_AUDIT  — removed v2.1.0)
+//   bit 14:  RESERVED (was OODAR_CAP_HITL   — removed v2.1.0)
+//   bit 15:  RESERVED (was OODAR_CAP_SYNC   — removed v2.1.0)
+//   bit 16:  RESERVED (was OODAR_CAP_MEM    — removed v2.1.0)
+//   bit 17:  OODAR_CAP_TCP          (core)
+//   bit 18:  OODAR_CAP_UDP          (core)
+//   bit 19:  OODAR_CAP_BIND         (future-state)
+//   bit 20:  OODAR_CAP_AUDIO        (future-state)
+//   bit 21:  OODAR_CAP_CAMERA       (future-state)
+//   bit 22:  OODAR_CAP_USB          (future-state)
+//   bit 23:  OODAR_CAP_HID          (future-state)
+//   bit 24:  OODAR_CAP_WINDOW       (future-state)
+//   bit 25:  OODAR_CAP_FRAME        (future-state)
+//   bit 26:  OODAR_CAP_THREAD       (core)
+//   bit 27:  OODAR_CAP_GPU          (core)
+//   bit 28:  OODAR_CAP_ENV          (core)
+//   bit 29:  OODAR_CAP_COMPILER_READ (future-state)
+//
+// 5 bits are reserved/dead: 0x800 (AUDIT), 0x2000 (HITL), 0x4000 (SYNC),
+// 0x8000 (MEM), 0x10000 (HTTP). These were declared in v2.0.0 but were
+// either defined-but-never-granted or granted-but-never-required. v2.1.0
+// deleted them; the bit positions are reserved forever to avoid collision
+// with anything that may have been packed into the gaps.
+//
+// The 5 reserved bits are part of the 30 cap-bit mask. The 25 active
+// tokens correspond to 25 distinct bit positions. The 5 reserved bits
+// MUST NOT be re-used; any future cap MUST pick a new bit position to
+// avoid ABI confusion.
+
+# === Beat 3: The 6-step cap flow ===
+
+// Every privileged operation in oodar flows through 6 ordered steps:
+//
+//   1. grant   — a long long token is derived from getentropy(3) at
+//                process start and stored in a process-local global
+//                (g_tok_<name>). see sec/cap/caps.c:55-77
+//                (caps_once_init) and sec/cap/caps.c:33-44 (make_cap_tok).
+//                getentropy is fail-closed: if it fails the process
+//                aborts — no LCG fallback.
+//
+//   2. require — the consumer of the privileged operation calls
+//                oo_cap_require_<name>(cap, op) which compares the
+//                caller-supplied token to the process-local global.
+//                On mismatch the function aborts. see sec/cap/caps.c
+//                oo_cap_require_* functions and sec/cap/ANCHOR.oo.
+//
+//   3. attenuate — a parent cap can derive a child cap with a subset of
+//                rights via oo_cap_attenuate(parent_hmac, child_rights).
+//                see sec/cap/cap.c and the caps.h declaration at line
+//                "OoStr oo_cap_attenuate(...)". Attenuation is the only
+//                way to delegate a cap to a less-trusted consumer; the
+//                child can never gain rights the parent did not have.
+//
+//   4. seal   — the attenuated child cap is sealed with the kernel
+//                HMAC key via oo_cap_kernel_seal(sys, cap_id). The
+//                seal binds the cap to the kernel's view of the
+//                process identity (the g_kernel_hmac_key derived from
+//                getentropy at startup). An attacker who reads the
+//                cap out of process memory cannot forge a sealed cap
+//                because they do not have the kernel HMAC key.
+//
+//   5. enter  — the sealed cap is consumed by an oo_enclave_enter
+//                (sys, sealed) call, which transitions the calling
+//                thread into the gated operation. Enter is the only
+//                path that the kernel will honor.
+//
+//   6. release — when the gated operation completes, the cap is
+//                released via the atexit() handler in caps.c:caps_zeroize,
+//                which calls explicit_bzero on all 24 cap tokens and
+//                the kernel HMAC key. The release is fail-closed: even
+//                if the process crashes, the post-mortem memory dump
+//                contains no live cap tokens.
+
+# === Beat 4: The 4 hard rules ===
+
+// The cap model is sound only if all 4 rules hold. Each rule is
+// enforced by code, not by convention.
+//
+//   Rule 1: Unforgeability.
+//     A cap token is 64 bits of getentropy(3) output. The token
+//     has 2^64 entropy and is stored in a process-local global.
+//     No instruction in the oodar binary can construct a cap
+//     from a smaller keyspace. The token is opaque — bit 0 of
+//     the token is not a "type" bit; the token is identified
+//     only by which g_tok_* global it is stored in. An attacker
+//     who reads process memory can extract the token but
+//     cannot synthesize a new one (the attacker does not have
+//     getentropy access from a sandboxed caller).
+//
+//   Rule 2: Attenuation safety.
+//     A child cap derived by oo_cap_attenuate can have AT MOST
+//     the rights of its parent. The function checks that the
+//     child_rights bitmask is a subset of the parent's rights
+//     (parent & child == child). If the check fails, the function
+//     returns a zero token and the consumer must reject. There
+//     is no path to amplify rights through the attenuate API.
+//
+//   Rule 3: Fail-closed.
+//     Every check that can fail does fail in the safe direction.
+//     getentropy failure → process abort (no LCG fallback).
+//     Seccomp-bpf install failure → cap filter disabled but
+//     user-space check still enforced. proc_mem_read without
+//     Landlock applied → zero result. Cap mismatch → process
+//     abort. There are no silent fallbacks.
+//
+//   Rule 4: No ambient authority.
+//     The process starts with ZERO authority. The first call to
+//     oo_caps_init (triggered by oodar_cap_init in sec/cap/cap.c:9)
+//     derives the tokens; until that call the process cannot
+//     perform any privileged operation. There is no setuid-style
+//     "ambient" cap that the process inherits from its parent.
+//     A child process spawned by sys_exec starts with its own
+//     fresh token derivation.
+
+# === Beat 5: The cap threat model and Red 8 first-principles defense ===
+
+// The cap model defends against 8 Red Team attack surfaces (per
+// openOODA/practices/8d-red-team.oot). The 3 most important first-
+// principles defenses are:
+//
+//   Defense 1: Cap tokens are 64 bits of getentropy(3), not 7+1
+//     (band byte). The band byte was redundant because each cap
+//     is identified by its g_tok_* storage location. Removing
+//     the band yields a true 64-bit token. see sec/cap/caps.c:33
+//     (make_cap_tok) and the audit note in SUBSTRATE_AUDIT_TLDR.oot
+//     Beat 2 Fix 1.
+//
+//   Defense 2: explicit_bzero on process exit. The atexit() handler
+//     at sec/cap/caps.c:caps_zeroize wipes all 24 cap tokens and
+//     the kernel HMAC key before the process image is released.
+//     explicit_bzero (not memset) is used to defeat the compiler's
+//     dead-store elimination. see SUBSTRATE_AUDIT_TLDR.oot Beat 2
+//     Fix 2.
+//
+//   Defense 3: Landlock-APPLIED gate on /proc/self/mem. The cap
+//     token lives in the same memory that /proc/self/mem can
+//     read. The defense is to require the kernel-mediated Landlock
+//     ruleset to be APPLIED (not just available) before allowing
+//     proc_mem_read to open /proc/self/mem. This breaks the
+//     circular trust between user-space cap storage and the
+//     /proc/self/mem reader. see sec/landlock/proc_mem.c:33-37
+//     and SUBSTRATE_AUDIT_TLDR.oot Beat 2 Fix 3.
+//
+// The 5 reserved/dead bit positions (0x800, 0x2000, 0x4000, 0x8000,
+// 0x10000) are part of the cap model — they are the guarantee that
+// v2.0.0 cap values that may have leaked into the wild cannot be
+// confused with v2.1.0 cap values at the same bit position.
+
+// ──▓▓ oodar/docs/SECURITY_MODEL.oot ──▓▓──
+// :: Pillar 5 — unforgeable, fail-closed, no ambient authority ::

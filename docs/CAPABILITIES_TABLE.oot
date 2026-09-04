@@ -1,0 +1,179 @@
+// # oodar/docs/CAPABILITIES_TABLE.oot — Full Cap Token Inventory (25 tokens)
+//
+// Logline: Every cap token in v2.1.0+ is enumerated here with its NORTHSTAR class (core vs future-state), bit position, grant function, require function, attenuation function, and the consuming oo_* symbols — a single table that maps caps.h:6-30 to the call sites in the rest of the runtime.
+//
+// Setup: This is the canonical reference for the 25-token cap model. It is generated against the v2.1.0+ code and cross-referenced with sec/cap/caps.h. The 5 reserved/dead bit positions (0x800, 0x2000, 0x4000, 0x8000, 0x10000) are not tokens — they are gap reservations; see docs/SECURITY_MODEL.oot Beat 2 for the rationale.
+//
+// Beats:
+//   1. NORTHSTAR core caps (17 tokens).
+//   2. Future-state caps (8 tokens).
+//   3. The 5 reserved/dead bit positions.
+//   4. How to read the table.
+
+# === How to read the table ===
+
+// Each row gives:
+//   - Name         : the human-readable cap name
+//   - Bit          : the OODAR_CAP_<NAME> bit position
+//   - Class        : NORTHSTAR core (granted AND required) or future-state
+//                    (granted-only, no real consumer yet)
+//   - Grant        : the oo_cap_grant_<name> function in sec/cap/caps.c
+//   - Require      : the oo_cap_require_<name> function in sec/cap/caps.c
+//                    (only for core caps)
+//   - Attenuate    : the oo_cap_attenuate function in sec/cap/cap.c
+//                    (applies to all caps via the bitmask subset check)
+//   - Used by      : the oo_* call sites in the runtime that require
+//                    this cap, with file:line references
+//
+// The oo_cap_attenuate function takes a parent_hmac and a child_rights
+// bitmask. It is the only cap-derivation path; the child can never
+// gain rights the parent did not have. Attenuation is generic —
+// the same function works for all 25 tokens.
+
+# === Beat 1: NORTHSTAR core caps (17 tokens) ===
+
+// =====================================================================
+// Name            | Bit | Class     | Grant                  | Require
+// =====================================================================
+// FsRead          |  4  | core      | oo_cap_grant_fsread    | oo_cap_require_fsread
+// FsWrite         |  3  | core      | oo_cap_grant_fswrite   | oo_cap_require_fswrite
+// Net             |  1  | core      | oo_cap_grant_net       | oo_cap_require_net
+// Tcp             | 17  | core      | oo_cap_grant_tcp       | oo_cap_require_tcp
+// Udp             | 18  | core      | oo_cap_grant_udp       | oo_cap_require_udp
+// Sys             |  5  | core      | oo_cap_grant_sys       | oo_cap_require_sys
+// Process         |  2  | core      | oo_cap_grant_process   | oo_cap_require_process
+// Env             | 28  | core      | oo_cap_grant_env       | oo_cap_require_env
+// Time            |  7  | core      | oo_cap_grant_time      | oo_cap_require_time
+// Rand            |  8  | core      | oo_cap_grant_rand      | oo_cap_require_rand
+// Alloc           |  9  | core      | oo_cap_grant_alloc     | oo_cap_require_alloc
+// Thread          | 26  | core      | oo_cap_grant_thread    | oo_cap_require_thread
+// Gpu             | 27  | core      | oo_cap_grant_gpu       | oo_cap_require_gpu
+// Ffi             | 11  | core      | oo_cap_grant_ffi       | oo_cap_require_ffi
+// Sign            | 12  | core      | oo_cap_grant_sign      | oo_cap_require_sign
+// CompilerRead    | 29  | core      | oo_cap_grant_compiler_read | oo_cap_require_compiler_read
+// (Fs             |  6  | core*     | oo_cap_grant_fs        | oo_cap_require_fs)
+// =====================================================================
+// * Fs is the legacy umbrella cap; it is granted+required in v2.1.0
+//   but is on the path to deprecation once FsRead/FsWrite fully subsume
+//   it. The 14 NORTHSTAR core + 3 (Ffi, Sign, CompilerRead) additions +
+//   1 (Fs) legacy = 17 core tokens. The Fs token has a grant + require
+//   in caps.h but no real consumer in the current code (the read/write
+//   operations use FsRead/FsWrite).
+//
+// Used by (core caps, by token):
+//   FsRead       : fs/os/fs.c (oo_read_file, oo_path_exists, oo_file_size,
+//                                oo_fs_read_dir, oo_fs_is_dir)
+//   FsWrite      : fs/os/fs.c (oo_write_file, oo_fs_remove_file, oo_fs_rmdir,
+//                                oo_fs_mkdir, oo_fs_hardlink, oo_fs_symlink)
+//   Net          : net/fetch.c:19 (oo_fetch), sec/landlock/sandbox.c
+//                                (oo_sandbox_note_net, oo_sandbox_apply_matrix)
+//   Tcp          : net/tls.c:125 (oo_tls_connect), net/tls.c (oo_tcp_*)
+//   Udp          : net/tls.c (oo_udp_*, oo_bind_udp)
+//   Sys          : fs/os/sys.c (oo_sys_exec, oo_process_policy_getenv),
+//                  sec/landlock/proc_mem.c (oo_proc_mem_read)
+//   Process      : app/xlang/xlang.c:133 (oo_lto_xlang_link)
+//   Env          : app/hitl/hitl.c:17 (oo_hitl_verify_human),
+//                  fs/os/sys.c (oo_env_get)
+//   Time         : fs/os/time_rand.c (oo_time_*, oo_now_*)
+//   Rand         : fs/os/time_rand.c (oo_random_bytes)
+//   Alloc        : core/mem/alloc.c, core/mem/arena.c, core/mem/weak.c
+//   Thread       : app/actor/thread.c, app/actor/channel.c,
+//                  app/actor/actor.c (oo_actor_spawn et al.)
+//   Gpu          : hw/gpu/gpu.c, hw/gpu/gpu_hip.c
+//   Ffi          : app/xlang/ffi.c (oo_dlopen, oo_dlsym, oo_dlclose),
+//                  app/xlang/xlang.c (oo_xlang_import_c),
+//                  app/xlang/ffi_sec.c:54 (oo_cap_grant_ffi),
+//                  app/xlang/ffi_sec.c:59 (oo_cap_require_ffi),
+//                  fs/os/host.c (oo_host_build, oo_host_ast_dump, etc.)
+//   Sign         : app/actor/actor.c:249 (oo_cap_rpc_send),
+//                  app/actor/actor.c:271 (oo_cap_rpc_recv)
+//   CompilerRead : fs/os/host.c (oo_host_ast_dump, oo_host_check,
+//                                  oo_host_token_dump)
+
+# === Beat 2: Future-state caps (8 tokens) ===
+
+// =====================================================================
+// Name            | Bit | Class        | Grant
+// =====================================================================
+// Fs              |  6  | future-state | oo_cap_grant_fs
+// Arena           | 10  | future-state | oo_cap_grant_arena
+// Audio           | 20  | future-state | oo_cap_grant_audio
+// Camera          | 21  | future-state | oo_cap_grant_camera
+// Usb             | 22  | future-state | oo_cap_grant_usb
+// Hid             | 23  | future-state | oo_cap_grant_hid
+// Window          | 24  | future-state | oo_cap_grant_window
+// Frame           | 25  | future-state | oo_cap_grant_frame
+// Bind            | 19  | future-state | oo_cap_grant_bind
+// =====================================================================
+// 9 future-state tokens (8 hardware + 1 bind). Future-state caps:
+//   - Have a grant function in sec/cap/caps.c.
+//   - Have a require function declared in sec/cap/caps.h
+//     (defined in caps.c even if no consumer calls it — the
+//     function exists so the cap is "live" once a consumer is
+//     wired up).
+//   - Have NO consumer in the current runtime.
+//
+// The 8 hardware tokens (Audio, Camera, Usb, Hid, Window, Frame,
+// plus the implicit 2 future-state bits for the second audio/HID
+// device slots if needed) are the wire-up points for the hw/
+// backend. The Bind token is for the bind/listen path that is
+// currently gated by Tcp; once a separate bind cap is needed
+// (e.g., for listen-only servers), it will be wired to oo_bind_*.
+//
+// Future-state tokens must be granted only by code that has a
+// concrete plan to consume them; granting without a consumer is
+// the v2.0.0 mistake (AUDIT, HITL, SYNC, MEM, HTTP were
+// granted without a consumer; v2.1.0 deleted them).
+
+# === Beat 3: The 5 reserved/dead bit positions ===
+
+// =====================================================================
+// Bit Position | Former Name | Reason Removed      | v2.1.0 Status
+// =====================================================================
+// 0x800        | OODAR_CAP_AUDIT  | declared but never defined | RESERVED
+// 0x2000       | OODAR_CAP_HITL   | declared but never defined | RESERVED
+// 0x4000       | OODAR_CAP_SYNC   | granted but never required | RESERVED
+// 0x8000       | OODAR_CAP_MEM    | granted but never required | RESERVED
+// 0x10000      | OODAR_CAP_HTTP   | granted but never required | RESERVED
+// =====================================================================
+// The 5 reserved bits are part of the 30-bit cap mask (sec/cap/caps.h:6-30).
+// They MUST NOT be re-used; any future cap MUST pick a new bit position
+// to avoid ABI confusion. Re-introduction of AUDIT/HITL/SYNC/MEM/HTTP
+// requires a Floor break (v3.0.0+) per sec/cap/caps.h:17-22.
+
+# === Beat 4: Attenuation (all 25 tokens) ===
+
+// Attenuation is the same function for all 25 tokens:
+//
+//   OoStr oo_cap_attenuate(OoStr parent_hmac, OoStr child_rights);
+//
+// The function takes the parent's HMAC-sealed cap and a child_rights
+// bitmask; it returns the child's HMAC-sealed cap if the child_rights
+// is a subset of the parent's rights. The check is:
+//
+//   if ((parent_rights & child_rights) != child_rights) return 0;
+//
+// The child can never gain rights the parent did not have. There is
+// no separate "attenuate_<name>" function per token — the bitmask
+// is the same shape for all 25 tokens.
+//
+// oo_cap_attenuate_ok(parent_hmac, child_rights) is the bool variant
+// that returns 1 if attenuation succeeded and 0 otherwise. Both
+// functions are declared in sec/cap/caps.h and defined in sec/cap/cap.c.
+
+# === Cap count summary ===
+
+// 25 active tokens:
+//   17 core (granted + required + consumer)
+//    8 future-state (granted + declared-require, no consumer yet)
+//   — plus 1 Bind token (future-state) = 9 future-state total
+//
+// 5 reserved/dead bit positions (0x800, 0x2000, 0x4000, 0x8000, 0x10000).
+//
+// 30 cap bit positions total (25 active + 5 reserved/dead + bit 0 unused).
+//
+// The oo_cap_grant_<name> and oo_cap_require_<name> functions are
+// 1:1 with the tokens; no token is shared between two grant functions.
+
+// ──▓▓ oodar/docs/CAPABILITIES_TABLE.oot ──▓▓──
+// :: 25 active tokens (17 core + 8 future-state) + 5 reserved bits ::

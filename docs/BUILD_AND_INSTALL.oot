@@ -1,0 +1,237 @@
+// # oodar/docs/BUILD_AND_INSTALL.oot — Canonical Build, Per-File Compile, Polyrepo
+//
+// Logline: oodar's build is intentionally trivial — the canonical command is `gcc oodar.c` from the repo root, the per-file compile is `gcc -c tactical/sub/file.c` for any of the 48 .c files in the umbrella, and the polyrepo convention places oodar/ as a sibling of cli/, lsp/, vscode/, and the other consumer packages; the lib artifact (liboodar.a) is a parallel build path for consumers who want to link the .o files individually.
+//
+// Setup: This file documents the build, install, and consume flows for oodar v2.1.0+. It is the authoritative reference for the canonical umbrella build, the per-file compile, the polyrepo layout, and the liboodar.a static library artifact (see scripts/Makefile).
+//
+// Beats:
+//   1. The canonical umbrella build.
+//   2. The per-file compile.
+//   3. The polyrepo convention.
+//   4. The liboodar.a static library.
+//   5. The consumer link model.
+
+# === Beat 1: The canonical umbrella build ===
+
+// The canonical build command is:
+//
+//   gcc oodar.c
+//
+// Run from the repo root (/home/jeryd/Projects/openOODA/oodar or
+// wherever the package is checked out). The single-TU umbrella
+// includes all 48 .c files in dependency order via #include
+// directives. oodar.c is a "build manifest" file — it has no logic
+// of its own, only #include statements.
+//
+// The 48 .c files included by oodar.c are (in order, per oodar.c:13-60):
+//
+//   sec/cap/caps.c
+//   sec/landlock/landlock.c
+//   sec/landlock/sandbox.c
+//   sec/landlock/proc_mem.c
+//   sec/cap/cap.c
+//   core/str/str.c
+//   core/str/str_intern.c
+//   core/str/str_from_int.c
+//   core/str/str_tok.c
+//   core/str/str_ops.c
+//   app/telemetry/event.c
+//   core/list/list.c
+//   core/list/flist.c
+//   core/list/llist.c
+//   fs/os/sys.c
+//   net/fetch.c
+//   app/xlang/ffi_sec.c
+//   app/xlang/ffi.c
+//   sec/crypto/hash.c
+//   fs/os/netfloor.c
+//   net/tls.c
+//   hw/gpu/gpu.c
+//   hw/gpu/gpu_hip.c
+//   app/actor/thread.c
+//   app/actor/channel.c
+//   app/actor/actor.c
+//   app/hitl/hitl.c
+//   fs/os/time_rand.c
+//   core/mem/alloc.c
+//   core/mem/arena.c
+//   fs/os/fs.c
+//   fs/io/print.c
+//   core/math/math.c
+//   sec/crypto/crypto.c
+//   core/meta/meta.c
+//   fs/os/host.c
+//   fs/os/rlimit.c
+//   fs/os/dns.c
+//   app/xlang/xlang.c
+//   sec/crypto/sha3.c
+//   sec/crypto/aead.c
+//   sec/pqc/mlkem.c
+//   sec/pqc/mldsa.c
+//   sec/pqc/pq_sig.c
+//   app/telemetry/metrics.c
+//   app/actor/closure.c
+//   core/mem/align.c
+//   core/mem/weak.c
+//
+// The output is `a.out` in the current directory. To name the
+// output, use:
+//
+//   gcc oodar.c -o myprogram
+//
+// To link against extra libraries, append them after oodar.c:
+//
+//   gcc oodar.c -lpthread -ldl -lm
+//
+// The canonical build is what the per-package documentation
+// (oodar/ANCHOR.oo, sec/cap/ANCHOR.oo, etc.) and the user-facing
+// README.md reference.
+
+# === Beat 2: The per-file compile ===
+
+// Each of the 48 .c files in the umbrella can be compiled
+// individually with `gcc -c`. This is the per-file compile path,
+// used when a consumer wants to inspect a single TU, run a sanitizer
+// on it, or link a subset of the runtime.
+//
+// The per-file compile for any tactical/<sub>/<file>.c is:
+//
+//   gcc -c tactical/<sub>/<file>.c
+//
+// For example, to compile just sec/cap/caps.c:
+//
+//   gcc -c sec/cap/caps.c
+//
+// This produces `caps.o` in the current directory. Each .c file
+// #includes "oodar.h" and "types.h" via a relative path
+// (#include "../../oodar.h"), so the compile must be run from the
+// repo root or with -I. pointing to the repo root.
+//
+// To link a subset of the runtime (e.g., just the cap system),
+// the consumer compiles the relevant .c files individually and
+// links the resulting .o files:
+//
+//   gcc -c sec/cap/caps.c sec/cap/cap.c
+//   gcc myprogram.c caps.o cap.o -o myprogram
+//
+// Note: the per-file compile path is NOT the canonical build. The
+// canonical build is `gcc oodar.c` (single TU). The per-file path
+// is for consumers who want finer-grained control.
+
+# === Beat 3: The polyrepo convention ===
+
+// oodar is one package in a polyrepo. The convention is that
+// oodar/ is a sibling of:
+//
+//   - cli/     (the openOODA CLI)
+//   - lsp/     (the LSP server)
+//   - vscode/  (the VS Code extension)
+//   - academy/ (the academy package — future-state)
+//   - swarm/   (the multi-agent swarm — future-state, Pillar 6)
+//
+// Each package has its own ANCHOR.oo, its own version, and its
+// own release cadence. The packages are independent — a change
+// to oodar/ does NOT require a change to cli/ or lsp/, and the
+// reverse. The packages depend on each other via the link-time
+// ABI (the oo_* symbols declared in oodar.h).
+//
+// The repo root (the directory above oodar/, cli/, lsp/) holds
+// the project-level documentation: NORTHSTAR.oot, RULES.oot,
+// REDTEAM.oot, and the top-level ANCHOR.oo (if any). The repo
+// root is NOT a build target; each package builds independently.
+//
+// The oodar/ package itself contains:
+//
+//   - oodar.c        (the umbrella TU)
+//   - oodar.h        (the public API)
+//   - types.h        (the shared type defs)
+//   - ANCHOR.oo      (the package-level ANCHOR)
+//   - core/          (universal primitives)
+//   - sec/           (security primitives)
+//   - fs/            (filesystem + host OS)
+//   - net/           (network primitives)
+//   - hw/            (hardware)
+//   - app/           (application bridges)
+//   - qa/            (test utilities — not in the umbrella)
+//   - docs/          (per-package documentation — this directory)
+//   - scripts/       (build, verify, reproducible-build scripts)
+//   - examples/      (sample usage — empty placeholder in v0.1.0)
+//
+// The qa/, docs/, scripts/, examples/ subdirs are NOT part of
+// the umbrella TU. They are scaffolding for the package.
+
+# === Beat 4: The liboodar.a static library ===
+
+// The liboodar.a static library is a parallel build path for
+// consumers who want to link individual .o files without going
+// through the single-TU umbrella. The lib is built by:
+//
+//   cd scripts && make
+//
+// (or `make -C scripts`). The Makefile compiles each of the 48
+// .c files in the umbrella to .o, then archives them with
+// `ar rcs liboodar.a <sorted .o files>`. The lib is emitted to
+// scripts/lib/liboodar.a (or a similar known location; see
+// scripts/Makefile for the exact path).
+//
+// To consume the lib:
+//
+//   gcc myprogram.c -L scripts/lib -loodar -lpthread -ldl -lm -o myprogram
+//
+// The lib exports all oo_* symbols from oodar.h. The Makefile
+// target list is: `all` (default — builds the lib), `clean`
+// (removes all .o and the lib), `install` (copies the lib to
+// /usr/local/lib or a similar prefix).
+//
+// The lib is a convenience; the canonical build is still
+// `gcc oodar.c`. The lib is NOT a replacement for the umbrella
+// — it is an alternative for consumers who want the granularity
+// of per-file .o files.
+
+# === Beat 5: The consumer link model ===
+
+// A consumer of oodar links the runtime in one of 3 ways:
+//
+//   1. Single-TU (canonical):
+//        gcc myprogram.c oodar.c -lpthread -ldl -lm -o myprogram
+//
+//   2. Per-file .o:
+//        gcc -c sec/cap/caps.c sec/cap/cap.c core/mem/alloc.c ...
+//        gcc myprogram.c caps.o cap.o alloc.o ... -lpthread -ldl -lm
+//
+//   3. liboodar.a:
+//        gcc myprogram.c -L scripts/lib -loodar -lpthread -ldl -lm
+//
+// All three paths produce a binary with the same set of oo_*
+// symbols. The choice is a build-system preference, not an ABI
+// preference. v2.1.0+ keeps all three paths ABI-compatible —
+// switching between them does NOT change the binary's runtime
+// behavior.
+//
+// The public ABI is oodar.h (and the shared types in types.h).
+// Anything not declared in oodar.h is internal to oodar and
+// may change between versions. Consumers MUST include oodar.h
+// and link against the oo_* symbols; they MUST NOT include
+// internal headers (sec/crypto/crypto_internal.h, etc.) directly.
+
+# === Build prerequisites ===
+
+// Required:
+//   - GCC 9+ (or Clang 10+) with C11 + GNU extensions
+//   - Linux 5.13+ (for Landlock) or macOS 11+ (for Seatbelt) or
+//     OpenBSD 6.4+ (for pledge+unveil) or FreeBSD 12+ (for
+//     Capsicum) or Windows 10+ (for AppContainer+Job)
+//   - glibc 2.25+ (for explicit_bzero) or musl 1.1.20+
+//
+// Optional (for the host FFI):
+//   - The host staticlib (ooda_host.a) — provides ooda_host_ast_dump,
+//     ooda_host_check, ooda_host_token_dump, ooda_host_build. The
+//     host FFI is gated by the OODA_WITH_HOST_FFI compile flag.
+//
+// Optional (for HIP/ROCm GPU):
+//   - ROCm 5.0+ and a supported GPU. The hw/gpu/ code is
+//     platform-checked at compile time; on a non-HIP system the
+//     GPU functions are stubbed out and return ERR.
+
+// ──▓▓ oodar/docs/BUILD_AND_INSTALL.oot ──▓▓──
+// :: canonical = `gcc oodar.c` :: per-file = `gcc -c tactical/sub/file.c` :: lib = `make -C scripts` ::

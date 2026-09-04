@@ -1,11 +1,17 @@
 // # oodar/qa — Substrate Self-Tests
 //
-// Logline: Empty placeholder for the v0.1.0 release. The tier-5 substrate break tests will land here as ooda/qa/tests_challenger_* is distributed per RFC-0004 §1.7.
+// Logline: The v2.2.0+ qa/ subdir holds 2 test utilities (dudect_c_native, oo_hip_so_smoke) + 5 tier-5 tests_challenger_*.c files that exercise the 8D Red Team matrix (per openOODA/practices/8d-red-team.oot).
 //
-// Setup: Self-tests ship with the package. Each test exercises a different probe from the 8-Dimensional Red Team matrix (e1..e8) per openOODA/practices/8d-red-team.oot.
+// Setup: Self-tests ship with the package. The 2 utilities are smoke / benchmark tests; the 5 challenger tests are adversarial / regression probes. The umbrella TU (oodar.c) EXCLUDES the qa/ subdir — these are run by the developer, not the runtime.
 //
 // Beats:
-//   1. Empty in v0.1.0.
-//   2. Future: tier-5 tests move here from ooda/qa/tests_challenger_*.
+//   1. dudect_c_native.c     — Welch t-test probe (Red 8 dim 7, benchmark).
+//   2. oo_hip_so_smoke.c     — HIP/ROCm kernel load smoke (Red 8 dim 1, functional).
+//   3. tests_challenger_cap_escape.c         — cap system bypass attempt (Red 8 dim 2+8, adversarial).
+//   4. tests_challenger_dudect_ct.c          — constant-time dudect probe (Red 8 dim 7, benchmark).
+//   5. tests_challenger_cap_threat.c         — cap-threat containment (Red 8 dim 2+8, adversarial).
+//   6. tests_challenger_sandbox_containment.c — Landlock containment (Red 8 dim 2+8, redteam).
+//   7. tests_challenger_proc_mem_leak.c      — proc_mem Landlock-APPLIED gate (Red 8 dim 6, regression).
 //
-// residual: tests_t5_adv01_capability_escape, tests_t5_adv03_constant_time_dudect, tests_t5_adv08_cap_threat_containment, tests_t5_adv20_runtime_substrate_break.
+// ──▓▓ oodar/qa ANCHOR ──▓▓──
+// :: 2 utilities + 5 tier-5 challenger tests — 789 lines, all <= 256 ::
