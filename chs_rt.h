@@ -35,14 +35,6 @@
   #endif
 #endif
 
-void oo_emit_tmp_reset(void);
-void oo_emit_tmp_enter(void);
-void oo_emit_tmp_leave(void);
-void oo_emit_tmp_release_print(void);
-void oo_emit_tmp_own(OoStr expr);
-void oo_emit_tmp_release_all_print(void);
-OoStr oo_emit_tmp_bind(OoStr call);
-
 void oo_print_str(OoStr s);
 void oo_eprint_str(OoStr s);
 void oo_print_int(long long n);
@@ -240,7 +232,5 @@ OoStr oo_file_stamp(OoStr path);
 long long oo_import_c(long long cap, OoStr hdr);
 long long oo_ffi_gen(long long cap, OoStr hdr);
 long long oo_lto_xlang_link(long long cap, OoStr a, OoStr b);
-OoStr oo_str_macro_expand(OoStr src);
-OoStr oo_str_ast_macro(OoStr src);
 
 #endif
