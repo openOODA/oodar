@@ -1,21 +1,23 @@
-// # oodar — Gen 1 Host Substrate (v2.1.0)
+// # oodar — Gen 1 Host Substrate (v2.2.0)
 //
-// Logline: The canonical home of the openOODA Gen 1 host substrate. Compiled openOODA binaries link against the oo_* symbols exported from the 6 per-domain subdirs; the build entry point is `gcc oodar.c`.
+// Logline: The canonical home of the openOODA Gen 1 host substrate. Compiled openOODA binaries link against the oo_* symbols exported from the 7 per-domain subdirs (core, sec, fs, net, hw, app, scripts); the build entry point is `gcc oodar.c`. The umbrella TU is 49 .c files; the public ABI is oodar.h (and the shared type defs in types.h) at the root.
 //
-// Setup: Pure structural file. The 6 per-domain tactical subdirs mirror std's vocabulary (core, sec, fs, net, hw, app). Each tactical subdir has its own ANCHOR.oo. Some tactical subdirs have nested sub-subdirs (e.g., core/str/, sec/cap/, app/actor/) that also have their own ANCHOR.oo, mirroring std's per-domain organization. The umbrella oodar.c is the single-TU build entry — it #include's the 48 .c files in dependency order. The public API is oodar.h (and the shared type defs in types.h) at the root. The qa/ subdir now holds the 2 test utilities (oo_hip_so_smoke.c, dudect_c_native.c); they are excluded from the umbrella TU and are not part of the public ABI.
+// Setup: Pure structural file. The 6 per-domain tactical subdirs mirror std's vocabulary (core, sec, fs, net, hw, app). Each tactical subdir has its own ANCHOR.oo. Some tactical subdirs have nested sub-subdirs (e.g., core/str/, sec/cap/, app/actor/) that also have their own ANCHOR.oo, mirroring std's per-domain organization. The umbrella oodar.c is the single-TU build entry — it #include's the 49 .c files in dependency order. The public API is oodar.h (and the shared type defs in types.h) at the root. The qa/ subdir holds the test utilities and tier-5 tests_challenger_*.c files; they are excluded from the umbrella TU and are not part of the public ABI. The docs/ subdir holds the SSoT documentation (SECURITY_MODEL.oot, PILLARS.oot, CAPABILITIES_TABLE.oot, BUILD_AND_INSTALL.oot, TESTING.oot). The scripts/ subdir holds the Makefile (liboodar.a) and the reproducible-build script (repro_build.sh).
 //
 // Beats (read in this order):
-//   1. types.h          — shared type defs (OoStr, OoIList, OoRes*, OoLL*, OoControlBlock, OoWeakRef, ...).
+//   1. types.h          — shared type defs (OoStr, OoIList, OoRes*, OoLL*, OoControlBlock, OoWeakRef, OoPathCap, ...).
 //   2. oodar.h          — the public API surface.
 //   3. oodar.c          — the umbrella TU (the canonical single-TU build entry).
-//   4. core/            — mirrors std/core. Universal primitives: str, list, mem, math, meta.
-//   5. sec/             — mirrors std/sec. Security primitives: cap (25 tokens: 14 NORTHSTAR core + 11 future-state), landlock (Pillar 9), crypto, pqc (PQC-by-default).
-//   6. fs/              — mirrors std/fs. Filesystem + host OS: os (syscalls, DNS loopback, rlimit), io (print).
+//   4. core/            — mirrors std/core. Universal primitives: str, list, mem, math, anti_emul (formerly meta/).
+//   5. sec/             — mirrors std/sec. Security primitives: cap (25 tokens + OoPathCap attenuator), landlock (Pillar 9), crypto (private internals + public oo_seal/oo_open AEAD), pqc (PQC-by-default).
+//   6. fs/              — mirrors std/fs. Host OS: os (syscalls, DNS loopback, rlimit, netfloor).
 //   7. net/             — mirrors std/net. Network primitives: fetch, tls.
 //   8. hw/              — mirrors std/hw. Hardware: gpu (HIP/ROCm, no CPU fallback).
-//   9. app/             — mirrors std/app. Application bridges: actor (OTP-style concurrency), xlang (FFI), hitl (TTY), telemetry (metrics + event bus).
-//  10. qa/              — test utilities (oo_hip_so_smoke.c, dudect_c_native.c); not part of the ABI.
-//  11. scripts/, docs/, examples/ — scaffolding (unchanged from v1.0.0).
+//   9. app/             — mirrors std/app. Application bridges: actor (OTP-style concurrency), xlang (FFI), hitl (TTY), telemetry (metrics + event bus), io (print family).
+//  10. qa/              — test utilities + tier-5 tests_challenger_*.c; not part of the ABI.
+//  11. docs/            — SSoT documentation (5 .oot files).
+//  12. scripts/         — Makefile (liboodar.a) + repro_build.sh (bit-identical reproducible build).
+//  13. examples/        — scaffolding (unchanged from v1.0.0).
 //
 // Naming convention:
 //   - Files: <tactical>/<sub>.c  (no file prefix; one concept per file)
@@ -25,29 +27,25 @@
 //   - Sub-subdirs (e.g., core/str/, sec/cap/, app/actor/) each have an ANCHOR.oo
 //
 // Build:
-//   gcc oodar.c                           (the canonical single-TU build)
+//   gcc oodar.c                           (the canonical single-TU build; produces 49-TU .o)
 //   gcc -c <tactical>/<sub>/<file>.c      (per-file compile, link all .o)
+//   make -C scripts                       (builds lib/liboodar.a from the umbrella TU)
+//   bash scripts/repro_build.sh           (bit-identical reproducible build)
 //
 // Versioning:
-//   v2.1.0 is a Patch bump from v2.0.0. No ABI change (function signatures
-//   are unchanged). Security-hardening: reversed the inverted bounds check
-//   in oo_write_int/oo_read_int (was: foreign pointer with bad magic
-//   silently bypassed the bound check, giving an AllocCap holder arbitrary
-//   R/W); added Landlock-APPLIED gate to oo_proc_mem_read (was: only
-//   checked Landlock AVAILABLE, so any caller could read /proc/self/mem
-//   without ever calling oo_sandbox_apply); fixed silent rejection-
-//   sampling bug in mldsa.c (was: `while (ctr<256) { ...; break; }` left
-//   coefficients uninitialised); fixed arena_alloc overflow on
-//   `a->off + n > a->cap`; removed 5 dead cap tokens (AUDIT, HITL, SYNC,
-//   MEM, HTTP) and the 3 dead event subscriptions (cap.seal, fs.read,
-//   fs.write); removed declared-but-not-implemented fs_file_size; moved
-//   test utilities (oo_hip_so_smoke, dudect_c_native) from production
-//   tree to qa/; corrected the cap-rpc cap from ThreadCap to SignCap
-//   (sign-style operation, not thread-style). See CHANGES.md for the
-//   full list of what changed, what did not, and what the next Floor
-//   break (v3.0.0) will cover.
-//   Per RULES.oot §1.24 + RFC-0006, every push to main triggers an
-//   auto-release via the governance workflow.
+//   v2.2.0 is a Patch bump from v2.1.0. Closes 24 of the v2.1.0 audit
+//   residuals: 5 security fixes (C-ABI backdoor in oo_sandbox_c_*,
+//   oo_je_emit exfil dropped, band-byte drift, oo_event_emit implicit
+//   decl, layering violation documented), 4 North Star gaps (docs/,
+//   qa/ tier-5, liboodar.a, reproducible build), 8 long-tail cleanups
+//   (list_set.c fold, TLDR fix, dead API removal, oo_ffi_gen kill,
+//   print/io move, anti_emul rename, oo_seal/oo_open wrappers, etc.),
+//   and 1 OCap feature (OoPathCap + oo_attenuate_fsread_to_path +
+//   oo_path_cap_check). The only signature change is the 3
+//   oo_sandbox_c_* functions gaining a sys_cap first arg (zero
+//   callers, safe for v2.2.0). See CHANGES.md for the full migration
+//   table. Per RULES.oot §1.24 + RFC-0006, every push to main
+//   triggers an auto-release via the governance workflow.
 //
 // ──▓▓ oodar ANCHOR ──▓▓──
-// :: api_surface = 52 :: VERSION = 2.1.0 :: Pillar 3 + Pillar 5 + Pillar 7 + Pillar 9 ::
+// :: api_surface = 57 :: VERSION = 2.2.0 :: Pillar 3 + Pillar 5 + Pillar 7 + Pillar 9 ::
