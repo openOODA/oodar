@@ -19,7 +19,7 @@ oodar=0.1.0
 release_tag=0.1.0
 ooda=2.10.0
 ooda_max=2.99.0
-api_surface=57
+api_surface=56
 # Note: api_surface counts all .c files that ship in v0.1.0 (chs_rt_*.c,
 # chs_rt.c, dudect_c_native.c, oo_hip_so_smoke.c). dudect_c_native.c and
 # oo_hip_so_smoke.c are test utilities that will move to qa/ in a follow-up;

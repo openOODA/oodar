@@ -22,7 +22,6 @@
 #include "chs_rt_hash.c"
 #include "chs_rt_netfloor.c"
 #include "chs_rt_tls.c"
-#include "chs_rt_libfloor.c"
 #include "chs_rt_gpu.c"
 #include "chs_rt_gpu_hip.c"
 #include "chs_rt_thread.c"

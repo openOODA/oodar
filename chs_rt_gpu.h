@@ -65,7 +65,6 @@ float oo_gpu_event_elapsed_ms(long long cap, long long start_handle, long long s
 
 /* Global Execution & Synchronization */
 OoResS oo_gpu_sync(long long cap);
-OoResS oo_gpu_launch(long long cap, OoStr shader);
 OoResS oo_gpu_launch_kernel(long long cap, OoStr target, OoStr kernel_name, OoStr code,
                             int gx, int gy, int gz, int bx, int by, int bz,
                             void **kernel_args, int arg_count);
