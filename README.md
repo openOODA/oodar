@@ -30,7 +30,7 @@ curl -fsSL https://openooda.org/install.sh | bash
 
 All design, RFCs, practices, and onboarding live in [openOODA/openOODA](https://github.com/openOODA/openOODA) or at [openooda.org](https://openooda.org).
 
-## The 9-Repo Polyrepo
+## The 11-Repo Polyrepo
 
 | Repo | Purpose |
 |------|---------|
@@ -43,6 +43,8 @@ All design, RFCs, practices, and onboarding live in [openOODA/openOODA](https://
 | [openOODA/oodar](https://github.com/openOODA/oodar) | Runtime substrate |
 | [openOODA/oodac](https://github.com/openOODA/oodac) | Compiler |
 | [openOODA/website](https://github.com/openOODA/website) | Website source |
+| [openOODA/packaging](https://github.com/openOODA/packaging) | Distribution packaging (apt, dnf, pacman) |
+| [openOODA/.github](https://github.com/openOODA/.github) | Org profile, shared community files, workflows |
 
 ## License
 
