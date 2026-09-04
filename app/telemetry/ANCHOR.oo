@@ -1,11 +1,14 @@
-// # app/telemetry — Metrics + Event Bus
+// # app/telemetry — Counter Export
 //
-// Logline: The per-process counter export and the generic event bus that decouples cross-cutting telemetry from the producing subsystems.
+// Logline: The per-process counter export. The event bus that decouples
+// this from the producing subsystems lives in core/event/.
 //
 // Beats:
-//   1. event.h — the oo_event_emit / oo_event_subscribe API.
-//   2. event.c — the mutex-guarded subscriber table.
-//   3. metrics.c — the counter export; subscribes to 8 named events via a constructor.
+//   1. metrics.c — the counter export; subscribes to 8 named events via a constructor.
+//
+// v3.1.0 file move: event.{c,h} moved from app/telemetry/ to
+// core/event/ to resolve the sec/-depending-on-app/ boundary
+// violation. The app/telemetry/ subdir now only contains metrics.c.
 //
 // ──▓▓ app/telemetry ANCHOR ──▓▓──
-// :: producers emit events; metrics is one of many listeners ::
+// :: consumers listen to events; producers are in their own domains ::

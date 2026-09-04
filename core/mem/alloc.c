@@ -151,7 +151,13 @@ long long oo_alloc(long long cap, long long size) {
   if (total_sz % 16 != 0) total_sz += 16 - (total_sz % 16);
 
   pthread_mutex_lock(&g_quota_mu);
-  if (oo_list_ambient_bytes + (long long)total_sz > oo_list_ambient_quota) {
+  /* v3.1.0 audit fix: guard the signed long long addition against
+   * wrap. If oo_list_ambient_bytes + total_sz overflows LLONG_MAX,
+   * the comparison flips to a small negative and the quota check
+   * is bypassed. Bounded by the prior `size > OO_ALLOC_BYTES_MAX`
+   * check (1 GiB), so the wrap can only happen if the ambient
+   * counter is set near LLONG_MAX via OO_LIST_AMBIENT_QUOTA env. */
+  if (oo_list_ambient_bytes > oo_list_ambient_quota - (long long)total_sz) {
     pthread_mutex_unlock(&g_quota_mu);
     fprintf(stderr, "ERR\tcap\tambient memory quota exceeded (AllocCap required)\n");
     exit(1);

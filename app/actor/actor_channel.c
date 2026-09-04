@@ -11,7 +11,10 @@
 #define OO_CH_SLOTS 16
 #define OO_CH_QDEPTH 8
 
-typedef struct {
+/* v3.1.0 audit: OoChannel typedef moved to types/types_actor.h.
+ * Here we expand the struct (anonymous; the typedef-name comes from
+ * the header). The 16-slot table, mutex, and condvar live here. */
+struct OoChannel {
   int live;
   int head;
   int tail;
@@ -20,7 +23,7 @@ typedef struct {
   pthread_mutex_t mu;
   pthread_cond_t not_empty;
   pthread_cond_t not_full;
-} OoChannel;
+};
 
 static OoChannel g_chs[OO_CH_SLOTS];
 static pthread_mutex_t g_ch_boot = PTHREAD_MUTEX_INITIALIZER;

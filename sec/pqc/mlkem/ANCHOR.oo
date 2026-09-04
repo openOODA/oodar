@@ -1,0 +1,18 @@
+// # sec/pqc/mlkem/ — ML-KEM-768 (FIPS 203)
+//
+// Logline: Module-Lattice-Based Key-Encapsulation Mechanism. Keygen,
+// Encaps, Decaps. First-party PQC, fail-closed.
+//
+// Beats:
+//   1. mlkem.c — orchestrator: ML-KEM-768 keygen/encaps/decaps.
+//   2. mlkem_internal.c — FIPS 203 NTT + sampling + byte conversions (the algorithm core).
+//   3. mlkem_kem.c — the KEM primitives (Encaps/Decaps key derivation).
+//
+// v3.1.0 file split: the original 520-line mlkem.c was split into the
+// mlkem/ subdir (3 files). The mlkem_internal.c (460 lines) is the
+// algorithm core that stays over 256 by design — the FIPS 203 NTT,
+// sampling, and polynomial arithmetic are tightly coupled; splitting
+// them would fragment the algorithm without a functional boundary.
+//
+// ──▓▓ sec/pqc/mlkem ANCHOR ──▓▓──
+// :: PQC-by-default — first-class in the runtime ::

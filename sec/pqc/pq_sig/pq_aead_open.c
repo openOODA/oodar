@@ -7,7 +7,7 @@
  * with AES-128-GCM (AAD = regenerated pk). Fail-closed on every
  * verification miss. */
 #include "../../../oodar.h"
-#include "../../../app/telemetry/event.h"
+#include "../../../core/event/event.h"
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>

@@ -11,10 +11,9 @@
 //   6. mldsa/mldsa_sign.c — the Sign primitive (matrix expand + challenge + hint).
 //   7. mldsa/mldsa_verify.c — the Verify primitive (challenge + hint + use_hint).
 //   8. pq_sig/pq_sig.c — orchestrator: PQ AEAD seal/open with pk-as-AAD binding (public API).
-//   9. pq_sig/pq_aead.c — orchestrator (public API docs only): the PQ AEAD seal/open layout.
-//  10. pq_sig/pq_aead_seal.c — the encrypt + sign side.
-//  11. pq_sig/pq_aead_open.c — the verify + decrypt side.
-//  12. pq_sig/pq_hmac.c — the HMAC + ML-DSA hybrid seal (pq_aead_seal_internal delegates to this for the cap-IDs that don't need AES-GCM).
+//   9. pq_sig/pq_aead_seal.c — the encrypt + sign side.
+//  10. pq_sig/pq_aead_open.c — the verify + decrypt side.
+//  11. pq_sig/pq_hmac.c — the HMAC + ML-DSA hybrid seal (pq_aead_seal_internal delegates to this for the cap-IDs that don't need AES-GCM).
 //
 // v2.3.0 file split: the original 520-line mlkem.c was split into
 // mlkem/ subdir (3 files), the original 773-line mldsa.c was split

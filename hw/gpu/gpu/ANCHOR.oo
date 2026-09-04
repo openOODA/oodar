@@ -1,0 +1,25 @@
+// # hw/gpu/gpu/ — GPU Runtime Surface
+//
+// Logline: The GPU orchestrator, the buffer pool, streams, memory,
+// classify/dispatch, and the HIP backend (dlopen / dispatch / launch).
+//
+// Beats:
+//   1. gpu.c — orchestrator: the OoGpu type, init, probe.
+//   2. gpu_pool.c — segregated VRAM pool (32 bins).
+//   3. gpu_mem.c — VRAM alloc/free.
+//   4. gpu_stream.c — HIP streams + events.
+//   5. gpu_classify.c — kernel name + structural-marker classification.
+//   6. gpu_launch.c — kernel dispatch entry point.
+//   7. gpu_hip_dlopen.c — liboo_hip.so dynamic load.
+//   8. gpu_hip_dispatch.c — the 7 HIP backend kernels (vec_add / sgemm / rmsnorm / attention / reduce_sum / rope / stencil_3d).
+//   9. gpu_hip.c — orchestrator: bind-once + public load/unload/avail/try_launch.
+//
+// v3.1.0 file split: the original 1109-line gpu.c + 364-line gpu_hip.c
+// were split into the gpu/ subdir (9 files). The split is functional:
+// one GPU concern per file.
+//
+// v3.1.0 audit fix: the cap-shadow in gpu_hip_dispatch.c (a `cap=0`
+// local that broke every GPU call) is fixed — oo_gpu_hip_try_launch
+// now passes the real cap through to the inner launchers.
+//
+// ──▓▓ hw/gpu/gpu ANCHOR ──▓▓──

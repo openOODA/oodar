@@ -1,0 +1,18 @@
+// # sec/pqc/mldsa/ — ML-DSA-65 (FIPS 204)
+//
+// Logline: Module-Lattice-Based Digital Signature Algorithm. Keygen,
+// Sign, Verify. First-party PQC, fail-closed.
+//
+// Beats:
+//   1. mldsa.c — orchestrator: ML-DSA-65 keygen/sign/verify.
+//   2. mldsa_internal.c — FIPS 204 NTT + sampling + byte conversions (the algorithm core).
+//   3. mldsa_sign.c — the Sign primitive (matrix expand + challenge + hint).
+//   4. mldsa_verify.c — the Verify primitive (challenge + hint + use_hint).
+//
+// v3.1.0 file split: the original 773-line mldsa.c was split into the
+// mldsa/ subdir (4 files). The mldsa_internal.c (627 lines) is the
+// algorithm core that stays over 256 by design — the FIPS 204 NTT,
+// sampling, and polynomial arithmetic are tightly coupled; splitting
+// them would fragment the algorithm without a functional boundary.
+//
+// ──▓▓ sec/pqc/mldsa ANCHOR ──▓▓──

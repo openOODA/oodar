@@ -1,0 +1,17 @@
+// # sec/pqc/pq_sig/ — PQ AEAD Seal/Open
+//
+// Logline: The PQ AEAD seal that binds ciphertexts to a keypair via
+// pk-as-AAD, plus the HMAC + ML-DSA hybrid seal.
+//
+// Beats:
+//   1. pq_sig.c — orchestrator: PQ AEAD seal/open with pk-as-AAD binding (public API docs).
+//   2. pq_aead_seal.c — the encrypt + sign side.
+//   3. pq_aead_open.c — the verify + decrypt side.
+//   4. pq_hmac.c — the HMAC + ML-DSA hybrid seal.
+//
+// v3.1.0 file split: the original 460-line pq_sig.c was split into the
+// pq_sig/ subdir (4 files; the prior `pq_aead.c` comment-only
+// orchestrator was removed in v3.1.0 as 100% comment). The split is
+// functional: one algorithm step per file.
+//
+// ──▓▓ sec/pqc/pq_sig ANCHOR ──▓▓──

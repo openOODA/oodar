@@ -18,7 +18,7 @@
 #   perfile — best-effort per-file build → liboodar_perfile.a
 #   clean   — remove all .o and the lib artifacts
 #   install — copy liboodar.a to ${DESTDIR}/${LIBDIR}
-#   check   — verify all 94 source files are present in REPO_ROOT
+#   check   — verify all source files in UMBRELLA_SRCS are present in REPO_ROOT
 #
 # Variables:
 #   CC      — C compiler (default: gcc)
@@ -86,7 +86,6 @@ UMBRELLA_SRCS := \
 	sec/cap/cap_grant.c \
 	sec/cap/cap_require.c \
 	sec/cap/cap_attenuate.c \
-	sec/cap/cap_seal.c \
 	sec/landlock/landlock/landlock.c \
 	sec/landlock/landlock/landlock_restrict.c \
 	sec/landlock/sandbox/sandbox.c \
@@ -99,7 +98,7 @@ UMBRELLA_SRCS := \
 	core/str/str_from_int.c \
 	core/str/str_tok.c \
 	core/str/str_ops.c \
-	app/telemetry/event.c \
+	core/event/event.c \
 	core/list/list.c \
 	core/list/list_alloc.c \
 	core/list/list_atomic.c \
@@ -119,7 +118,6 @@ UMBRELLA_SRCS := \
 	fs/os/netfloor_udp.c \
 	net/tls.c \
 	hw/gpu/gpu/gpu.c \
-	hw/gpu/gpu/gpu_atomic.c \
 	hw/gpu/gpu/gpu_pool.c \
 	hw/gpu/gpu/gpu_mem.c \
 	hw/gpu/gpu/gpu_stream.c \
@@ -132,7 +130,6 @@ UMBRELLA_SRCS := \
 	app/actor/actor_channel.c \
 	app/actor/actor.c \
 	app/actor/actor_rpc.c \
-	app/hitl/hitl.c \
 	fs/os/time_rand.c \
 	core/mem/alloc.c \
 	core/mem/arena.c \
@@ -169,7 +166,6 @@ UMBRELLA_SRCS := \
 	sec/pqc/pq_sig/pq_sig.c \
 	sec/pqc/pq_sig/pq_aead_seal.c \
 	sec/pqc/pq_sig/pq_aead_open.c \
-	sec/pqc/pq_sig/pq_aead.c \
 	sec/pqc/pq_sig/pq_hmac.c \
 	app/telemetry/metrics.c \
 	app/actor/actor_closure.c \
@@ -260,7 +256,7 @@ clean:
 	@rm -rf $(BUILD_DIR) $(LIB_DIR)
 
 # ---------------------------------------------------------------------------
-# Check: verify all 94 source files are present in REPO_ROOT.
+# Check: verify all source files in UMBRELLA_SRCS are present in REPO_ROOT.
 # Useful as a CI gate.
 # ---------------------------------------------------------------------------
 check:
@@ -272,4 +268,4 @@ check:
 			missing=$$((missing+1)); \
 		fi; \
 	done; \
-	if [ $$missing -eq 0 ]; then echo "CHECK OK: all 94 source files present in $(REPO_ROOT)"; fi
+	if [ $$missing -eq 0 ]; then echo "CHECK OK: all $(words $(UMBRELLA_SRCS)) source files present in $(REPO_ROOT)"; fi

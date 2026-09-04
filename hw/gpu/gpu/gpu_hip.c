@@ -12,7 +12,7 @@
 #include <pthread.h>
 
 extern int oo_hip_so_bind(void);
-OoResS oo_gpu_hip_try_launch_dispatch(OoStr shader);
+OoResS oo_gpu_hip_try_launch_dispatch(long long cap, OoStr shader);
 
 int oo_gpu_hip_load(void) {
   /* Triggers the lazy bind of liboo_hip.so. Returns 1 on success, 0 on
@@ -35,5 +35,5 @@ int oo_gpu_hip_avail(void) {
 OoResS oo_gpu_hip_try_launch(long long cap, OoStr shader) {
   oo_cap_require_gpu(cap, "gpu_launch");
   oo_gpu_init(cap);
-  return oo_gpu_hip_try_launch_dispatch(shader);
+  return oo_gpu_hip_try_launch_dispatch(cap, shader);
 }

@@ -1,0 +1,18 @@
+// # sec/crypto/symmetric/ — Symmetric Primitives
+//
+// Logline: SHA-256/SHA-512 hashes + HMAC-SHA-256 + constant-time primitives.
+//
+// Beats:
+//   1. crypto.c — orchestrator: cap_attenuate / oo_cg_sign / oo_cg_verify (the cap-gated HMAC + cg primitives).
+//   2. hash.c — SHA-256, SHA-512, sha256_bytes (used by HMAC).
+//   3. hmac.c — HMAC-SHA-256 (used by cap_seal).
+//   4. secure.c — secure_wipe + constant-time compare (ct_cmp).
+//
+// v3.1.0 file split + audit cleanup: the original 445-line crypto.c
+// was split into the symmetric/ subdir (4 files). The v3.1.0 audit
+// also removed the 6 dead json_*_internal and python_embed_internal
+// functions (~90 lines) from crypto.c; only the live cg_sign HMAC
+// public surface remains.
+//
+// ──▓▓ sec/crypto/symmetric ANCHOR ──▓▓──
+// :: constant-time primitives + secure_wipe on free ::

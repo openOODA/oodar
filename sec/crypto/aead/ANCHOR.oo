@@ -1,0 +1,15 @@
+// # sec/crypto/aead/ — Authenticated Encryption with Associated Data
+//
+// Logline: AES-128-GCM (NIST SP 800-38D) + chacha20-poly1305 (RFC 8439).
+// Encrypt + authenticate the cap_id (cap-as-AAD).
+//
+// Beats:
+//   1. aead.c — orchestrator: AEAD seal/open dispatch.
+//   2. aes_gcm.c — AES-128-GCM.
+//   3. chacha20_poly1305.c — chacha20-poly1305.
+//
+// v3.1.0 file split: the original 476-line aead.c was split into the
+// aead/ subdir (3 files). The split is functional: one AEAD family
+// per file.
+//
+// ──▓▓ sec/crypto/aead ANCHOR ──▓▓──

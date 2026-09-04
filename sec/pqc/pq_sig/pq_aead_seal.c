@@ -12,7 +12,7 @@
  * The .oo wrapper is not exposed yet; the C-level wrapper here is
  * exercised by the smoke test scripts/smoke_crypto_pq_seal.c. */
 #include "../../../oodar.h"
-#include "../../../app/telemetry/event.h"
+#include "../../../core/event/event.h"
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>

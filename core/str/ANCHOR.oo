@@ -8,6 +8,9 @@
 //   3. str_from_int.c — dedicated 0..8191 integer interning.
 //   4. str_ops.c — eq, contains, starts_with, ends_with, index_of, to_uppercase.
 //   5. str_tok.c — token-line builder for error messages.
-//   6. str.h — local type defs (oo_str_alloc_payload, oo_str_concat, oo_str_byte_len).
+//
+// v3.1.0 audit cleanup: removed core/str/str.h (5 functions were
+// already declared in types/types_str.h; the header was orphan with
+// 0 consumers).
 //
 // ──▓▓ core/str ANCHOR ──▓▓──

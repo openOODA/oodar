@@ -18,7 +18,7 @@
 /* v2.2.0: explicit include — oo_event_emit is called from this TU; relying
  * on the implicit-declaration fallback would hide a missing prototype under
  * -Wstrict-prototypes and is a latent bug if the signature ever changes. */
-#include "../../../app/telemetry/event.h"
+#include "../../../core/event/event.h"
 #include <stdint.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -26,7 +26,20 @@
 #include <sys/random.h>
 #endif
 
-/* OPEN-72: child seal = HMAC-SHA256(parent_hmac, child_rights). Empty inputs fail closed. */
+/* OPEN-72: child seal = HMAC-SHA256(parent_hmac, child_rights). Empty inputs fail closed.
+ *
+ * v3.1.0 NOTE (deferred to v3.2.0 Floor break): SECURITY_MODEL.oot
+ * Rule 2 mandates a bitmask subset check — `parent_rights & child_rights
+ * == child_rights` — before HMACing. The current API only takes
+ * (parent_hmac, child_rights); it has no way to know the parent's
+ * rights. The audit round 4 (2026-09) flagged this as CRITICAL but
+ * the OCap auditor recommended tracking it as a separate Floor break
+ * (it predates v2.3.0). The Floor break will change the signature to
+ * `oo_cap_attenuate_v2(parent_hmac, parent_rights, child_rights)` and
+ * add the bitmask check. Until then, the cap is unforgeable (you need
+ * parent_hmac) but a holder of parent_hmac can mint a child for ANY
+ * rights string. The verifier (oodac) is expected to enforce Rule 2
+ * at the higher level. */
 static OoStr cap_empty_str(void) {
   OoStr z; z.data = oo_str_alloc_payload(0); z.len = 0; return z;
 }
@@ -57,113 +70,33 @@ int oo_cap_attenuate_ok(OoStr parent_hmac, OoStr child_rights) {
   return cap_attenuate_ok(parent_hmac, child_rights);
 }
 
-/* Genuine JSON Formatters and Parsers */
-
-OoStr json_format_string_internal(OoStr s) {
-  size_t elen = 2;
-  for (long long i = 0; i < s.len; i++) {
-    char c = s.data[i];
-    if (c == '"' || c == '\\') elen += 2;
-    else if (c == '\b' || c == '\f' || c == '\n' || c == '\r' || c == '\t') elen += 2;
-    else if ((unsigned char)c < 32) elen += 6;
-    else elen += 1;
-  }
-  /* ARC: headered payload so release can free safely. */
-  char *buf = oo_str_alloc_payload(elen);
-  buf[0] = '"'; size_t pos = 1;
-  for (long long i = 0; i < s.len; i++) {
-    char c = s.data[i];
-    if (c == '"') { buf[pos++] = '\\'; buf[pos++] = '"'; }
-    else if (c == '\\') { buf[pos++] = '\\'; buf[pos++] = '\\'; }
-    else if (c == '\b') { buf[pos++] = '\\'; buf[pos++] = 'b'; }
-    else if (c == '\f') { buf[pos++] = '\\'; buf[pos++] = 'f'; }
-    else if (c == '\n') { buf[pos++] = '\\'; buf[pos++] = 'n'; }
-    else if (c == '\r') { buf[pos++] = '\\'; buf[pos++] = 'r'; }
-    else if (c == '\t') { buf[pos++] = '\\'; buf[pos++] = 't'; }
-    else if ((unsigned char)c < 32) { pos += snprintf(buf + pos, sizeof(buf) - pos, "\\u%04x", (unsigned char)c); }
-    else { buf[pos++] = c; }
-  }
-  buf[pos++] = '"'; buf[pos] = '\0';
-  OoStr r; r.data = buf; r.len = (long long)pos; return r;
-}
-
-OoStr json_format_int_internal(long long v) {
-  char buf[64]; snprintf(buf, sizeof buf, "%lld", v); return oo_str_lit(buf);
-}
-
-OoStr json_format_bool_internal(int b) {
-  return b ? oo_str_lit("true") : oo_str_lit("false");
-}
-
-OoResS json_parse_internal(OoStr raw) {
-  OoResS r;
-  if (!raw.data || raw.len <= 0) {
-    r.ok = 0; r.val = oo_str_lit("invalid json: empty");
-    return r;
-  }
-  long long i = 0;
-  while (i < raw.len && isspace((unsigned char)raw.data[i])) i++;
-  if (i >= raw.len) {
-    r.ok = 0; r.val = oo_str_lit("invalid json: whitespace only");
-    return r;
-  }
-  long long last = raw.len - 1;
-  while (last > i && isspace((unsigned char)raw.data[last])) last--;
-  char first_ch = raw.data[i];
-  char last_ch = raw.data[last];
-  if (first_ch == '{') {
-    if (last_ch != '}') {
-      r.ok = 0; r.val = oo_str_lit("invalid json: unclosed brace");
-      return r;
-    }
-  } else if (first_ch == '[') {
-    if (last_ch != ']') {
-      r.ok = 0; r.val = oo_str_lit("invalid json: unclosed bracket");
-      return r;
-    }
-  } else if (first_ch == '"') {
-    if (last_ch != '"' || last == i) {
-      r.ok = 0; r.val = oo_str_lit("invalid json: unclosed string");
-      return r;
-    }
-  } else if (isdigit((unsigned char)first_ch) || first_ch == '-' ||
-             (i + 3 <= last && memcmp(raw.data + i, "true", 4) == 0) ||
-             (i + 4 <= last && memcmp(raw.data + i, "false", 5) == 0) ||
-             (i + 3 <= last && memcmp(raw.data + i, "null", 4) == 0)) {
-    // Valid primitive literal
-  } else {
-    r.ok = 0; r.val = oo_str_lit("invalid json: unexpected character");
-    return r;
-  }
-  r.ok = 1; r.val = raw;
-  return r;
-}
-
-OoStr json_stringify_internal(OoStr obj) { return obj; }
-
-
-OoResS python_embed_internal(long long sys, OoStr model) {
-  oo_cap_require_sys(sys, "python_embed");
-  (void)model; OoResS r; r.ok = 0; r.val = oo_str_lit("Err (Not Implemented)"); return r;
-}
+/* v3.1.0 audit: removed the 6 dead json_*_internal and python_embed_internal
+ * functions (~90 lines). The file's own prior comment admitted they were
+ * "currently unused outside this TU; preserved verbatim to avoid dropping
+ * any future caller." Per the round-4 audit (power-law lens), the
+ * 80% long tail lives in dead code like this. The oo_cg_* HMAC
+ * sign/verify below is the only live public surface in this TU. */
 
 static pthread_once_t g_cg_sign_once = PTHREAD_ONCE_INIT;
 static unsigned char g_cg_sign_key[32];
 
 static void cg_sign_init(void) {
 #if defined(__linux__) || defined(__APPLE__)
-  if (getentropy(g_cg_sign_key, sizeof(g_cg_sign_key)) != 0)
-#endif
-  {
-    unsigned long long acc = (unsigned long long)(uintptr_t)&g_cg_sign_key ^
-                             ((unsigned long long)getpid() << 24) ^
-                             (unsigned long long)oo_monotonic_us() ^
-                             0x5A5A5A5AA5A5A5A5ULL;
-    for (size_t i = 0; i < sizeof(g_cg_sign_key); i++) {
-      acc = acc * 0x9E3779B97F4A7C15ULL + (unsigned long long)i + 0xDEADBEEFULL;
-      g_cg_sign_key[i] = (unsigned char)(acc >> 16);
-    }
+  /* Fail-CLOSED: getentropy is the canonical source. The LCG fallback
+   * (which previously lived here) was a direct seal/verify forge: an
+   * attacker on a system with broken getentropy(3) could replay the
+   * predictable LCG and recover the HMAC key, then forge oo_cg_sign
+   * / oo_cg_verify. Per NORTHSTAR Pillar 5, the seal key is
+   * unforgeable or the process dies. */
+  if (getentropy(g_cg_sign_key, sizeof(g_cg_sign_key)) != 0) {
+    fprintf(stderr, "ERR\tcap\tgetentropy failed for cg_sign HMAC key: %s\n", strerror(errno));
+    abort();
   }
+#else
+  /* Non-Linux/Apple platforms: no portable getentropy(3). Abort. */
+  fprintf(stderr, "ERR\tcap\tgetentropy unavailable for cg_sign HMAC key (no Linux/macOS)\n");
+  abort();
+#endif
 }
 
 static long long oo_cg_calc_sig(long long cap) {

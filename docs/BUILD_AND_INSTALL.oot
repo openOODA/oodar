@@ -36,6 +36,8 @@
 //   core/str/str_tok.c
 //   core/str/str_ops.c
 //   app/telemetry/event.c
+// v3.1.0 audit: app/telemetry/event.c moved to core/event/event.c to
+// resolve the sec/-depending-on-app/ boundary violation.
 //   core/list/list.c
 //   core/list/flist.c
 //   core/list/llist.c

@@ -1,0 +1,17 @@
+// # sec/landlock/sandbox/ — Sandboxing Orchestrator + Matrix
+//
+// Logline: The platform-detecting probe (Landlock on Linux, fail-closed
+// elsewhere) plus the per-domain rule matrix and the C-ABI backdoor.
+//
+// Beats:
+//   1. sandbox.c — orchestrator: the platform-detecting probe.
+//   2. sandbox_matrix.c — the per-domain (FsRead, FsWrite, Net, ...) rule matrix.
+//   3. sandbox_config.c — the OoLandlockConfig builder.
+//   4. sandbox_c.c — the v2.2.0 sys_cap-gated oo_sandbox_c_* C-ABI backdoor (preserved).
+//
+// v3.1.0 file split: the original 638-line sandbox.c was split into
+// the sandbox/ subdir (4 files). The split is functional: one sandbox
+// concern per file. The platform-detect probe stays in sandbox.c (the
+// orchestrator).
+//
+// ──▓▓ sec/landlock/sandbox ANCHOR ──▓▓──

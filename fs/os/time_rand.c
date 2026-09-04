@@ -3,6 +3,10 @@
 #include <time.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <errno.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #if defined(__linux__)
 #include <sys/random.h>
 #endif
@@ -14,20 +18,23 @@ static unsigned long long g_prng = 1;
 
 static void tr_once_init(void) {
   unsigned char b[16];
-  size_t i;
-  unsigned long long acc;
 #if defined(__linux__) || defined(__APPLE__)
-  if (getentropy(b, sizeof b) != 0)
-#endif
-  {
-    acc = (unsigned long long)(uintptr_t)&g_tok_time;
-    acc ^= (unsigned long long)getpid() << 16;
-    acc ^= (unsigned long long)oo_monotonic_us();
-    for (i = 0; i < sizeof b; i++) {
-      acc = acc * 0x9E3779B97F4A7C15ULL + (unsigned long long)i;
-      b[i] = (unsigned char)(acc >> 8);
-    }
+  /* Fail-CLOSED: getentropy is the canonical source. If it fails we
+   * abort() rather than fall back to a predictable LCG — the LCG
+   * path (which previously lived here) was a direct cap-forge: an
+   * attacker on a system with broken getentropy(3) could replay the
+   * predictable LCG and forge g_tok_time / g_tok_rand. Per NORTHSTAR
+   * Pillar 5, cap tokens are unforgeable or the process dies. */
+  if (getentropy(b, sizeof b) != 0) {
+    fprintf(stderr, "ERR\tcap\tgetentropy failed for time/rand token derivation: %s\n", strerror(errno));
+    abort();
   }
+#else
+  /* Non-Linux/Apple platforms: no portable getentropy(3). Abort —
+   * the cap system is fail-closed and there's no fallback. */
+  fprintf(stderr, "ERR\tcap\tgetentropy unavailable for time/rand token derivation (no Linux/macOS)\n");
+  abort();
+#endif
   {
     unsigned long long ent0 = ((((unsigned long long)b[0]) << 56) |
                                (((unsigned long long)b[1]) << 48) |

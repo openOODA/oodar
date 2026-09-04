@@ -1,0 +1,15 @@
+// # sec/landlock/landlock/ — Landlock FS Rule Construction
+//
+// Logline: The Landlock rule construction and per-fd restrict primitive. Pillar 9.
+//
+// Beats:
+//   1. landlock.c — orchestrator: the Landlock rule construction and apply.
+//   2. landlock_restrict.c — oo_landlock_restrict_fd (per-fd restrict).
+//
+// v3.1.0 file split: the original 296-line landlock.c was split into
+// the landlock/ subdir (2 files). The split is functional: one Landlock
+// concern per file. The platform-detect probe lives in sec/landlock/
+// sandbox/sandbox.c (the sandbox orchestrator).
+//
+// ──▓▓ sec/landlock/landlock ANCHOR ──▓▓──
+// :: Pillar 9 — kernel-mediated, not userland shim ::

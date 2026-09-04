@@ -1,0 +1,18 @@
+// # core/event/ — Generic Publisher/Subscriber
+//
+// Logline: The event bus. Producers emit named events; consumers
+// subscribe a void(*)(void) callback. Used to decouple cross-cutting
+// telemetry (metrics) from the cryptographic and FS subsystems that
+// emit them.
+//
+// Beats:
+//   1. event.h — the public API (oo_event_emit, oo_event_subscribe).
+//   2. event.c — the subscription list + mutex + emit dispatch.
+//
+// v3.1.0 file move: app/telemetry/event.{c,h} moved to core/event/.
+// The systems audit flagged the prior location as a HIGH-severity
+// boundary violation — sec/ depending on app/. Moving to core/ lets
+// sec/ subscribe without crossing the app/ boundary.
+//
+// ──▓▓ core/event ANCHOR ──▓▓──
+// :: cross-cutting primitive, not app ::

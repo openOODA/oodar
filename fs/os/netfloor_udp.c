@@ -22,7 +22,11 @@ OoResS net_ok_fd(int slot);
 OoResS oo_bind_udp(long long cap, long long port) {
   int fd, slot;
   struct sockaddr_in addr;
-  oo_cap_require_udp(cap, "bind_udp");
+  /* Per the v3.1.0 audit: bind(2) is a BindCap operation, not a
+   * UdpCap operation. The TCP path at fs/os/netfloor_tcp.c:31
+   * already correctly uses oo_cap_require_bind. This makes the UDP
+   * path consistent. UdpCap continues to gate oo_udp_send/recv. */
+  oo_cap_require_bind(cap, "bind_udp");
   if (port < 1 || port > 65535) return net_err("bind_udp: bad port");
   fd = socket(AF_INET, SOCK_DGRAM, 0);
   if (fd < 0) return net_err("bind_udp: socket failed");

@@ -17,17 +17,19 @@
 # it must match the most recent git tag. See RULES.oot §1.24
 # and rfcs/0006-versioning-and-release-protocol.oot.
 
-oodar=2.3.0
-release_tag=2.3.0
+oodar=3.1.0
+release_tag=3.1.0
 ooda=2.10.0
 ooda_max=2.99.0
-api_surface=94
-# Note: api_surface counts all .c files that ship in v2.3.0
+api_surface=90
+# Note: api_surface counts all .c files that ship in v3.1.0
 # (distributed across 6 per-domain subdirs: core, sec, fs, net, hw, app).
 # v2.0.0 removed app/actor/cycle.c (zero callers, Bacon-Rajan
-# cycle detection). v2.3.0 moves dudect_c_native.c and
-# oo_hip_so_smoke.c from pqc/ and gpu/ to qa/ (they were test
-# utilities that the file split surfaced as a natural cleanup).
+# cycle detection). v2.3.0 moved dudect_c_native.c and
+# oo_hip_so_smoke.c from pqc/ and gpu/ to qa/ (test utilities that
+# the file split surfaced as a natural cleanup). v3.1.0 removed 7
+# dead/placeholder files and merged the dead JSON/python code in
+# symmetric/crypto.c; net change: 94 → 90 .c files.
 # The public ABI count is the count of distinct .c files in the
 # repo, excluding build/host artifacts, qa/ tests, scripts/, and
 # the umbrella oodar.c itself.
@@ -72,3 +74,24 @@ api_surface=94
 # coupled, and splitting them would fragment the algorithm without a
 # functional boundary. See CHANGES.md "v2.3.0" for the full split
 # manifest.
+#
+# v3.1.0 is a Floor break from v3.0.0. The round-4 deep-dive audit
+# (6 lenses: zero trust, REDTEAM, power law, systems, OCap, Blue Ocean)
+# found 4 CRITICAL fail-open security bugs and 5 HIGH/MED boundary
+# violations. v3.1.0 closes all 4 CRITICALs in one Floor break:
+#   1. GPU cap shadow: oo_gpu_hip_try_launch_dispatch previously
+#      shadowed cap with 0, breaking every GPU call (REDTEAM + OCap).
+#   2. time_rand.c LCG fallback: getentropy(3) failure previously
+#      fell back to a predictable LCG (direct cap forge, OCap).
+#   3. crypto.c LCG fallback: g_cg_sign_key had the same issue
+#      (direct seal/verify forge, OCap).
+#   4. oo_cap_attenuate bitmask subset: the API is missing the
+#      Rule 2 check; deferred to v3.2.0 Floor break (audit said
+#      separate Floor; documented with TODO).
+# Plus 2 MED fixes: oo_bind_udp now correctly uses BindCap (matching
+# the TCP path), and alloc.c closed a signed-overflow window in the
+# ambient-quota check. Plus 7 dead/placeholder file removals (the
+# power-law long tail) and the move of app/telemetry/event.{c,h} to
+# core/event/ (resolving the sec/-depending-on-app/ boundary
+# violation). api_surface 94 → 90. See CHANGES.md "v3.1.0" for the
+# full audit-fix table.

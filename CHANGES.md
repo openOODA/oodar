@@ -860,3 +860,97 @@ see the v2.3.0 file.
 - The 5 new `qa/tests_challenger_*.c` files are unchanged.
 - The umbrella `oodar.c` grew from 49 to 94 `#include` lines
   (the new satellite files).
+
+## v3.1.0 — Floor (round-4 deep-dive audit: 4 CRITICAL fail-open bugs closed)
+
+v3.1.0 is a **Floor** break from v3.0.0. The 4th-round deep-dive
+audit (6 parallel lenses: zero trust, REDTEAM, power law, systems,
+OCap, Blue Ocean) found 4 CRITICAL fail-open security bugs that all
+share one root cause: defensive comments said "fail-closed" but the
+code was fail-open. v3.1.0 closes all 4.
+
+**The 4 CRITICALs:**
+
+| # | File:line | Bug | Why it's a forge |
+|---|---|---|---|
+| 1 | `hw/gpu/gpu/gpu_hip_dispatch.c:190` | `cap=0` shadow | The GPU surface was dead — every GPU call would `exit(1)` at the inner-launcher cap check. Also, since cap==0 always fails the cap check, the GPU path was effectively unused. |
+| 2 | `fs/os/time_rand.c:19-30` | LCG fallback for getentropy failure | An attacker on a system with broken getentropy(3) could replay the predictable LCG and forge `g_tok_time` / `g_tok_rand`. The defensive comment said "fail-closed" but was lying. |
+| 3 | `sec/crypto/symmetric/crypto.c:154-166` | LCG fallback for `g_cg_sign_key` | Same issue: the HMAC key derivation had a predictable LCG fallback. An attacker who broke getentropy(3) could recover the key, then forge `oo_cg_sign` / `oo_cg_verify`. |
+| 4 | `sec/crypto/symmetric/crypto.c:33` (`oo_cap_attenuate`) | Missing bitmask subset check (Rule 2) | Deferred to v3.2.0 Floor break. The audit itself said it could be a separate Floor (it predates v2.3.0). The cap is unforgeable but a holder of `parent_hmac` can currently mint a child for *any* rights string. The verifier (oodac) is expected to enforce Rule 2 at the higher level. |
+
+**Fixes for #1-3:** abort() on getentropy failure (matching the
+canonical store at `sec/cap/caps.c:91-149`); pass `cap` through
+`oo_gpu_hip_try_launch_dispatch` so the inner launchers get the real
+GpuCap token. All three fixes are fail-closed — no LCG fallback, no
+cap shadow, no exception.
+
+**The 2 MED fixes:**
+
+| File:line | Bug | Fix |
+|---|---|---|
+| `fs/os/netfloor_udp.c:25` | `oo_bind_udp` required UdpCap, not BindCap | Now uses `oo_cap_require_bind` (matching the TCP path at `fs/os/netfloor_tcp.c:31`). UdpCap continues to gate `oo_udp_send/recv`. |
+| `core/mem/alloc.c:154` | `oo_list_ambient_bytes + total_sz` could wrap | Reversed to `bytes > quota - total_sz` so the addition is bounded and the comparison always triggers the quota check on overflow. |
+
+**The 5 cleanup items (zero-LOC changes):**
+
+| Item | Files removed | Why |
+|---|---|---|
+| Comment-only orchestrator | `sec/pqc/pq_sig/pq_aead.c` (29 lines) | 100% comment, 0 code |
+| Placeholder | `hw/gpu/gpu/gpu_atomic.c` (12 lines) | No implementation, 0 callers |
+| Empty header | `types/types_q.h` (8 lines) | 0 types declared |
+| Orphan header | `app/actor/closure.h` | 0 consumers (OoClosure is in `types/types_actor.h`) |
+| Duplicate header | `core/str/str.h` | 0 consumers (5 functions in `types/types_str.h`) |
+| Test stub | `app/hitl/hitl.c` | `oo_verify_human` documented as "not a product feature", 0 callers |
+| Seal primitive | `sec/cap/cap_seal.c` | 0 callers (sealed-cap surface in `app/actor/actor_rpc.c` and `sec/crypto/seal.c`) |
+
+Plus ~90 lines of dead JSON/python code removed from
+`sec/crypto/symmetric/crypto.c` (6 functions the file's own comment
+admitted were "currently unused outside this TU").
+
+Plus the dead `oo_arena_welch_t` and `oo_arena_double_run_proof`
+removed from `core/mem/arena_checkpoint.c` (the arena-determinism
+proof lives in `qa/dudect_c_native.c`).
+
+**The 1 file move:**
+
+`app/telemetry/event.{c,h}` → `core/event/event.{c,h}`. The systems
+lens flagged `sec/` depending on `app/` as a HIGH-severity boundary
+violation. Moving to `core/` lets `sec/` subscribe without crossing
+the `app/` boundary. The umbrella update touches 4 includes
+(`oodar.c`, `app/telemetry/metrics.c`, `sec/crypto/symmetric/crypto.c`,
+and the 2 PQ AEAD files).
+
+**The 9 new ANCHOR.oo files:**
+
+The zero-trust lens found 8 missing ANCHOR.oo files in sub-dirs
+created by the v2.3.0 file split. v3.1.0 adds them:
+`sec/landlock/landlock/`, `sec/landlock/sandbox/`, `sec/pqc/mlkem/`,
+`sec/pqc/mldsa/`, `sec/pqc/pq_sig/`, `sec/crypto/symmetric/`,
+`sec/crypto/aead/`, `hw/gpu/gpu/`, plus `core/event/` for the move.
+
+**api_surface: 94 → 90 .c files**
+
+The 7 deletions + 1 move (event.c stayed in the umbrella, just
+moved) + 1 de-list (cap_seal.c) - 0 = -4 net. Plus 3 other
+deletions (arena_double_run, dead JSON, hitl) that were inline
+deletions rather than file deletions = -4 net for the file count.
+
+**Public ABI: unchanged (mostly).** The 4 CRITICALs and 2 MEDs are
+all internal fixes (no signature change). The 1 deferred item
+(`oo_cap_attenuate` bitmask check) is the v3.2.0 Floor break that
+will change the signature. oodac-emitted C code does not need to
+rebuild against v3.1.0 — only against v3.2.0 (next Floor).
+
+**Verifier impact:** the lsp verifier (`lsp/methods/lsp_definition.oo`)
+and oodac (`oodac/emit/c`) should be notified of:
+- `app/telemetry/event.h` → `core/event/event.h` (4 callers)
+- `sec/pqc/pq_sig/pq_aead.c` is gone (was the layout comment, not a
+  compile unit; oodac did not reference it)
+- All other changes are internal (no exported symbol moved)
+
+**Deferred to v3.2.0 Floor break:**
+
+- `oo_cap_attenuate` bitmask subset check (Rule 2). Will change the
+  signature to `oo_cap_attenuate_v2(parent_hmac, parent_rights, child_rights)`.
+- `app/telemetry/metrics.c` move to `core/metrics/` (a smaller Floor
+  break — same kind of app/-to-core/ boundary fix).

@@ -1,9 +1,10 @@
 #ifndef OODAR_TYPES_ACTOR_H
 #define OODAR_TYPES_ACTOR_H
-/* v2.3.0 split: closure primitive (OoClosure + OoFlatEnvHeader) and its
- * function decls. The implementation lives in app/actor/actor_closure.c.
- * OoClosure is a stack-or-heap callable: stack closures borrow env
- * (dtor=NULL), heap closures own env via OoFlatEnvHeader refcount. */
+/* v2.3.0 split + v3.1.0 audit fix: actor-primitive types — OoClosure,
+ * OoFlatEnvHeader, and OoChannel — live here. The implementations are
+ * in app/actor/actor_closure.c and app/actor/actor_channel.c. v3.1.0
+ * moved OoChannel from app/actor/actor_channel.c (file-local) into
+ * this header for the "one type family per header" convention. */
 #include <stdint.h>
 #include <stddef.h>
 
@@ -18,6 +19,13 @@ typedef struct OoFlatEnvHeader {
     uint32_t flags;
     void (*dtor)(void*);
 } OoFlatEnvHeader;
+
+/* OoChannel was previously file-local to app/actor/actor_channel.c.
+ * v3.1.0 moves it here so downstream code (and tests) can refer to
+ * the type without re-declaring it. The full struct definition stays
+ * in actor_channel.c (where the 16-slot table, mutex, and condvar
+ * live); this header provides a forward declaration only. */
+typedef struct OoChannel OoChannel;
 
 OoClosure oo_closure_stack(void *fn, void *stack_env);
 OoClosure oo_closure_heap_create(void *fn, size_t env_size, const void *env_data, void (*dtor)(void*));

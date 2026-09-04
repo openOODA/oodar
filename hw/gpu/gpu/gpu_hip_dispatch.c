@@ -165,7 +165,7 @@ static const char *const oo_hip_ids_attention[] = {
   "attention", "flash_attention", "k_attention", "oo_k_attention", "k_attn", NULL
 };
 
-OoResS oo_gpu_hip_try_launch_dispatch(OoStr shader) {
+OoResS oo_gpu_hip_try_launch_dispatch(long long cap, OoStr shader) {
   OoResS r;
   const char *p;
   const char *name;
@@ -187,7 +187,13 @@ OoResS oo_gpu_hip_try_launch_dispatch(OoStr shader) {
     return r;
   }
 
-  long long cap = 0;
+  /* NOTE: cap is the GpuCap token passed in from oo_gpu_hip_try_launch,
+   * where oo_cap_require_gpu has already verified it. We forward it to
+   * the inner launchers (oo_gpu_hip_vec_add / sgemm / ...) which will
+   * re-verify with oo_cap_require_gpu. NEVER shadow cap with 0 here —
+   * the per-launcher cap check at oo_cap_require_gpu treats got==0 as
+   * forged and exits(1), which would make every GPU launch kill the
+   * process. */
   if (oo_hip_kname_in(name, nlen, oo_hip_ids_vec_add)) {
     float ha[64], hb[64], hc[64];
     int i;

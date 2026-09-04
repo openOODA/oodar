@@ -8,13 +8,18 @@
 //   3. actor_channel.c — the typed message channel.
 //   4. actor_rpc.c — the cap-RPC helpers (cap_rpc_send / cap_rpc_recv), SignCap-gated.
 //   5. actor_closure.c — the OoClosure type (fn + env + dtor, stack-or-heap). Generic callable primitive, NOT actor-specific. Lives here only because the OTP-style dispatch in actor.c is its primary consumer.
-//   6. closure.h — the OoClosure type declaration.
+//   6. OoChannel — typed message channel (typedef in types/types_actor.h since v3.1.0).
 //
 // v2.3.0 file split: the original 302-line actor.c and the small
 // thread.c / channel.c / closure.c were renamed to actor_thread.c /
 // actor_channel.c / actor_closure.c to follow the <domain>_<concept>
 // naming convention. The cap-RPC was extracted to actor_rpc.c so
 // SignCap-gated code lives in its own TU.
+//
+// v3.1.0 audit cleanup: removed app/hitl/hitl.c (oo_verify_human was
+// documented as "not a product feature" and had 0 callers) and the
+// orphan closure.h (the OoClosure type was duplicated in types/
+// types_actor.h). OoChannel moved to types/types_actor.h.
 //
 // ──▓▓ app/actor ANCHOR ──▓▓──
 // :: OTP-style — supervise, restart, no shared state ::

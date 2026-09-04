@@ -9,13 +9,17 @@
 //   4. cap_grant.c — oo_cap_grant (the cap-attenuation grant primitive).
 //   5. cap_require.c — oo_cap_require_* family (the per-cap predicates used by every public mutator).
 //   6. cap_attenuate.c — oo_cap_attenuate (the OR-mask narrowing primitive).
-//   7. cap_seal.c — oo_cap_seal (the HMAC-backed sealed-cap primitive).
 //
 // v2.3.0 file split: the original 428-line caps.c was split into
-// caps.c (orchestrator) + cap_grant.c + cap_require.c + cap_attenuate.c
-// + cap_seal.c. The split is functional (one cap-primitive per file).
-// The shared state (g_tok_*, g_seal_key) lives in caps.c and is
-// exposed as extern to the satellite files.
+// caps.c (orchestrator) + cap_grant.c + cap_require.c + cap_attenuate.c.
+// The split is functional (one cap-primitive per file). The shared
+// state (g_tok_*, g_seal_key) lives in caps.c and is exposed as extern
+// to the satellite files.
+//
+// v3.1.0 audit cleanup: removed cap_seal.c (the oo_cap_kernel_seal /
+// oo_enclave_enter primitives had 0 callers in the umbrella; the
+// sealed-cap surface is provided by app/actor/actor_rpc.c and
+// sec/crypto/seal.c).
 //
 // ──▓▓ sec/cap ANCHOR ──▓▓──
 // :: Pillar 5 — unforgeable, kernel-derived ::
