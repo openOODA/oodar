@@ -1,0 +1,8 @@
+// # core/math — Math Primitives
+//
+// Logline: sin, cos, ln, exp, sqrt, pow. Thin wrappers around the C math library. No FP env control in v1.0.1.
+//
+// Beats:
+//   1. math.c — the 6 wrappers.
+//
+// ──▓▓ core/math ANCHOR ──▓▓──

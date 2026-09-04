@@ -1,0 +1,12 @@
+// # sec/pqc — Post-Quantum Cryptography
+//
+// Logline: ML-KEM-768 (key encapsulation), ML-DSA-65 (digital signature), the PQ AEAD seal/open that binds ciphertexts to a keypair via pk-as-AAD, and the dudect constant-time test harness.
+//
+// Beats:
+//   1. mlkem.c — ML-KEM-768 keygen/encaps/decaps.
+//   2. mldsa.c — ML-DSA-65 keygen/sign/verify.
+//   3. pq_sig.c — PQ AEAD seal/open with pk-as-AAD binding.
+//   4. dudect_c_native.c — constant-time test util (moves to qa/ in a follow-up).
+//
+// ──▓▓ sec/pqc ANCHOR ──▓▓──
+// :: PQC-by-default — first-class in the runtime ::

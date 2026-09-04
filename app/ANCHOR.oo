@@ -1,0 +1,16 @@
+// # app — Application Bridges (mirrors std/app)
+//
+// Logline: The "outside" bridges — FFI / xlang for linking against non-C targets, HITL for human-in-the-loop approval, telemetry for metrics + event bus, and the OTP-style actor runtime (the only oodar-native execution model).
+//
+// Setup: xlang/ is the FFI surface (cap-gated, signature-verified). hitl/ is the TTY-based approval primitive (env-gated, fail-closed). telemetry/ is the counter export + event bus (subscribes to crypto/FS events via constructor). actor/ is the actor + channel + thread + closure + cycle primitives.
+//
+// Beats:
+//   1. xlang/ffi.c, ffi_sec.c — dlopen/dlsym and the cap-gated signature-verified wrapper.
+//   2. xlang/xlang.c — cross-language dispatch.
+//   3. hitl/hitl.c — verify_human (TTY-based, OODA_HITL_ALLOW-gated).
+//   4. telemetry/event.c, event.h — the event bus (oo_event_emit, oo_event_subscribe).
+//   5. telemetry/metrics.c — the counter export (subscribes to events at constructor).
+//   6. actor/actor.c, channel.c, thread.c, closure.c, cycle.c — the actor runtime (OTP-style spawn/send/recv/restart/supervise).
+//
+// ──▓▓ app ANCHOR ──▓▓──
+// :: FFI is the highest-risk attack surface — every load is cap + signature gated ::

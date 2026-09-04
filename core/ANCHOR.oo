@@ -1,0 +1,16 @@
+// # core — Universal Primitives (mirrors std/core)
+//
+// Logline: The types, strings, lists, memory, math, and meta primitives that every other layer depends on. core is the "universal substrate" — no layer above can avoid it.
+//
+// Setup: str/ is the OoStr family (retain/release/intern/concat/ops). list/ is OoIList, OoSList, OoFList, and nested lists. mem/ is the linear arena, bulk allocator, alignment, and ARC primitives. math.c is the libm thin wrappers. meta.c is the meta-circular primitives. types.h at this directory's root is the shared type defs (OoStr, OoIList, OoRes*, OoLL*, OoControlBlock, OoWeakRef).
+//
+// Beats:
+//   1. types.h — shared type defs (every file in the runtime reads this).
+//   2. str/ — OoStr (retain/release, lit, concat, intern, ops).
+//   3. list/ — OoIList / OoSList / OoFList / nested (X-macro compressed).
+//   4. mem/ — linear arena + ARC + alignment (OO_PAYLOAD_ALIGN = 64).
+//   5. math.c — sin, cos, ln, exp, sqrt, pow (libm thin wrappers).
+//   6. meta.c — meta-circular primitives (epoch, mix, is_path_a, decoy_touch).
+//
+// ──▓▓ core ANCHOR ──▓▓──
+// :: Pillar 7 — deterministic, no GC ::

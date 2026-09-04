@@ -1,0 +1,13 @@
+// # sec/landlock — Kernel-Mediated FS Containment
+//
+// Logline: The Landlock FS sandbox, the platform-detecting probe, and the live-RAM proc_mem reader gated by Landlock (Pillar 9).
+//
+// Beats:
+//   1. landlock.h — the OoLandlockStatus enum and rule flags.
+//   2. landlock.c — the Landlock rule construction and apply.
+//   3. sandbox.c — the platform-detecting probe (Landlock on Linux, fail-closed elsewhere).
+//   4. sandbox.h — the OoLandlockSandbox type.
+//   5. proc_mem.c — the live-RAM reader; gated by Landlock + cap.
+//
+// ──▓▓ sec/landlock ANCHOR ──▓▓──
+// :: Pillar 9 — kernel-mediated, not userland shim ::

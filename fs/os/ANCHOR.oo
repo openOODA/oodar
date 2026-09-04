@@ -1,0 +1,17 @@
+// # fs/os — Operating System Surface
+//
+// Logline: The OS syscall shims (sys_exec, sys_args, sys_prctl), the policy getenv filter (OODA_/OO_ keys only), the file I/O surface, the net-floor loopback constraint, the host process info, the rlimit setter, the time+rand source, and the Landlock-gated proc_mem.
+//
+// Beats:
+//   1. sys.c — sys_exec, sys_args, policy getenv, child filter env.
+//   2. fs.c — file I/O with cap-gated path safety.
+//   3. netfloor.c — net-floor loopback constraint.
+//   4. host.c — host process info (pid, ppid, etc.).
+//   5. dns.c — the loopback-only resolver.
+//   6. dns.h — the OoDNS resolver type.
+//   7. rlimit.c — setrlimit wrapper.
+//   8. rlimit.h — the OoRlimit type.
+//   9. time_rand.c — monotonic time + secure random.
+//
+// ──▓▓ fs/os ANCHOR ──▓▓──
+// :: fail-closed: no getaddrinfo, no unrestricted env ::

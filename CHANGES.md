@@ -1,5 +1,80 @@
 # Changelog
 
+## v1.0.1 — Thrust (internal reorg, no consumer change)
+
+Per RULES.oot §1.21, v1.0.1 is a MINOR (Thrust) bump. The
+internal subdir layout was reorganized to mirror std's
+vocabulary (core, sec, fs, net, hw, app). No public symbol
+changes, no API changes, no consumer changes — consumers
+linking against v1.0.0 oodar.a or building from source with
+`gcc oodar.c` see no difference.
+
+### What changed (internal only)
+
+- **17 subdirs → 6 subdirs** (using std's vocabulary). The v1.0.0
+  layout had one subdir per concept (cap, landlock, mem,
+  crypto, pqc, actor, gpu, xlang, hitl, io, math, meta, net,
+  os, str, list, telemetry). v1.0.1 collapses these into 6
+  tactical subdirs that match std's domain names:
+
+  | v1.0.0 | v1.0.1 |
+  |---|---|
+  | cap, landlock, crypto, pqc | sec/ |
+  | os, io | fs/ |
+  | net | net/ |
+  | gpu | hw/ |
+  | actor, xlang, hitl, telemetry | app/ |
+  | str, list, mem, math, meta | core/ |
+
+- **Sub-subdirs added** for the multi-file domains (e.g.,
+  core/str/, sec/cap/, app/actor/). Each sub-subdir has its
+  own `ANCHOR.oo`, mirroring std's per-domain organization.
+
+- **27 `ANCHOR.oo` files total** (1 root + 6 tactical + 20
+  sub-subdir ANCHOR.oo). The root ANCHOR.oo documents the
+  overall structure; each tactical and sub-subdir ANCHOR.oo
+  documents its own files and reading order.
+
+- **No file renames, no symbol changes.** The 53 .c files and
+  13 .h files have the same names as v1.0.0. They just live
+  in different subdirs.
+
+- **No include path changes** for consumers. `gcc oodar.c`
+  still works. The internal `#include` paths inside the runtime
+  use `../../oodar.h` and `../../types.h` for the 2-level-deep
+  files (per the user's "I don't mind option A" — live with
+  the relative paths).
+
+### What consumers must change
+
+**Nothing.** This is a Thrust bump. The build command,
+public header, public symbols, and ABI are all unchanged.
+
+### What did NOT change
+
+- The set of exported `oo_*` symbols.
+- `oodar.h`, `oodar.c`, `types.h` at the root (same names, same
+  locations, same contents).
+- The build command `gcc oodar.c`.
+- `api_surface=53` (53 .c files before, 53 after; just
+  redistributed).
+- The auto-release workflow and the version contract.
+
+### Why the reorg
+
+After v1.0.0 shipped with 17 subdirs, the user feedback was
+that the layout felt "messy" and didn't match std's structure.
+17 subdirs for 53 files is over-fragmented (avg 3 files per
+subdir). std uses 8 tactical subdirs (core, sec, fs, net,
+science, app, hw, meta) for 5794 files (avg 725 per subdir).
+Mirroring std's vocabulary — even at oodar's smaller scale —
+gives the two repos a consistent "library repo" feel and
+makes it obvious where a new file should land.
+
+science/ is omitted in oodar (no analog). All 6 of the
+populated std domains map to oodar content; the 7th
+(`hw/`) is for the GPU dispatch that std doesn't have.
+
 ## v1.0.0 — Floor break from v0.1.x
 
 Per RULES.oot §1.21, v1.0.0 is a MAJOR (Floor) bump. The

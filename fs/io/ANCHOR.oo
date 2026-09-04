@@ -1,0 +1,8 @@
+// # fs/io — I/O Primitives
+//
+// Logline: The stdout/stderr print family used by compiled .oo programs.
+//
+// Beats:
+//   1. print.c — print_str, print_int, print_bool, print_double, println, eprint_str, eprintln.
+//
+// ──▓▓ fs/io ANCHOR ──▓▓──

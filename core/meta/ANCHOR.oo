@@ -1,0 +1,8 @@
+// # core/meta — Meta-Circular Primitives
+//
+// Logline: Meta-circular primitives — epoch counter, mix function, path-A detection, decoy touch.
+//
+// Beats:
+//   1. meta.c — epoch, mix, is_path_a, decoy_touch.
+//
+// ──▓▓ core/meta ANCHOR ──▓▓──
