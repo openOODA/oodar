@@ -60,7 +60,7 @@ int oo_sandbox_is_available(void);
 int oo_sandbox_available(void);
 void oo_sandbox_note_net(void);
 void oo_sandbox_note_proc(void);
-int oo_sandbox_apply(void);
+int oo_sandbox_apply(long long sys_cap);
 
 OoResS oo_sandbox_apply_matrix(long long sys_cap, const oo_sandbox_config_t *config);
 OoResS oo_sandbox_restrict_caps(long long sys_cap, uint32_t allowed_caps_mask);

@@ -74,7 +74,12 @@ static void sha256_bytes(const unsigned char *data, size_t len, unsigned char ou
 
 OoStr crypto_sha256_internal(OoStr data) {
   unsigned char digest[32];
-  sha256_bytes((const unsigned char *)data.data, (size_t)data.len, digest);
+  OoStr empty;
+  empty.data = NULL;
+  empty.len = 0;
+  if (data.len < 0) return empty;
+  sha256_bytes((const unsigned char *)(data.data ? data.data : ""),
+               data.data ? (size_t)data.len : 0, digest);
   /* ARC: payload must be preceded by OoStrHeader (oo_str_alloc_payload). */
   char *hex = oo_str_alloc_payload(64);
   for (int i = 0; i < 32; i++) snprintf(hex + i * 2, 3, "%02x", digest[i]);
@@ -175,7 +180,12 @@ static void sha512_bytes(const unsigned char *data, size_t len, unsigned char ou
 
 OoStr crypto_sha512_internal(OoStr data) {
   unsigned char digest[64];
-  sha512_bytes((const unsigned char *)data.data, (size_t)data.len, digest);
+  OoStr empty;
+  empty.data = NULL;
+  empty.len = 0;
+  if (data.len < 0) return empty;
+  sha512_bytes((const unsigned char *)(data.data ? data.data : ""),
+               data.data ? (size_t)data.len : 0, digest);
   char *hex = oo_str_alloc_payload(128);
   for (int i = 0; i < 64; i++) snprintf(hex + i * 2, 3, "%02x", digest[i]);
   hex[128] = '\0';

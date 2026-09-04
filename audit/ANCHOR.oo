@@ -1,0 +1,13 @@
+// # oodar/audit — Agent Audit Records
+//
+// Logline: Holds agent-generated audit boards for the oodar substrate.
+//
+// Setup: Lowercase names per RULES.oot §1.19. These files are not
+//        the public ABI. Product code lives in the 6 domain subdirs.
+//
+// Beats:
+//   1. round7.oot — 8D Red Team audit of v3.4.2 (2026-09-04).
+//   2. todo.oot — decided execution list (Waves 1-7).
+
+import "round7.oot";
+import "todo.oot";

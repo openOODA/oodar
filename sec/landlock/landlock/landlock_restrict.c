@@ -23,7 +23,7 @@ static unsigned long long ll_handled_fs(int abi) {
 
 static unsigned long long ll_read_bits(int abi) {
   (void)abi;
-  return LL_FS_EXECUTE | LL_FS_READ_FILE | LL_FS_READ_DIR;
+  return LL_FS_READ_FILE | LL_FS_READ_DIR;
 }
 
 static unsigned long long ll_write_bits(int abi) {

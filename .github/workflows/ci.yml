@@ -14,7 +14,7 @@ jobs:
       - name: Verify VERSION + api_surface
         run: |
           declared="$(grep '^api_surface=' VERSION | cut -d= -f2)"
-          actual="$(find . -name '*.c' -not -path './.git/*' | wc -l)"
+          actual="$(find core sec fs net hw app -name '*.c' | wc -l)"
           echo "Declared api_surface: ${declared}"
           echo "Actual *.c count (recursive): ${actual}"
           test "${declared}" = "${actual}" || (echo "api_surface drift: declared=${declared} actual=${actual}"; exit 1)

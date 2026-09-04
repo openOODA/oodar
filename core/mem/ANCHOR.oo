@@ -2,6 +2,8 @@
 //
 // Logline: The O(1) bulk-reset linear arena, the deterministic ARC (atomic ref-counted), and the 64-byte aligned payload allocator (OO_PAYLOAD_ALIGN = 64). v2.0.0: all weak-ref and control-block mutators require AllocCap.
 //
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. weak.h — OoControlBlock + OoWeakRef + OO_FLAG_* values.
 //   2. weak.c — the C11-atomic retain/release semantics (v2.0.0: cap-gated).

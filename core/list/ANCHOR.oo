@@ -2,6 +2,8 @@
 //
 // Logline: The OoIList / OoSList / OoFList family and the nested list types (OoLL_*, OoLLL_*, OoLLLL_*). The 3-element and 4-element variants are compressed via X-macro in llist.c.
 //
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. list.c — OoIList / OoSList (retain/release/new/push/get/len).
 //   2. list_alloc.c — bulk-list allocation helpers (oo_list_alloc_n / free / set).

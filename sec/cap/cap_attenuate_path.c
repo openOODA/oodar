@@ -35,6 +35,8 @@
 
 #define OO_PATH_CAP_MAX_PREFIX 4096
 
+static int oo_path_prefix_nests(OoStr prefix, OoStr path);
+
 static void oo_path_cap_hex_decode(const char *hex, size_t hex_len, unsigned char out[32]) {
   /* hex_len must be 64; caller already checked. */
   size_t i;
@@ -182,8 +184,25 @@ int oo_path_cap_check(OoPathCap path_cap, OoStr path) {
   crypto_secure_wipe(expected, sizeof expected);
   if (!eq) return 0;
 
-  /* MAC is genuine; now enforce the path-prefix rule. */
+  /* MAC is genuine; directory-boundary prefix (not /tmp vs /tmpfoo). */
   if (!path.data || path.len <= 0) return 0;
-  if ((size_t)path_cap.prefix.len > (size_t)path.len) return 0;
-  return memcmp(path.data, path_cap.prefix.data, (size_t)path_cap.prefix.len) == 0;
+  return oo_path_prefix_nests(path_cap.prefix, path);
+}
+
+static int oo_path_prefix_nests(OoStr prefix, OoStr path) {
+  if (!prefix.data || prefix.len <= 0 || !path.data || path.len <= 0) return 0;
+  if (prefix.data[0] != '/' || path.data[0] != '/') return 0;
+  if (prefix.len == 1) return 1;
+  if ((size_t)prefix.len > (size_t)path.len) return 0;
+  if (memcmp(path.data, prefix.data, (size_t)prefix.len) != 0) return 0;
+  if (path.len == prefix.len) return 1;
+  return path.data[prefix.len] == '/';
+}
+
+OoPathCap oo_attenuate_pathcap_to_path(OoPathCap parent, OoStr child_prefix) {
+  OoPathCap empty;
+  memset(&empty, 0, sizeof empty);
+  if (!oo_path_cap_check(parent, parent.prefix)) return empty;
+  if (!oo_path_prefix_nests(parent.prefix, child_prefix)) return empty;
+  return oo_attenuate_fsread_to_path(parent.parent_cap, child_prefix);
 }

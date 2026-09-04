@@ -34,21 +34,15 @@
 static const char *EXCEPTIONS[] = {
   "sec/pqc/mldsa/mldsa_internal.c",
   "sec/pqc/mlkem/mlkem_internal.c",
+  "hw/gpu/hip_kern.hip",
   NULL,
 };
 
 static int is_exception(const char *path) {
-  /* strip leading "./" or any absolute-path prefix to get the repo-relative
-   * form. EXCEPTIONS lists paths like "sec/pqc/mldsa/mldsa_internal.c";
-   * the scanner sees the absolute path from OODAR_REPO. */
-  const char *suffix = strstr(path, "sec/pqc/");
-  if (!suffix) {
-    const char *p = path;
-    if (p[0] == '.' && p[1] == '/') p += 2;
-    suffix = p;
-  }
-  for (int i = 0; EXCEPTIONS[i]; i++) {
-    if (strcmp(suffix, EXCEPTIONS[i]) == 0) return 1;
+  int i;
+  for (i = 0; EXCEPTIONS[i]; i++) {
+    const char *s = strstr(path, EXCEPTIONS[i]);
+    if (s && strcmp(s, EXCEPTIONS[i]) == 0) return 1;
   }
   return 0;
 }
@@ -58,7 +52,7 @@ static int is_source_file(const char *name) {
   if (n < 3) return 0;
   const char *dot = strrchr(name, '.');
   if (!dot) return 0;
-  return strcmp(dot, ".c") == 0 || strcmp(dot, ".h") == 0;
+  return strcmp(dot, ".c") == 0 || strcmp(dot, ".h") == 0 || strcmp(dot, ".hip") == 0;
 }
 
 static int line_count(const char *path) {

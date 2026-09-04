@@ -77,8 +77,10 @@ void oo_sandbox_note_proc(void) {
 
 oo_sandbox_backend_t oo_sandbox_probe_backend(void) {
 #if defined(__linux__)
-#if defined(PR_SET_SECCOMP) || defined(__NR_landlock_create_ruleset)
-  return OO_SANDBOX_BACKEND_LINUX_LANDLOCK_SECCOMP;
+  if (oo_landlock_is_available())
+    return OO_SANDBOX_BACKEND_LINUX_LANDLOCK_SECCOMP;
+#if defined(PR_SET_SECCOMP)
+  return OO_SANDBOX_BACKEND_SECCOMP;
 #else
   return OO_SANDBOX_BACKEND_VIRTUALIZED_FALLBACK;
 #endif

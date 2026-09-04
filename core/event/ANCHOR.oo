@@ -2,6 +2,8 @@
 //
 // Logline: The event bus. Producers emit named events; consumers
 // subscribe a void(*)(void) callback. Used to decouple cross-cutting
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // telemetry (metrics) from the cryptographic and FS subsystems that
 // emit them.
 //

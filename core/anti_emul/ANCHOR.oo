@@ -2,6 +2,8 @@
 //
 // Logline: Process-local epoch + mix helpers for path-A immune layouts, plus the decoy-touch sink. v2.2.0: renamed from core/meta/ — the "meta" prefix suggested meta-circularity (a la Lisp's meta- prefix), but the actual content is anti-emulation (decoy, path-A detection, immune-layout epoch). The metamorphic product is residual; this is not runtime assembly mutation.
 //
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. anti_emul.c — epoch, mix, is_path_a, decoy_touch.
 //

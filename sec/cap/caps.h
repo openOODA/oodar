@@ -149,6 +149,7 @@ typedef struct {
 } OoPathCap;
 
 OoPathCap oo_attenuate_fsread_to_path(long long cap, OoStr prefix);
+OoPathCap oo_attenuate_pathcap_to_path(OoPathCap parent, OoStr child_prefix);
 int oo_path_cap_check(OoPathCap path_cap, OoStr path);
 
 /* v3.2.2: diagnostic API for qa/tests_challenger_differential_cap.c.

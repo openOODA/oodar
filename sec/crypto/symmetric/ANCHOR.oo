@@ -2,6 +2,8 @@
 //
 // Logline: SHA-256/SHA-512 hashes + HMAC-SHA-256 + constant-time primitives.
 //
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. crypto.c — orchestrator: cap_attenuate / oo_cg_sign / oo_cg_verify (the cap-gated HMAC + cg primitives).
 //   2. hash.c — SHA-256, SHA-512, sha256_bytes (used by HMAC).

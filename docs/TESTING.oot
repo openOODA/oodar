@@ -1,6 +1,6 @@
 // # oodar/docs/TESTING.oot — The 8D Red Team Testing Model
 //
-// Logline: oodar's testing model is the 8-Dimensional Red Team matrix (per openOODA/practices/8d-red-team.oot) — 8 orthogonal dimensions (functional, redteam, performance, fuzz, property, regression, benchmark, adversarial) where every dimension targets a different failure mode; the v2.2.0+ qa/ subdir ships with 2 test utilities (dudect_c_native, oo_hip_so_smoke) and 5 new tier-5 tests_challenger_*.c files, and the tier-5 adversarial dimension is the primary Red Team surface for the cap+Landlock substrate.
+// Logline: oodar's testing model is the 8-Dimensional Red Team matrix. qa/ ships 2 utilities, 10+ challenger tests (including wave1/wave3), fuzz_smoke, and 3 C lints. `make -C scripts test` runs lint plus challengers. Dudect probes HMAC and AES-GCM, not a proxy mixer.
 //
 // Setup: This file documents the 8D Red Team model as it applies to oodar. The 8 dimensions are independent test classes; each dimension is a separate concern and a separate test. The 5 tier-5 challenger tests in qa/ are .c files (NOT .oo) — they are C-level tests that link against oodar and are run by the developer, not the runtime.
 //

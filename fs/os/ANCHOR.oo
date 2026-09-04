@@ -2,6 +2,8 @@
 //
 // Logline: The OS syscall shims (sys_exec, sys_args, sys_prctl), the policy getenv filter (OODA_/OO_ keys only), the file I/O surface, the net-floor loopback constraint, the host process info, the rlimit setter, the time+rand source, and the Landlock-gated proc_mem.
 //
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. sys.c — orchestrator: sys_exec, sys_args, policy getenv, child filter env.
 //   2. sys_env.c — policy getenv filter (OODA_/OO_ keys only).

@@ -2,6 +2,8 @@
 //
 // Logline: ML-KEM-768 (key encapsulation), ML-DSA-65 (digital signature), the PQ AEAD seal/open that binds ciphertexts to a keypair via pk-as-AAD, and the dudect constant-time test harness.
 //
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. mlkem/mlkem.c — orchestrator: ML-KEM-768 keygen/encaps/decaps.
 //   2. mlkem/mlkem_internal.c — FIPS 203 NTT + sampling + byte conversions (the algorithm core; over 256 lines by design).

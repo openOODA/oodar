@@ -2,6 +2,8 @@
 //
 // Logline: The Oo* C structs (OoStr, OoResS, OoArena, OoThreadSlot, OoGpuDevice, ...). The split mirrors the .h file domains; each sub-header is the canonical home for one type family. The umbrella (types.h) pulls them all in via #include.
 //
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. types.h — umbrella: #includes all 5 sub-headers.
 //   2. types_str.h — OoStr, OoStrBuf, the string-literal macros.

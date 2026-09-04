@@ -36,6 +36,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 
 #include "../oodar.h"
@@ -91,20 +92,15 @@ int main(void) {
         printf("WARN\tproc_mem_leak\tPhase B: landlock_restrict failed (ok=%d val=%.*s); skipping\n",
                ar.ok, (int)ar.val.len, ar.val.data ? ar.val.data : "(null)");
       } else {
-        OoResS r = oo_proc_mem_read(sys_cap, 0, 64);
-        if (r.ok == 1 && r.val.len > 0) {
-          printf("OK\tproc_mem_leak\tPhase B: proc_mem returned %lld bytes (Landlock applied)\n",
-                 (long long)r.val.len);
-        } else if (r.ok == 0) {
-          /* Even with Landlock applied, the function may refuse
-           * if the read of /proc/self/mem fails (e.g., we cannot
-           * lseek to offset 0 on a process that has no mapped
-           * memory at that address). This is also a valid
-           * fail-closed outcome. */
-          printf("OK\tproc_mem_leak\tPhase B: proc_mem refused (ok=0); fail-closed at the read step\n");
-        } else {
-          printf("INFO\tproc_mem_leak\tPhase B: proc_mem ok=%d len=%lld (unusual but not a defect)\n",
-                 r.ok, (long long)r.val.len);
+        {
+          int memfd = open("/proc/self/mem", O_RDONLY | O_CLOEXEC);
+          if (memfd >= 0) {
+            close(memfd);
+            printf("FAIL\tproc_mem_leak\tPhase B: open(/proc/self/mem) succeeded after restrict\n");
+            fail = 1;
+          } else {
+            printf("OK\tproc_mem_leak\tPhase B: open(/proc/self/mem) denied after restrict\n");
+          }
         }
       }
       rmdir(tmpdir);

@@ -14,16 +14,24 @@
 #include <pthread.h>
 
 #define OO_CK_MAX 8
-static long long g_ck[OO_CK_MAX];
+typedef struct { int id; size_t off; uint64_t gen; } OoCk;
+static OoCk g_ck[OO_CK_MAX];
 static int g_ck_n;
 static pthread_mutex_t g_ck_mu = PTHREAD_MUTEX_INITIALIZER;
+int oo_arena_snap(int id, size_t *off, uint64_t *gen);
+int oo_arena_restore(int id, size_t off, uint64_t gen);
 
 long long oo_checkpoint(long long cap, long long v) {
-  oo_cap_require_arena(cap, "checkpoint");
+  size_t off = 0;
+  uint64_t gen = 0;
   long long ret = -1;
+  oo_cap_require_arena(cap, "checkpoint");
+  if (!oo_arena_snap((int)v, &off, &gen)) return -1;
   pthread_mutex_lock(&g_ck_mu);
   if (g_ck_n < OO_CK_MAX) {
-    g_ck[g_ck_n] = v;
+    g_ck[g_ck_n].id = (int)v;
+    g_ck[g_ck_n].off = off;
+    g_ck[g_ck_n].gen = gen;
     ret = (long long)g_ck_n++;
   }
   pthread_mutex_unlock(&g_ck_mu);
@@ -31,12 +39,17 @@ long long oo_checkpoint(long long cap, long long v) {
 }
 
 long long oo_rollback(long long cap) {
-  oo_cap_require_arena(cap, "rollback");
+  OoCk ck;
   long long ret = 0;
+  oo_cap_require_arena(cap, "rollback");
   pthread_mutex_lock(&g_ck_mu);
-  if (g_ck_n > 0) {
-    ret = g_ck[--g_ck_n];
+  if (g_ck_n <= 0) {
+    pthread_mutex_unlock(&g_ck_mu);
+    return 0;
   }
+  ck = g_ck[--g_ck_n];
   pthread_mutex_unlock(&g_ck_mu);
+  if (!oo_arena_restore(ck.id, ck.off, ck.gen)) return 0;
+  ret = (long long)ck.id;
   return ret;
 }

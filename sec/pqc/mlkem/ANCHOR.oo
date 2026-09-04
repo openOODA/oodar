@@ -3,6 +3,8 @@
 // Logline: Module-Lattice-Based Key-Encapsulation Mechanism. Keygen,
 // Encaps, Decaps. First-party PQC, fail-closed.
 //
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
+//
 // Beats:
 //   1. mlkem.c — orchestrator: ML-KEM-768 keygen/encaps/decaps.
 //   2. mlkem_internal.c — FIPS 203 NTT + sampling + byte conversions (the algorithm core).

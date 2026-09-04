@@ -1,4 +1,5 @@
 #include "../../oodar.h"
+#include "../../oodar_internal.h"
 #include <stdlib.h>
 #include <limits.h>
 #include <unistd.h>

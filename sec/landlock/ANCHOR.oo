@@ -2,6 +2,8 @@
 //
 // Logline: The Landlock FS sandbox, the platform-detecting probe, and the live-RAM proc_mem reader gated by Landlock (Pillar 9).
 //
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. landlock/landlock.h — the OoLandlockStatus enum and rule flags (kept at top level for the public C API).
 //   2. landlock/landlock.c — orchestrator: the Landlock rule construction and apply.

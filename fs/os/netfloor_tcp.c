@@ -77,6 +77,14 @@ OoResS oo_tcp_connect(long long cap, OoStr host, long long port) {
   hints.ai_socktype = SOCK_STREAM;
   if (getaddrinfo(h, portstr, &hints, &res) != 0) return net_err("tcp_connect: resolve failed");
   for (rp = res; rp; rp = rp->ai_next) {
+    int loop = 0;
+    if (rp->ai_family == AF_INET && rp->ai_addr) {
+      uint32_t ip = ntohl(((struct sockaddr_in *)rp->ai_addr)->sin_addr.s_addr);
+      loop = ((ip & 0xff000000u) == 0x7f000000u);
+    } else if (rp->ai_family == AF_INET6 && rp->ai_addr) {
+      loop = IN6_IS_ADDR_LOOPBACK(&((struct sockaddr_in6 *)rp->ai_addr)->sin6_addr);
+    }
+    if (!loop) continue;
     fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
     if (fd < 0) continue;
     if (connect(fd, rp->ai_addr, rp->ai_addrlen) == 0) break;

@@ -77,9 +77,10 @@ OoResS sand_apply_linux_landlock_seccomp(long long sys_cap, const oo_sandbox_con
     }
   }
   if (oodar_cap_apply_seccomp_filter(config->allowed_caps_mask) < 0) {
-    if (config->fail_closed_on_kernel_miss) {
-      return (OoResS){0, oo_str_lit("ERR\tseccomp\tfilter application failed")};
-    }
+    return (OoResS){0, oo_str_lit("ERR\tseccomp\tfilter application failed")};
+  }
+  if (!oodar_cap_is_sandboxed()) {
+    return (OoResS){0, oo_str_lit("ERR\tseccomp\tfilter not enforced")};
   }
   if (config->max_mem_mb > 0) oo_rlimit_set_mem_mb(sys_cap, config->max_mem_mb);
   if (config->max_cpu_sec > 0) oo_rlimit_set_cpu_sec(sys_cap, config->max_cpu_sec);
@@ -201,8 +202,9 @@ int sand_install_seccomp(uint32_t net_act, uint32_t proc_act, uint32_t clone3_ac
  * them. This pre-dates the cap-based oo_sandbox_apply_matrix; callers
  * that need Landlock + cap-based seccomp + rlimits should use
  * oo_sandbox_apply_matrix instead. */
-int oo_sandbox_apply(void) {
+int oo_sandbox_apply(long long sys_cap) {
   int rc = 0;
+  oo_cap_require_sys(sys_cap, "sandbox_apply");
   pthread_mutex_lock(&g_sand_mu);
   if (g_sand_locked) {
     pthread_mutex_unlock(&g_sand_mu);
@@ -219,15 +221,19 @@ int oo_sandbox_apply(void) {
     g_sand_locked = 1;
     g_sand_avail = 1;
     g_sand_status.is_enforced = 1;
-    g_sand_status.backend = OO_SANDBOX_BACKEND_LINUX_LANDLOCK_SECCOMP;
-  } else if (rc == -1) {
+    g_sand_status.backend = OO_SANDBOX_BACKEND_SECCOMP;
+  } else {
     g_sand_avail = 0;
-    fprintf(stderr, "ERR\tsandbox\tseccomp ABI unavailable\n");
+    fprintf(stderr, "ERR\tsandbox\tseccomp filter application failed\n");
+    pthread_mutex_unlock(&g_sand_mu);
+    return -1;
   }
 #else
   g_sand_avail = 0;
   rc = -1;
   fprintf(stderr, "ERR\tsandbox\tseccomp ABI unavailable\n");
+  pthread_mutex_unlock(&g_sand_mu);
+  return -1;
 #endif
   pthread_mutex_unlock(&g_sand_mu);
   return rc;

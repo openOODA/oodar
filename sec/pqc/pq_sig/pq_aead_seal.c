@@ -102,14 +102,28 @@ OoStr crypto_pq_aead_seal_internal(OoStr cap_key32, OoStr aead_key16, OoStr plai
   for (size_t i = 0; i < ct_len; i++) {
     int hi = hex_digit((unsigned char)aead_out.data[2 * i]);
     int lo = hex_digit((unsigned char)aead_out.data[2 * i + 1]);
-    if (hi < 0 || lo < 0) { free(ct); crypto_secure_wipe(aead_out.data, (size_t)aead_out.len); return oo_str_lit(""); }
+    if (hi < 0 || lo < 0) {
+      free(ct);
+      crypto_secure_wipe(aead_out.data, (size_t)aead_out.len);
+      crypto_secure_wipe(pk, sizeof pk);
+      crypto_secure_wipe(sk, sizeof sk);
+      crypto_secure_wipe(aead_key_raw, sizeof aead_key_raw);
+      return oo_str_lit("");
+    }
     ct[i] = (uint8_t)((hi << 4) | lo);
   }
   uint8_t tag[AEAD_TAG_LEN];
   for (int i = 0; i < AEAD_TAG_LEN; i++) {
     int hi = hex_digit((unsigned char)aead_out.data[ct_hex_len + 2 * i]);
     int lo = hex_digit((unsigned char)aead_out.data[ct_hex_len + 2 * i + 1]);
-    if (hi < 0 || lo < 0) { free(ct); crypto_secure_wipe(aead_out.data, (size_t)aead_out.len); return oo_str_lit(""); }
+    if (hi < 0 || lo < 0) {
+      free(ct);
+      crypto_secure_wipe(aead_out.data, (size_t)aead_out.len);
+      crypto_secure_wipe(pk, sizeof pk);
+      crypto_secure_wipe(sk, sizeof sk);
+      crypto_secure_wipe(aead_key_raw, sizeof aead_key_raw);
+      return oo_str_lit("");
+    }
     tag[i] = (uint8_t)((hi << 4) | lo);
   }
 

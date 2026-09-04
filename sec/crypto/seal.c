@@ -16,6 +16,11 @@
 OoResS oo_seal(long long cap, OoStr key, OoStr nonce, OoStr plaintext, OoStr aad) {
   OoResS r;
   oo_cap_require_sign(cap, "seal");
+  if (key.len < 0 || nonce.len < 0 || plaintext.len < 0 || aad.len < 0) {
+    r.ok = 0;
+    r.val = oo_str_lit("E_AEAD");
+    return r;
+  }
   r.val = crypto_aes_gcm_seal_internal(key, nonce, plaintext, aad);
   /* Internal returns empty OoStr on bad key/nonce. Surface as a tagged error. */
   if (r.val.data == NULL || r.val.len == 0) {
@@ -30,6 +35,11 @@ OoResS oo_seal(long long cap, OoStr key, OoStr nonce, OoStr plaintext, OoStr aad
 OoResS oo_open(long long cap, OoStr key, OoStr nonce, OoStr ct, OoStr tag, OoStr aad) {
   OoResS r;
   oo_cap_require_sign(cap, "open");
+  if (key.len < 0 || nonce.len < 0 || ct.len < 0 || tag.len < 0 || aad.len < 0) {
+    r.ok = 0;
+    r.val = oo_str_lit("E_AEAD");
+    return r;
+  }
   r.val = crypto_aes_gcm_open_internal(key, nonce, ct, tag, aad);
   /* Internal returns empty OoStr on auth failure (tag mismatch) OR bad
    * key/nonce/tag length. The two are indistinguishable to the caller,

@@ -63,7 +63,14 @@ static void md5_bytes(const unsigned char *initial_msg, size_t initial_len, unsi
 OoStr crypto_md5_internal(OoStr data) {
   unsigned char dig[16];
   const unsigned char *p = (const unsigned char *)(data.data ? data.data : "");
-  size_t n = data.data ? (size_t)data.len : 0;
+  size_t n;
+  if (data.len < 0) {
+    OoStr empty;
+    empty.data = NULL;
+    empty.len = 0;
+    return empty;
+  }
+  n = data.data ? (size_t)data.len : 0;
   md5_bytes(p, n, dig);
   return hex_encode_n(dig, 16);
 }
@@ -116,7 +123,14 @@ static void sha1_bytes(const unsigned char *str, size_t len, unsigned char *hash
 OoStr crypto_sha1_internal(OoStr data) {
   unsigned char dig[20];
   const unsigned char *p = (const unsigned char *)(data.data ? data.data : "");
-  size_t n = data.data ? (size_t)data.len : 0;
+  size_t n;
+  if (data.len < 0) {
+    OoStr empty;
+    empty.data = NULL;
+    empty.len = 0;
+    return empty;
+  }
+  n = data.data ? (size_t)data.len : 0;
   sha1_bytes(p, n, dig);
   return hex_encode_n(dig, 20);
 }
@@ -143,7 +157,9 @@ static const uint8_t aes_sbox[256] = {
 };
 static const uint8_t aes_rcon[11] = {0x00,0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1b,0x36};
 
-static uint8_t aes_xtime(uint8_t x) { return (uint8_t)((x << 1) ^ ((x & 0x80) ? 0x1b : 0)); }
+static uint8_t aes_xtime(uint8_t x) {
+  return (uint8_t)((x << 1) ^ (((uint8_t)(0u - (unsigned)(x >> 7))) & 0x1b));
+}
 
 static void aes_key_expand(const uint8_t *key, uint8_t rk[176]) {
   int i;
@@ -193,6 +209,9 @@ static void aes_block_encrypt(const uint8_t *in, const uint8_t rk[176], uint8_t 
 OoStr crypto_aes_encrypt_internal(OoStr key, OoStr plain) {
   uint8_t rk[176];
   size_t kn, pn, off;
+  if (key.len < 0 || plain.len < 0) {
+    return oo_str_lit("STUB_FAIL_CLOSED");
+  }
   unsigned char *out;
   const unsigned char *k, *p;
   kn = key.data ? (size_t)key.len : 0;

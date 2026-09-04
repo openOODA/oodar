@@ -16,6 +16,7 @@
 static pthread_once_t g_ffi_once = PTHREAD_ONCE_INIT;
 /* v3.4.1: keep g_tok_ffi static. See cap_alloc.c for the reason. */
 static long long g_tok_ffi;
+static void ffi_zeroize(void);
 
 static void ffi_once_init(void) {
   unsigned char b[8];
@@ -49,6 +50,12 @@ static void ffi_once_init(void) {
     g_tok_ffi = (long long)ent;
   }
   if (g_tok_ffi == 0x4F4F4649LL) g_tok_ffi ^= 0x11111111LL;
+  if (g_tok_ffi == 0) g_tok_ffi = 1;
+  if (atexit(ffi_zeroize) != 0) abort();
+}
+
+static void ffi_zeroize(void) {
+  explicit_bzero(&g_tok_ffi, sizeof g_tok_ffi);
 }
 
 static void oo_ffi_init(void) {
@@ -62,7 +69,7 @@ long long oo_cap_grant_ffi(void) {
 
 void oo_cap_require_ffi(long long got, const char *op) {
   oo_ffi_init();
-  if (got != g_tok_ffi) {
+  if (got == 0 || got != g_tok_ffi) {
     fprintf(stderr, "ERR\tcap\t%s: missing or forged capability\n",
             op ? op : "ffi");
     exit(1);

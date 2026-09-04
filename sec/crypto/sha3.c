@@ -117,6 +117,10 @@ static OoStr oo_crypto_hex(const uint8_t *d, size_t n) {
 
 OoStr crypto_sha3_256_internal(OoStr data) {
   uint8_t dgst[32];
+  OoStr empty;
+  empty.data = NULL;
+  empty.len = 0;
+  if (data.len < 0) return empty;
   oo_sha3_256_bytes((const uint8_t *)(data.data ? data.data : ""),
                     data.data && data.len > 0 ? (size_t)data.len : 0, dgst);
   return oo_crypto_hex(dgst, 32);

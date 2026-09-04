@@ -2,6 +2,8 @@
 //
 // Logline: The GPU device, buffer, stream, event, and launch surface (HIP/ROCm only — no CPU fallback, no "noop" prefix). The liboo_hip.so dynamic loader. The compute kernel suite.
 //
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. gpu.h — the OoGpuDevice, OoGpuBuffer types.
 //   2. gpu/gpu.c — orchestrator: HIP/ROCm init, device probe, sync.

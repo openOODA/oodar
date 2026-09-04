@@ -2,6 +2,8 @@
 //
 // Logline: The dlopen-based FFI, the FFI security wrapper (cap-gated, minisign-verified), and the cross-language dispatch surface.
 //
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. ffi.c — dlopen/dlsym/dlclose.
 //   2. ffi_sec.c — cap-gated, signature-verified FFI.

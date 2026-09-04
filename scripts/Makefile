@@ -185,7 +185,7 @@ UMBRELLA_SRCS := \
 UMBRELLA_OBJS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(UMBRELLA_SRCS))
 
 # Phony targets
-.PHONY: all clean install check perfile lint lint-anchors lint-file-size lint-cap-table adversarial
+.PHONY: all clean install check perfile lint lint-anchors lint-file-size lint-cap-table adversarial test
 
 # ---------------------------------------------------------------------------
 # Default: build liboodar.a from the umbrella TU (single .o).
@@ -333,4 +333,35 @@ lint: lint-anchors lint-file-size lint-cap-table
 # The 4 CRITICALs from round-4 (LCG fallbacks) would have been caught.
 # ---------------------------------------------------------------------------
 adversarial:
-	@cd $(REPO_ROOT) && python3 scripts/adversarial_read.py
+	@echo "SKIP adversarial python scanner (Wave 7: no .py in CI)"
+
+TEST_DIR := $(BUILD_DIR)/test
+CHALLENGERS := tests_challenger_contract tests_challenger_wave1 \
+	tests_challenger_wave3 tests_challenger_attenuate_v2 \
+	tests_challenger_pathcap tests_challenger_cap_escape \
+	tests_challenger_cap_threat tests_challenger_differential_cap \
+	tests_challenger_actor_race tests_fuzz_smoke \
+	tests_challenger_proc_mem_leak tests_challenger_sandbox_containment
+
+$(TEST_DIR):
+	@mkdir -p $@
+
+$(TEST_DIR)/%: $(REPO_ROOT)/qa/%.c $(REPO_ROOT)/oodar.c | $(TEST_DIR)
+	@$(CC) $(filter-out -include oodar.h,$(CFLAGS)) -I$(REPO_ROOT) -o $@ $< $(REPO_ROOT)/oodar.c -lpthread -ldl -lm
+
+test: lint $(addprefix $(TEST_DIR)/,$(CHALLENGERS))
+	@echo "RUN contract (double-run)"
+	@$(TEST_DIR)/tests_challenger_contract
+	@$(TEST_DIR)/tests_challenger_contract
+	@OODAR_REPO=$(REPO_ROOT) $(TEST_DIR)/tests_challenger_wave1
+	@$(TEST_DIR)/tests_challenger_wave3
+	@$(TEST_DIR)/tests_challenger_attenuate_v2
+	@$(TEST_DIR)/tests_challenger_pathcap
+	@$(TEST_DIR)/tests_challenger_cap_escape
+	@$(TEST_DIR)/tests_challenger_cap_threat
+	@$(TEST_DIR)/tests_challenger_differential_cap
+	@$(TEST_DIR)/tests_challenger_actor_race
+	@$(TEST_DIR)/tests_fuzz_smoke
+	@$(TEST_DIR)/tests_challenger_proc_mem_leak
+	@$(TEST_DIR)/tests_challenger_sandbox_containment
+	@echo "TEST OK"

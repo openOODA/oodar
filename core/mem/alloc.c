@@ -146,42 +146,59 @@ void oo_free(long long cap, long long ptr) {
   pthread_mutex_unlock(&g_quota_mu);
 }
 
+static OoRawAllocHeader *alloc_find_locked(uintptr_t target) {
+  size_t b = (target >> 4) % OO_ALLOC_BUCKETS;
+  OoRawAllocHeader *h = g_alloc_table[b];
+  while (h) {
+    if (h->user_ptr == target) return h;
+    h = h->next;
+  }
+  return NULL;
+}
+
 void (oo_write_int)(long long cap, long long ptr, long long offset, long long val) {
+  OoRawAllocHeader *hdr;
+  long long *dest;
   oo_cap_require_alloc(cap, "write_int");
   if (!ptr) { fprintf(stderr, "ERR\tmem\tnull pointer dereference in oo_write_int\n"); exit(1); }
   if (offset < 0) { fprintf(stderr, "ERR\tmem\tnegative offset in oo_write_int\n"); exit(1); }
-  OoRawAllocHeader *hdr = (OoRawAllocHeader *)((char *)(uintptr_t)ptr - sizeof(OoRawAllocHeader));
-  /* v2.1.0: the bounds check is now mandatory regardless of magic. Previously
-   * (&&) meant a foreign pointer (magic mismatch) silently bypassed the
-   * bounds check, giving any AllocCap holder arbitrary R/W into the
-   * process. Now: magic MUST match AND offset+sizeof must fit, both
-   * independently. */
-  if (hdr->magic != OO_RAW_ALLOC_MAGIC) {
+  pthread_mutex_lock(&g_quota_mu);
+  hdr = alloc_find_locked((uintptr_t)ptr);
+  if (!hdr || hdr->magic != OO_RAW_ALLOC_MAGIC) {
+    pthread_mutex_unlock(&g_quota_mu);
     fprintf(stderr, "ERR\tmem\tforeign pointer (bad magic) in oo_write_int — refused\n");
     exit(1);
   }
   if ((size_t)offset + sizeof(long long) > hdr->capacity) {
+    pthread_mutex_unlock(&g_quota_mu);
     fprintf(stderr, "ERR\tmem\tout of bounds write in oo_write_int\n");
     exit(1);
   }
-  long long *dest = (long long *)((char *)(uintptr_t)ptr + offset);
+  dest = (long long *)((char *)(uintptr_t)ptr + offset);
   *dest = val;
+  pthread_mutex_unlock(&g_quota_mu);
 }
 
 long long (oo_read_int)(long long cap, long long ptr, long long offset) {
+  OoRawAllocHeader *hdr;
+  long long v;
   oo_cap_require_alloc(cap, "read_int");
   if (!ptr) { fprintf(stderr, "ERR\tmem\tnull pointer dereference in oo_read_int\n"); exit(1); }
   if (offset < 0) { fprintf(stderr, "ERR\tmem\tnegative offset in oo_read_int\n"); exit(1); }
-  OoRawAllocHeader *hdr = (OoRawAllocHeader *)((char *)(uintptr_t)ptr - sizeof(OoRawAllocHeader));
-  if (hdr->magic != OO_RAW_ALLOC_MAGIC) {
+  pthread_mutex_lock(&g_quota_mu);
+  hdr = alloc_find_locked((uintptr_t)ptr);
+  if (!hdr || hdr->magic != OO_RAW_ALLOC_MAGIC) {
+    pthread_mutex_unlock(&g_quota_mu);
     fprintf(stderr, "ERR\tmem\tforeign pointer (bad magic) in oo_read_int — refused\n");
     exit(1);
   }
   if ((size_t)offset + sizeof(long long) > hdr->capacity) {
+    pthread_mutex_unlock(&g_quota_mu);
     fprintf(stderr, "ERR\tmem\tout of bounds read in oo_read_int\n");
     exit(1);
   }
-  long long *src = (long long *)((char *)(uintptr_t)ptr + offset);
-  return *src;
+  v = *(long long *)((char *)(uintptr_t)ptr + offset);
+  pthread_mutex_unlock(&g_quota_mu);
+  return v;
 }
 

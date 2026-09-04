@@ -2,6 +2,8 @@
 //
 // Logline: The classical crypto primitives — MD5, SHA-1, SHA-2, SHA-3, HMAC, AES, AEAD (AES-GCM, chacha20-poly1305).
 //
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. symmetric/crypto.c — orchestrator: md5, sha1, sha2, hmac_sha256, sha512, secure_wipe, ct_cmp.
 //   2. symmetric/hash.c — md5, sha1, sha2, sha512 primitives.

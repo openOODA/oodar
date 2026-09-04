@@ -144,7 +144,17 @@ static void w_file_stamp(long long c)      { (void)oo_file_stamp(c, oo_str_lit("
 static void w_rlimit_set_cpu_sec(long long c) { (void)oo_rlimit_set_cpu_sec(c, 60); }
 static void w_rlimit_set_mem_mb(long long c)  { (void)oo_rlimit_set_mem_mb(c, 1024); }
 static void w_rlimit_set_nofile(long long c)  { (void)oo_rlimit_set_nofile(c, 1024); }
-/* oo_verify_human: removed in v3.1.0 */
+static void w_sandbox_apply(long long c)   { (void)oo_sandbox_apply(c); }
+static void w_write_file(long long c)      { (void)oo_write_file(c, oo_str_lit("/tmp/x"), oo_str_lit("z")); }
+static void w_now_ms(long long c)          { (void)oo_now_ms(c); }
+static void w_sleep_ms(long long c)        { oo_sleep_ms(c, 0); }
+static void w_random(long long c)          { (void)oo_random(c); }
+static void w_write_int(long long c)       { (oo_write_int)(c, 0, 0, 0); }
+static void w_read_int(long long c)        { (void)(oo_read_int)(c, 0, 0); }
+static void w_free(long long c)            { oo_free(c, 0); }
+static void w_free_bytes(long long c)      { oo_free_bytes(c, 0); }
+static void w_metrics_reset(long long c)   { (void)oo_metrics_reset(c, oo_str_lit("x")); }
+static void w_metrics_export(long long c)  { (void)oo_metrics_export(c); }
 
 struct { const char *name; mutator_fn fn; } CASES[] = {
   {"oo_alloc",                 w_alloc},
@@ -204,6 +214,17 @@ struct { const char *name; mutator_fn fn; } CASES[] = {
   {"oo_rlimit_set_cpu_sec",    w_rlimit_set_cpu_sec},
   {"oo_rlimit_set_mem_mb",     w_rlimit_set_mem_mb},
   {"oo_rlimit_set_nofile",     w_rlimit_set_nofile},
+  {"oo_sandbox_apply",         w_sandbox_apply},
+  {"oo_write_file",            w_write_file},
+  {"oo_now_ms",                w_now_ms},
+  {"oo_sleep_ms",              w_sleep_ms},
+  {"oo_random",                w_random},
+  {"oo_write_int",             w_write_int},
+  {"oo_read_int",              w_read_int},
+  {"oo_free",                  w_free},
+  {"oo_free_bytes",            w_free_bytes},
+  {"oo_metrics_reset",         w_metrics_reset},
+  {"oo_metrics_export",        w_metrics_export},
   {NULL, NULL}
 };
 

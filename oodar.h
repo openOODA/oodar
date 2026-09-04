@@ -51,27 +51,26 @@ double oo_sqrt(double x);
 double oo_pow(double base, double expn);
 
 OoResS oo_read_file(long long cap, OoStr path);
+OoResS oo_read_file_pc(OoPathCap pc, OoStr path);
 OoResV oo_write_file(long long cap, OoStr path, OoStr content);
 int oo_path_exists(long long cap, OoStr path);
+int oo_path_exists_pc(OoPathCap pc, OoStr path);
 long long oo_file_size(long long cap, OoStr path);
+long long oo_file_size_pc(OoPathCap pc, OoStr path);
 OoResS oo_env_get(long long cap, OoStr key);
 /* v2.1.0: removed legacy fs_file_size — declared in v2.0.0 but never
  * implemented. The canonical entry point is oo_file_size. */
 OoSList oo_fs_read_dir(long long cap, OoStr path);
+OoSList oo_fs_read_dir_pc(OoPathCap pc, OoStr path);
 int oo_fs_is_dir(long long cap, OoStr path);
 OoResV oo_fs_remove_file(long long cap, OoStr path);
 OoResV oo_fs_rmdir(long long cap, OoStr path);
 OoResV oo_fs_mkdir(long long cap, OoStr path);
 OoResV oo_fs_hardlink(long long cap, OoStr oldpath, OoStr newpath);
 OoResV oo_fs_symlink(long long cap, OoStr target, OoStr linkpath);
-int path_under_allowdir(const char *rp, const char *dir);
-int path_under_sys_lib(const char *rp);
-int ffi_verify_signature(const char *path);
 
 OoSList oo_sys_args(long long cap);
 OoResS oo_sys_exec(long long cap, int argc, OoStr *argv);
-const char *oo_process_policy_getenv(const char *key);
-void oo_child_filter_env(void);
 void oo_process_exit(long long c);
 OoResS oo_proc_mem_read(long long cap, long long offset, long long n);
 

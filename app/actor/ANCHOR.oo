@@ -2,6 +2,8 @@
 //
 // Logline: Actor-based concurrency (spawn, send, recv, restart), channels, joinable pthread-backed threads, and closures. The oodar-native execution model.
 //
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. actor.c — the OTP-style actor (spawn/send/recv/destroy) + the cap-RPC (cap_rpc_send/recv use SignCap since v2.1.0).
 //   2. actor_thread.c — the joinable pthread slot table (OoThreadSlot type defined inline in actor_thread.c).

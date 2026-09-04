@@ -2,6 +2,8 @@
 //
 // Logline: sin, cos, ln, exp, sqrt, pow. Thin wrappers around the C math library. No FP env control in v1.0.1.
 //
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. math.c — the 6 wrappers.
 //

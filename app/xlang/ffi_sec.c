@@ -5,6 +5,7 @@
  * oo_cap_require_ffi) moved to sec/cap/cap_ffi.c per the misplaced-
  * files audit. This file is now the dlopen signature + allowlist logic. */
 #include "../../oodar.h"
+#include "../../oodar_internal.h"
 #include <stdlib.h>
 #include <limits.h>
 #include <fcntl.h>

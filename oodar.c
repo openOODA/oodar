@@ -1,4 +1,5 @@
 #define _GNU_SOURCE 1
+#include "oodar_internal.h"
 /* oodar runtime umbrella — single TU for existing gcc command lines.
  * Each #include pulls in a .c file from its owning subdir. The canonical
  * build command is `gcc oodar.c` from the repo root.

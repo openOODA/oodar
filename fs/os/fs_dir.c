@@ -5,6 +5,7 @@
  * Cap tokens: read_dir/is_dir need FsReadCap; remove_file/rmdir/mkdir/hardlink/
  * symlink need FsWriteCap. */
 #include "../../oodar.h"
+#include "../../oodar_internal.h"
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -109,4 +110,9 @@ if (policy_locked(ctarget) || policy_locked(clink)) {
 r.err = oo_str_lit("fs_symlink denied: policy path"); return r; }
 if (symlink(ctarget, clink) == 0) { r.ok = 1; r.err = oo_str_lit(""); }
 return r;
+}
+OoSList oo_fs_read_dir_pc(OoPathCap pc, OoStr path) {
+  OoSList empty = oo_slist_new();
+  if (!oo_path_cap_check(pc, path)) return empty;
+  return oo_fs_read_dir(pc.parent_cap, path);
 }

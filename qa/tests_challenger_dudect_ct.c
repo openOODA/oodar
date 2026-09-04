@@ -126,19 +126,21 @@ static uint64_t time_hmac_class(int cls, int iters) {
   return t1 - t0;
 }
 
-/* v3.4.2: real probe of the cap-protected sign primitive. The cap
- * is the "secret" (public token but the function path is the same).
- * Self-vs-self is a sanity check that the framework measures
- * identical timing for identical inputs. */
-static uint64_t time_cg_sign_class(long long cap, int iters) {
+static uint64_t time_gcm_seal_class(int cls, int iters) {
   uint64_t t0 = now_ns();
   uint64_t acc = 0;
   for (int i = 0; i < iters; i++) {
-    long long s = oo_cg_sign(cap);
-    acc += (uint64_t)s;
+    OoStr k, n, p, a, r;
+    k.data = (char *)HMAC_KEY; k.len = 16;
+    n.data = (char *)HMAC_MSG_A; n.len = 12;
+    a.data = (char *)HMAC_MSG_B; a.len = 16;
+    p.data = (char *)(cls ? HMAC_MSG_B : HMAC_MSG_A); p.len = 16;
+    r = crypto_aes_gcm_seal_internal(k, n, p, a);
+    acc += (uint64_t)(uintptr_t)r.data;
+    if (r.data) oo_str_release(r);
   }
   uint64_t t1 = now_ns();
-  if (acc == 0) printf("never\n");
+  if (acc == 0xDEADBEEF) printf("never\n");
   return t1 - t0;
 }
 
@@ -199,28 +201,18 @@ int main(void) {
            t_hmac, WELCH_THRESHOLD);
   }
 
-  /* Probe 2 (v3.4.2): real cap-protected oo_cg_sign with two SignCaps. */
-  long long sign_cap_a = oo_cap_grant_sign();
-  long long sign_cap_b = oo_cap_grant_sign();
-  /* oo_cg_sign's only valid input is g_tok_sign (any other exits via
-   * oo_cap_require_sign). Two valid classes collapse to one, so we
-   * probe self-vs-self as a framework sanity check. The real ct
-   * signal comes from Probe 1 (crypto_hmac_sha256_internal). */
-  (void)sign_cap_b;
   for (int i = 0; i < SAMPLES; i++) {
-    class_a[i] = time_cg_sign_class(sign_cap_a, ITERS);
-    class_b[i] = time_cg_sign_class(sign_cap_a, ITERS);  /* same cap = identical timing */
+    class_a[i] = time_gcm_seal_class(0, ITERS);
+    class_b[i] = time_gcm_seal_class(1, ITERS);
   }
   long t_cg = welch_t(class_a, SAMPLES, class_b, SAMPLES);
-  printf("oo_cg_sign (self vs self) Welch |t| (scaled): %ld (threshold %d)\n",
+  printf("aes-gcm seal (eq-len plains) Welch |t| (scaled): %ld (threshold %d)\n",
          t_cg, WELCH_THRESHOLD);
   if (t_cg >= WELCH_THRESHOLD) {
-    printf("FAIL: oo_cg_sign self-vs-self leaks timing (|t|=%ld >= %d) — framework broken\n",
-           t_cg, WELCH_THRESHOLD);
+    printf("FAIL: AES-GCM seal leaks timing (|t|=%ld >= %d)\n", t_cg, WELCH_THRESHOLD);
     fail = 1;
   } else {
-    printf("OK: oo_cg_sign self-vs-self is constant-time (|t|=%ld < %d) — framework sound\n",
-           t_cg, WELCH_THRESHOLD);
+    printf("OK: AES-GCM seal is constant-time (|t|=%ld < %d)\n", t_cg, WELCH_THRESHOLD);
   }
 
   /* Probe 3: branchy negative control (expected leaky). */
@@ -242,7 +234,7 @@ int main(void) {
     printf("FAIL\tchallenger_dudect_ct\tct probe failed\n");
     return 1;
   }
-  printf("PASS\tchallenger_dudect_ct\tct probe verified (real HMAC |t|=%ld < %d, oo_cg_sign |t|=%ld < %d, branchy |t|=%ld >= %d)\n",
-         t_hmac, WELCH_THRESHOLD, t_cg, WELCH_THRESHOLD, t_br, WELCH_THRESHOLD);
+  printf("PASS\tchallenger_dudect_ct\tct probe verified (HMAC |t|=%ld GCM |t|=%ld branchy |t|=%ld)\n",
+         t_hmac, t_cg, t_br);
   return 0;
 }

@@ -7,7 +7,7 @@
 // Beats:
 //   1. SECURITY_MODEL.oot      — the 26-token cap system, the 4 hard rules, the 6-step cap flow.
 //   2. PILLARS.oot             — how oodar maps to the 10 NORTHSTAR Pillars (5-of-10 wired: 3, 4, 5, 7, 9).
-//   3. CAPABILITIES_TABLE.oot  — the 19 implemented + 7 future-state cap tokens, grant/require/attenuate/used-by table.
+//   3. CAPABILITIES_TABLE.oot  — 20 implemented + 6 future-state cap tokens.
 //   4. BUILD_AND_INSTALL.oot   — canonical `gcc oodar.c`, per-file compile, polyrepo, liboodar.a.
 //   5. TESTING.oot             — the 8D Red Team matrix and the 11 tier-5 tests_challenger_*.c files + 3 lint tests.
 //

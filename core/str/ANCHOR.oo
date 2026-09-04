@@ -2,6 +2,8 @@
 //
 // Logline: The OoStr family. Retain/release, lit, concat, intern, ops.
 //
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. str.c — retain, release, alloc_payload, lit, concat, concat_list, concat_multi.
 //   2. str_intern.c — ASCII interning + FNV-1a hash interning pool.

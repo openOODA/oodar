@@ -1,5 +1,6 @@
 /* OPEN-70: read a C header under include jail; gcc -flto two units via execvp. */
 #include "../../oodar.h"
+#include "../../oodar_internal.h"
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>

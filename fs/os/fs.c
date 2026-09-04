@@ -4,6 +4,7 @@
  * Cap tokens: oo_read_file/oo_path_exists/oo_file_size need FsReadCap
  * (oo_cap_require_fsread); oo_write_file needs FsWriteCap (oo_cap_require_fswrite). */
 #include "../../oodar.h"
+#include "../../oodar_internal.h"
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +13,7 @@
 int to_cpath(OoStr p, char *c, int max);
 int fs_read_confined(const char *cpath);
 int writedir_open_trunc(const char *path);
+int fs_open_ro_nofollow(const char *path);
 int path_under_writedir(const char *path, const char *dir);
 int oo_is_policy_path(const char *p);
 int oo_policy_write_on(void);
@@ -21,7 +23,8 @@ char cpath[PATH_MAX];
 oo_cap_require_fsread(cap, "read_file"); OoResS r={0, oo_str_lit("read_file failed")};
 if (!to_cpath(path, cpath, PATH_MAX)) return r;
 if (!fs_read_confined(cpath)) return r;
-FILE *f = fopen(cpath, "rb"); if (!f) return r;
+int rfd = fs_open_ro_nofollow(cpath); if (rfd < 0) return r;
+FILE *f = fdopen(rfd, "rb"); if (!f) { close(rfd); return r; }
 if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return r; }
 long sz = ftell(f); if (sz < 0) { fclose(f); return r; }
 if (fseek(f, 0, SEEK_SET) != 0) { fclose(f); return r; }
@@ -67,6 +70,19 @@ if (!fs_read_confined(cpath)) return -1;
 FILE *f=fopen(cpath,"rb"); if(!f)return -1;
 fseek(f,0,SEEK_END); long long sz=ftell(f); fclose(f);
 return sz;
+}
+OoResS oo_read_file_pc(OoPathCap pc, OoStr path) {
+  OoResS r = {0, oo_str_lit("path cap denied")};
+  if (!oo_path_cap_check(pc, path)) return r;
+  return oo_read_file(pc.parent_cap, path);
+}
+int oo_path_exists_pc(OoPathCap pc, OoStr path) {
+  if (!oo_path_cap_check(pc, path)) return 0;
+  return oo_path_exists(pc.parent_cap, path);
+}
+long long oo_file_size_pc(OoPathCap pc, OoStr path) {
+  if (!oo_path_cap_check(pc, path)) return -1;
+  return oo_file_size(pc.parent_cap, path);
 }
 long long oo_monotonic_us(void) {
 struct timespec ts;

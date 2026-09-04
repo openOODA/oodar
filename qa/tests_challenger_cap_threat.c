@@ -108,13 +108,16 @@ static void probe_write_passwd(void) {
 /* Probe (3): try to open an AF_INET socket. AllocCap does not
  * grant NetCap. The OS will refuse with EACCES. */
 static void probe_open_socket(void) {
-  int fd = socket(AF_INET, SOCK_STREAM, 0);
-  if (fd < 0) {
-    /* EACCES — the OS refused. */
-    _exit(2);
-  }
+  long long sys = oo_cap_grant_sys();
+  oo_sandbox_config_t cfg;
+  int fd;
+  memset(&cfg, 0, sizeof cfg);
+  cfg.allowed_caps_mask = OODAR_CAP_ALLOC;
+  cfg.fail_closed_on_kernel_miss = 1;
+  (void)oo_sandbox_apply_matrix(sys, &cfg);
+  fd = socket(AF_INET, SOCK_STREAM, 0);
+  if (fd < 0) _exit(2);
   close(fd);
-  /* Got an fd — the network is not sandboxed. */
   _exit(3);
 }
 
@@ -152,11 +155,8 @@ int main(void) {
   if (run_child(probe_open_socket, "open AF_INET socket") == 0) {
     printf("OK\tcap_threat\t(3) AF_INET socket refused\n");
   } else {
-    /* If the socket opened, the seccomp-bpf filter is not
-     * installed. The cap system alone does NOT block raw
-     * socket() — only seccomp-bpf does. We mark this as
-     * a known gap, not a cap-threat defect. */
-    printf("INFO\tcap_threat\t(3) AF_INET socket opened (seccomp-bpf not installed; cap system does not block raw syscalls)\n");
+    printf("FAIL\tcap_threat\t(3) AF_INET socket opened with AllocCap (OS containment miss)\n");
+    escape_count++;
   }
 
   if (run_child(probe_thread_spawn, "thread_spawn with AllocCap") == 0) {

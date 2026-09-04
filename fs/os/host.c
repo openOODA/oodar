@@ -23,15 +23,15 @@ static OoStr oo_from_c_heap(char *p) {
 }
 
 OoStr oo_host_ast_dump(long long cap, OoStr path) {
-  oo_cap_require_ffi(cap, "ast_dump");
+  oo_cap_require_compiler_read(cap, "ast_dump");
   return oo_from_c_heap(ooda_host_ast_dump(path.data));
 }
 OoStr oo_host_check(long long cap, OoStr path) {
-  oo_cap_require_ffi(cap, "check");
+  oo_cap_require_compiler_read(cap, "check");
   return oo_from_c_heap(ooda_host_check(path.data));
 }
 OoStr oo_host_token_dump(long long cap, OoStr path) {
-  oo_cap_require_ffi(cap, "token_dump");
+  oo_cap_require_compiler_read(cap, "token_dump");
   return oo_from_c_heap(ooda_host_token_dump(path.data));
 }
 

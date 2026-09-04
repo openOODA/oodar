@@ -155,6 +155,6 @@ int oo_landlock_is_applied(void) {
   return g_ll_applied;
 }
 
-void oo_landlock_mark_applied(void) {
+static void oo_landlock_mark_applied(void) {
   g_ll_applied = 1;
 }

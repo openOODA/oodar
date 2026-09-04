@@ -12,6 +12,10 @@
 
 OoStr crypto_hmac_sha256_internal(OoStr key, OoStr msg) {
   unsigned char k[64];
+  OoStr empty;
+  empty.data = NULL;
+  empty.len = 0;
+  if (key.len < 0 || msg.len < 0) return empty;
   memset(k, 0, 64);
   if ((size_t)key.len > 64) sha256_bytes((const unsigned char *)key.data, (size_t)key.len, k);
   else if (key.len > 0 && key.data) memcpy(k, key.data, (size_t)key.len);

@@ -3,6 +3,8 @@
 // Logline: The platform-detecting probe (Landlock on Linux, fail-closed
 // elsewhere) plus the per-domain rule matrix and the C-ABI backdoor.
 //
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
+//
 // Beats:
 //   1. sandbox.c — orchestrator: the platform-detecting probe.
 //   2. sandbox_matrix.c — the per-domain (FsRead, FsWrite, Net, ...) rule matrix.

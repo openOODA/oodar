@@ -98,6 +98,28 @@ static void beat5_path_prefix_check(void) {
  * scribble over the source buffer, then check the cap. The
  * check should still pass because the OoPathCap owns its
  * copy. */
+static void beat7_tmp_vs_tmpfoo(void) {
+  OoPathCap r = oo_attenuate_fsread_to_path(oo_cap_self_token(15), oo_str_lit("/tmp"));
+  if (oo_path_cap_check(r, oo_str_lit("/tmpfoo"))) {
+    fprintf(stderr, "  LEAK beat7: /tmp matched /tmpfoo\n"); _exit(0);
+  }
+  if (!oo_path_cap_check(r, oo_str_lit("/tmp/x"))) {
+    fprintf(stderr, "  LEAK beat7: /tmp/x should match\n"); _exit(0);
+  }
+  _exit(0);
+}
+static void beat8_no_widen(void) {
+  OoPathCap a = oo_attenuate_fsread_to_path(oo_cap_self_token(15), oo_str_lit("/tmp"));
+  OoPathCap b = oo_attenuate_pathcap_to_path(a, oo_str_lit("/etc"));
+  if (b.parent_cap != 0 || b.prefix.len != 0) {
+    fprintf(stderr, "  LEAK beat8: /tmp pathcap widened to /etc\n"); _exit(0);
+  }
+  OoPathCap c = oo_attenuate_pathcap_to_path(a, oo_str_lit("/tmp/sub"));
+  if (c.parent_cap == 0) {
+    fprintf(stderr, "  LEAK beat8: nested /tmp/sub should work\n"); _exit(0);
+  }
+  _exit(0);
+}
 static void beat6_uaf_safe(void) {
   char buf[16];
   memcpy(buf, "/tmp", 4); buf[4] = 0;
@@ -120,11 +142,13 @@ int main(void) {
   int p4 = run_in_child(beat4_chain_re_attenuation, 1);
   int p5 = run_in_child(beat5_path_prefix_check, 1);
   int p6 = run_in_child(beat6_uaf_safe, 1);
-  int total = 6, passed = p1 + p2 + p3 + p4 + p5 + p6;
-  fprintf(stderr, "pathcap: %d/%d beats pass (p1=%d p2=%d p3=%d p4=%d p5=%d p6=%d)\n",
-          passed, total, p1, p2, p3, p4, p5, p6);
+  int p7 = run_in_child(beat7_tmp_vs_tmpfoo, 1);
+  int p8 = run_in_child(beat8_no_widen, 1);
+  int total = 8, passed = p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8;
+  fprintf(stderr, "pathcap: %d/%d beats (p1=%d p2=%d p3=%d p4=%d p5=%d p6=%d p7=%d p8=%d)\n",
+          passed, total, p1, p2, p3, p4, p5, p6, p7, p8);
   if (passed == total) {
-    printf("OK\tpathcap\t%d/%d beats pass (cap=0 fails, wrong cap fails, valid cap works, chain works, prefix check works, UAF-safe)\n",
+    printf("OK\tpathcap\t%d/%d beats pass (boundary + no-widen)\n",
            passed, total);
     return 0;
   }

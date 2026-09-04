@@ -110,6 +110,7 @@ OoResS oo_arena_create(long long cap, long long bytes) {
   g_ar[s].cap = (size_t)bytes;
   g_ar[s].off = 0;
   g_ar[s].live = 1;
+  g_ar[s].gen++;
   pthread_mutex_unlock(&g_ar[s].mu);
   pthread_mutex_unlock(&g_ar_boot);
   {
@@ -143,9 +144,6 @@ OoResS oo_arena_alloc(long long cap, long long id, long long n) {
     r.val = oo_str_lit("arena_alloc: bad id");
     return r;
   }
-  /* v2.1.0: reverse the comparison to prevent wrap.
-   * Was: if (a->off + n > a->cap) — can wrap if a->off + n overflows size_t.
-   * Now: if (n > a->cap - a->off) — the subtraction is exact on a valid arena. */
   if ((size_t)n > a->cap - a->off) {
     pthread_mutex_unlock(&a->mu);
     r.val = oo_str_lit("arena_alloc: full");
@@ -219,7 +217,6 @@ OoResS oo_arena_destroy(long long cap, long long id) {
   pthread_mutex_unlock(&g_ar_boot);
   if (to_free) {
     free(to_free);
-    /* Release ambient quota */
     pthread_mutex_lock(&g_quota_mu);
     oo_list_ambient_bytes -= (long long)freed_cap;
     if (oo_list_ambient_bytes < 0) oo_list_ambient_bytes = 0;
@@ -228,4 +225,30 @@ OoResS oo_arena_destroy(long long cap, long long id) {
   r.ok = 1;
   r.val = oo_str_lit("OK");
   return r;
+}
+
+int oo_arena_snap(int id, size_t *off, uint64_t *gen) {
+  OoArena *a;
+  if (id < 0 || id >= OO_ARENA_SLOTS || !off || !gen) return 0;
+  a = &g_ar[id];
+  pthread_mutex_lock(&a->mu);
+  if (!a->live) { pthread_mutex_unlock(&a->mu); return 0; }
+  *off = a->off;
+  *gen = a->gen;
+  pthread_mutex_unlock(&a->mu);
+  return 1;
+}
+
+int oo_arena_restore(int id, size_t off, uint64_t gen) {
+  OoArena *a;
+  if (id < 0 || id >= OO_ARENA_SLOTS) return 0;
+  a = &g_ar[id];
+  pthread_mutex_lock(&a->mu);
+  if (!a->live || a->gen != gen || off > a->cap) {
+    pthread_mutex_unlock(&a->mu);
+    return 0;
+  }
+  a->off = off;
+  pthread_mutex_unlock(&a->mu);
+  return 1;
 }

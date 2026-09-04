@@ -61,7 +61,9 @@ OoResS oo_udp_send(long long cap, long long slot, OoStr host, long long port, Oo
   addr.sin_family = AF_INET;
   addr.sin_port = htons((uint16_t)port);
   if (h[0] && inet_aton(h, &addr.sin_addr) != 0) {
-    /* dotted IPv4 */
+    uint32_t ip = ntohl(addr.sin_addr.s_addr);
+    if ((ip & 0xff000000u) != 0x7f000000u)
+      return net_err("udp_send: host must be IPv4 loopback");
   } else if (h[0] == 0 || strcmp(h, "localhost") == 0 || strcmp(h, "127.0.0.1") == 0) {
     addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
   } else {

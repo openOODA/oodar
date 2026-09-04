@@ -18,6 +18,7 @@ static pthread_once_t g_alloc_once = PTHREAD_ONCE_INIT;
  * sidesteps the single-TU-build linker confusion that arose when an
  * extern in caps.c competed with a static in cap_alloc.c. */
 static long long g_tok_alloc;
+static void alloc_zeroize(void);
 
 static void alloc_init_once(void) {
   unsigned char b[8];
@@ -50,6 +51,12 @@ static void alloc_init_once(void) {
     g_tok_alloc = (long long)ent;
   }
   if (g_tok_alloc == OO_CLASSIC_ALLOC) g_tok_alloc ^= 0x11111111LL;
+  if (g_tok_alloc == 0) g_tok_alloc = 1;
+  if (atexit(alloc_zeroize) != 0) abort();
+}
+
+static void alloc_zeroize(void) {
+  explicit_bzero(&g_tok_alloc, sizeof g_tok_alloc);
 }
 
 static void oo_alloc_init(void) {
@@ -63,7 +70,7 @@ long long oo_cap_grant_alloc(void) {
 
 void oo_cap_require_alloc(long long got, const char *op) {
   oo_alloc_init();
-  if (got != g_tok_alloc) {
+  if (got == 0 || got != g_tok_alloc) {
     fprintf(stderr, "ERR\tcap\t%s: missing or forged capability\n",
             op ? op : "alloc");
     exit(1);

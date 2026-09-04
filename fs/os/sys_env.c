@@ -5,6 +5,7 @@
  * only and forces PATH=/usr/bin:/bin. oo_policy_write_on / oo_is_policy_path
  * gate the policy-path check used by fs.c and fs_dir.c. */
 #include "../../oodar.h"
+#include "../../oodar_internal.h"
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>

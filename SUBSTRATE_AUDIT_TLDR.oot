@@ -1,4 +1,4 @@
-// # oodar Security Substrate Audit TLDR
+// # oodar Security Substrate Audit TLDR (SUPERSEDED by audit/round7.oot)
 //
 // Logline: 8-Dimensional Red Team audit of the oodar security substrate (Landlock FS sandbox, capability-gated POSIX shims, dudect constant-time probes, live-RAM proc_mem reader). Documents the 3 in-scope first-principles fixes applied, the 3 residual structural concerns, and the 256-line-cap violation inventory for the C source tree at v2.1.0.
 //

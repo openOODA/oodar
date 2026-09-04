@@ -118,12 +118,8 @@ OoStr crypto_pq_aead_open_internal(OoStr cap_key32, OoStr aead_key16, OoStr seal
   crypto_secure_wipe(pk2, sizeof pk2);
   crypto_secure_wipe(aead_key_raw, sizeof aead_key_raw);
 
-  if (!pt.data || pt.len <= 0) {
-    /* AEAD tag verification failed (or wrong key) — fail closed. */
-    if (pt.data) oo_str_release(pt);
+  if (!pt.data) {
     return oo_str_lit("");
   }
-  /* Confidentiality+authenticity verified. Release plaintext (caller has the cap). */
-  oo_str_release(pt);
-  return oo_str_lit("verified");
+  return pt;
 }

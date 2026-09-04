@@ -1,10 +1,10 @@
 {
   "_comment": "The canonical cap bit-table for oodar. The lsp verifier (lsp/methods/lsp_definition.oo) and oodac (oodac/emit/c) read this file to know the cap bit positions, names, and which caps are implemented (vs. future-state reserved). The C-level truth is sec/cap/caps.h; this JSON is the structural truth; the regeneration script is scripts/gen_cap_table.py.",
-  "_version": "3.1.1",
+  "_version": "3.4.2",
   "_generated_from": "sec/cap/caps.h",
   "cap_count": 26,
-  "cap_count_implemented": 19,
-  "cap_count_future_state": 7,
+  "cap_count_implemented": 20,
+  "cap_count_future_state": 6,
   "audit_bit_position": 11,
   "audit_bit_value": 2048,
   "audit_bit_note": "v2.1.0 reserved bit 0x800 (the AUDIT bit) for future re-introduction. v3.0.0 re-introduced it as OODAR_CAP_METRICS.",
@@ -39,7 +39,7 @@
       "implemented": true,
       "category": "north_star",
       "grantee": "fs/os/fs.c (open with O_WRONLY|O_CREAT|O_TRUNC)",
-      "require": "oo_cap_require_fs_write",
+      "require": "oo_cap_require_fswrite",
       "subsumes": []
     },
     {
@@ -49,7 +49,7 @@
       "implemented": true,
       "category": "north_star",
       "grantee": "fs/os/fs.c (open with O_RDONLY)",
-      "require": "oo_cap_require_fs_read",
+      "require": "oo_cap_require_fsread",
       "subsumes": []
     },
     {
@@ -131,7 +131,7 @@
       "bit": 11,
       "implemented": true,
       "category": "north_star",
-      "grantee": "app/telemetry/metrics.c (oo_metrics_incr)",
+      "grantee": "core/event/metrics.c (oo_metrics_incr)",
       "require": "oo_cap_require_metrics",
       "subsumes": []
     },
@@ -150,7 +150,7 @@
       "value": 131072,
       "bit": 17,
       "implemented": true,
-      "category": "future_state",
+      "category": "north_star",
       "grantee": "fs/os/netfloor_tcp.c",
       "require": "oo_cap_require_tcp",
       "subsumes": []
@@ -160,7 +160,7 @@
       "value": 262144,
       "bit": 18,
       "implemented": true,
-      "category": "future_state",
+      "category": "north_star",
       "grantee": "fs/os/netfloor_udp.c (oo_udp_send/recv only)",
       "require": "oo_cap_require_udp",
       "subsumes": []
@@ -170,8 +170,8 @@
       "value": 524288,
       "bit": 19,
       "implemented": true,
-      "category": "future_state",
-      "grantee": "fs/os/netfloor_udp.c (oo_bind_udp), fs/os/netfloor_tcp.c (oo_bind_tcp)",
+      "category": "north_star",
+      "grantee": "fs/os/netfloor_udp.c",
       "require": "oo_cap_require_bind",
       "subsumes": []
     },
@@ -240,8 +240,8 @@
       "value": 67108864,
       "bit": 26,
       "implemented": true,
-      "category": "future_state",
-      "grantee": "app/actor/actor_thread.c (oo_thread_spawn)",
+      "category": "north_star",
+      "grantee": "app/actor/actor_thread.c",
       "require": "oo_cap_require_thread",
       "subsumes": []
     },
@@ -250,8 +250,8 @@
       "value": 134217728,
       "bit": 27,
       "implemented": true,
-      "category": "future_state",
-      "grantee": "hw/gpu/gpu/gpu_hip.c (oo_gpu_hip_try_launch)",
+      "category": "north_star",
+      "grantee": "hw/gpu/gpu/gpu_hip.c",
       "require": "oo_cap_require_gpu",
       "subsumes": []
     },
@@ -260,8 +260,8 @@
       "value": 268435456,
       "bit": 28,
       "implemented": true,
-      "category": "future_state",
-      "grantee": "fs/os/sys_env.c (policy getenv filter)",
+      "category": "north_star",
+      "grantee": "fs/os/sys_env.c",
       "require": "oo_cap_require_env",
       "subsumes": []
     },
@@ -269,10 +269,10 @@
       "name": "COMPILER_READ",
       "value": 536870912,
       "bit": 29,
-      "implemented": false,
-      "category": "future_state",
-      "grantee": "(reserved for oodac emit-time compile read)",
-      "require": "(none \u2014 token reserved)",
+      "implemented": true,
+      "category": "north_star",
+      "grantee": "fs/os/host.c",
+      "require": "oo_cap_require_compiler_read",
       "subsumes": []
     }
   ],
@@ -280,6 +280,6 @@
     "FS subsumes FSREAD, FSWRITE",
     "NET subsumes TCP, UDP, BIND"
   ],
-  "rule_2_attenuation_note": "v3.1.0 deferred. The bitmask subset check on oo_cap_attenuate (parent_rights & child_rights == child_rights) is the v3.2.0 Floor break. See CHANGES.md v3.1.0 \u00a7 'Deferred to v3.2.0 Floor break'.",
-  "_regen": "python3 scripts/gen_cap_table.py > sec/cap/cap_table.json"
+  "rule_2_attenuation_note": "oo_cap_attenuate_v2 MACs parent_hmac||parent_rights||child_rights under g_kernel_hmac_key. v1 returns empty.",
+  "_regen": "C lint qa/tests_lint_cap_table.c parses caps.h (no python)"
 }

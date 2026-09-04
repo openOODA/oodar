@@ -3,6 +3,8 @@
 // Logline: AES-128-GCM (NIST SP 800-38D) + chacha20-poly1305 (RFC 8439).
 // Encrypt + authenticate the cap_id (cap-as-AAD).
 //
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
+//
 // Beats:
 //   1. aead.c — orchestrator: AEAD seal/open dispatch.
 //   2. aes_gcm.c — AES-128-GCM.

@@ -2,6 +2,8 @@
 //
 // Logline: The stdout/stderr print family used by compiled .oo programs. v2.2.0: moved from fs/io/ — print goes to stdout/stderr, so it is an output app bridge (sibling of hitl/, xlang/) rather than a host primitive.
 //
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. print.c — print_str, print_int, print_bool, print_double, println, eprint_str, eprintln.
 //

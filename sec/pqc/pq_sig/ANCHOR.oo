@@ -3,6 +3,8 @@
 // Logline: The PQ AEAD seal that binds ciphertexts to a keypair via
 // pk-as-AAD, plus the HMAC + ML-DSA hybrid seal.
 //
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
+//
 // Beats:
 //   1. pq_sig.c — orchestrator: PQ AEAD seal/open with pk-as-AAD binding (public API docs).
 //   2. pq_aead_seal.c — the encrypt + sign side.

@@ -88,12 +88,21 @@ OoWeakRef oo_weak_create(long long cap, void *payload, OoControlBlock *ctrl) {
   OoWeakRef ref = oo_weak_new(cap);
   if (!ctrl || !payload) return ref;
 
-  uint32_t sc = __atomic_load_n(&ctrl->strong_count, __ATOMIC_ACQUIRE);
-  if (sc == 0) return ref;
-
   __atomic_fetch_add(&ctrl->weak_count, 1, __ATOMIC_ACQ_REL);
+  {
+    uint32_t sc = __atomic_load_n(&ctrl->strong_count, __ATOMIC_ACQUIRE);
+    if (sc == 0) {
+      uint32_t prev = __atomic_fetch_sub(&ctrl->weak_count, 1, __ATOMIC_ACQ_REL);
+      if (prev == 1) {
+        __atomic_store_n(&ctrl->flags, 0xFFFFFFFFu, __ATOMIC_RELEASE);
+        free(ctrl);
+      }
+      return ref;
+    }
+  }
   ref.payload = payload;
   ref.ctrl = ctrl;
+  ref.ctrl->epoch = ref.ctrl->epoch;
   return ref;
 }
 
@@ -157,7 +166,10 @@ void oo_weak_release_val(long long cap, OoWeakRef ref) {
 }
 
 int oo_weak_is_alive(OoWeakRef ref) {
+  uint32_t fl;
   if (!ref.ctrl) return 0;
+  fl = __atomic_load_n(&ref.ctrl->flags, __ATOMIC_ACQUIRE);
+  if (fl == 0xFFFFFFFFu) return 0;
   return __atomic_load_n(&ref.ctrl->strong_count, __ATOMIC_ACQUIRE) > 0;
 }
 

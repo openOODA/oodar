@@ -1,6 +1,6 @@
 // # oodar/docs/SECURITY_MODEL.oot — The Capability Token Security Model
 //
-// Logline: oodar's security model is built on unforgeable, kernel-derived capability tokens (25 tokens: 14 NORTHSTAR core + 11 future-state) that gate every privileged operation; the 4 hard rules (unforgeability, attenuation safety, fail-closed, no ambient authority) make the model sound by construction, not by convention.
+// Logline: oodar's security model is built on unforgeable, getentropy-derived capability tokens (26 tokens: Metrics at 0x800 is the v3.0.0 Floor reuse of the old AUDIT bit). Bind is a core token. Rule 2 HMAC binds parent_hmac||parent_rights||child_rights. v1 attenuate returns empty. 64-bit user-space tokens remain residual (Wave 7).
 //
 // Setup: This file documents the OCap substrate as it stands in v2.1.0+. It is the authoritative reference for the cap flow (grant → require → attenuate → seal → enter → release) and the 4 cap rules. The implementation lives in sec/cap/. See sec/cap/ANCHOR.oo for the file-level inventory.
 //

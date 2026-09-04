@@ -1,0 +1,148 @@
+# ROUND7 — oodar 8D substrate audit (v3.4.2)
+File: oodar/audit/round7.oot
+
+Scope: /home/jeryd/Projects/openOODA/oodar only. Tag v3.4.2, HEAD 630d943.
+Method: 8D Red Team (practices/8d-red-team.oot). Negative trust.
+Empirical: make lint; 10 challenger tests; dudect; contract double-run.
+
+Verdict: user-space oo_cap_require_* on named mutators is fail-closed
+for cap=0 (56/56, two fresh processes). That is not a hermetic jail.
+Zero ambient authority does not hold. Do not claim fail-closed kernel
+mediation until the CRITICAL items below are closed.
+
+# Empirical surface (green is not proof)
+
+- lint-anchors, lint-file-size, lint-cap-table: PASS
+- contract 56/56 cap=0: PASS, double-run identical
+- cap_escape, cap_threat, attenuate_v2, differential_cap: PASS
+- pathcap, proc_mem_leak, sandbox_containment, actor_race: PASS
+- fuzz_smoke 200 iters: PASS
+- dudect: HMAC |t|=924 < 4500; cg_sign self-vs-self |t|=22;
+  branchy |t|=45138 >= 4500. HMAC probe is real. cg_sign probe is vacuous.
+- api_surface: oodar.c includes = UMBRELLA_SRCS = VERSION 95. Holds.
+- C line cap: only mldsa_internal.c (627) and mlkem_internal.c (472)
+  over 256. Both are documented exceptions. mlkem claim of 460 is stale.
+
+# CRITICAL (verified on disk)
+
+1. oo_slist_new applies seccomp with no cap.
+   core/list/list.c:99-102 calls oo_sandbox_apply().
+   sandbox_config.c:204-223 installs BPF. Default g_sand_net=0 and
+   g_sand_proc=0 so first string-list alloc denies socket and fork.
+   Status backend is set to LINUX_LANDLOCK_SECCOMP with no Landlock.
+   Fix: delete the call. Require SysCap on apply. Never stamp Landlock
+   on a seccomp-only path.
+
+2. Seccomp install failure still reports enforced.
+   sandbox_config.c:79-87. fail_closed_on_kernel_miss defaults to 0.
+   Filter failure is swallowed. Return is still
+   OK_LINUX_LANDLOCK_SECCOMP_ENFORCED. Fix: always fail closed.
+   Do not advertise seccomp unless the filter is installed.
+
+3. Public process spawn with no cap.
+   oodar.h:69 ffi_verify_signature. ffi_sec.c:54-91 forks and
+   execlp("minisign"). oo_dlopen calls it after FfiCap, but the
+   symbol is on the public ABI without a cap argument.
+   Same class: oo_process_policy_getenv (sys_env.c:14-19) is getenv
+   without EnvCap; oo_child_filter_env mutates environ with no cap.
+   Fix: unexport or require FfiCap/EnvCap on every OS-touching symbol.
+
+4. HMAC heap overflow on negative OoStr.len.
+   sec/crypto/symmetric/hmac.c:22-26. size_t(msg.len) wraps, then
+   memcpy of 64 ipad bytes overruns malloc. Fix: reject len < 0
+   before any size_t cast.
+
+# HIGH
+
+5. Rule 2 is not bound to the parent seal.
+   cap_attenuate_hmac.c:51-64 HMAC(parent_hmac, child_rights) only.
+   Caller-supplied parent_rights is not in the MAC. v1 API has no
+   subset check and stays public. Fix: MAC parent_rights; remove v1.
+
+6. OoPathCap is prefix-memcmp and unwired.
+   cap_attenuate_path.c:185-188. /tmp matches /tmpfoo. Re-attenuation
+   uses the raw parent token so prefixes can widen. oo_read_file never
+   calls oo_path_cap_check. Fix: directory-boundary check; wire FS ops
+   or delete the API.
+
+7. TimeCap/RandCap still use 56-bit entropy plus a type band.
+   cap_time.c:41-52. Violates SECURITY_MODEL Rule 1 (no type bits).
+   Fix: same make_cap_tok as caps.c.
+
+8. atexit zeroize misses split stores.
+   caps.c:64-89 wipes 22 tokens plus HMAC key. Does not wipe
+   g_tok_alloc, g_tok_ffi, g_tok_time, g_tok_rand. SIGKILL residual
+   remains. Fix: one zeroize that covers every store.
+
+9. pq_aead_open drops plaintext and returns "verified".
+   pq_aead_open.c:116-128. Decrypt is not a decrypt.
+
+10. UDP dotted IPv4 bypasses the loopback claim.
+    netfloor_udp.c:63-69. inet_aton success sends to any IPv4.
+    TCP connect (netfloor_tcp.c) uses unrestricted getaddrinfo
+    despite a loopback-only comment.
+
+11. write_int/read_int UAF vs oo_free.
+    alloc.c:149-168 recovers the header by pointer arithmetic
+    without the alloc-table mutex. Concurrent free is UAF.
+
+12. Actor/channel send vs destroy TOCTOU.
+    live is read without the slot mutex; destroy destroys the mutex.
+    actor_race only covers otp_supervise.
+
+13. Vacuous tests.
+    dudect cg_sign is self-vs-self. proc_mem_leak Phase B allowlists
+    only tmpdir so /proc/self/mem deny cannot fail. cap_threat treats
+    raw socket success as INFO. contract omits oo_sandbox_apply,
+    oo_write_file, oo_now_ms, oo_random, oo_write_int, oo_free.
+    lint-cap-table diffs generator output against itself; require
+    names oo_cap_require_fs_write do not match C symbols.
+
+14. Docs and tables disagree with caps.h.
+    SECURITY_MODEL.oot still says 25 tokens and 0x800 reserved.
+    METRICS is 0x800. Bind is required on tcp_bind/bind_udp but
+    ANCHOR.oo still calls Bind future-state. TESTING.oot still
+    says 5 challenger tests (disk has 10). COMPILER_READ has no
+    consumer; host.c uses FfiCap. cap_table.json _version 3.1.1.
+
+# MEDIUM
+
+15. Landlock probe_backend is compile-time #ifdef, not ABI.
+16. g_ll_applied is a user-space bool; oo_landlock_mark_applied
+    is a global ELF symbol with no cap.
+17. FS read uses realpath then fopen (symlink TOCTOU). Write uses
+    openat+O_NOFOLLOW.
+18. Landlock read bits include EXECUTE.
+19. oo_random returns -1 on getentropy failure (not abort).
+20. oo_meta_epoch sets -1 on getentropy failure (not abort).
+21. Arena checkpoint is a global long-long stack, not arena restore.
+22. Weak-ref TOCTOU UAF (epoch unused).
+23. AES-GCM uses secret-indexed S-boxes; dudect does not probe AEAD.
+24. Makefile 337 lines (claimed 331). Two .py files drive CI lint.
+    repro_build.sh is an extra host script. CHANGES.md extra .md.
+25. examples/ is empty (RFC-0005 placeholder).
+26. 25 nested ANCHOR.oo files omit Setup.
+
+# Residuals still true (prior audits)
+
+- 64-bit tokens live in the same address space as /proc/self/mem.
+- atexit does not run on SIGKILL.
+- Seccomp is a small allow-default denylist, not the cap table.
+- No C RASP rollback. oo_rollback is not arena restore.
+
+# Closed this tree (do not re-litigate as live)
+
+- LCG fallbacks on cap/HMAC-key derivation: abort on getentropy fail.
+- Public mutator cap=0 require: 56/56 fail-closed.
+- otp_supervise unlocked double-restart: actor_race 8 threads, 1 success.
+- Umbrella file count matches VERSION api_surface=95.
+
+# Next (priority order)
+
+1. Remove oo_sandbox_apply from oo_slist_new. Cap-gate apply.
+2. Fail closed when seccomp install fails. Stop the lying OK string.
+3. Unexport or cap-gate ffi_verify_signature and policy getenv.
+4. Reject negative HMAC lengths.
+5. Bind Rule 2 rights into the HMAC. Wire or delete OoPathCap.
+6. Sync SECURITY_MODEL, CAPABILITIES_TABLE, TESTING, ANCHORs to v3.4.2.
+7. Add hostile tests that fail on items 1-6 before claiming complete.

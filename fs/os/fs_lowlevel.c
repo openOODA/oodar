@@ -3,6 +3,7 @@
  * confinement, O_NOFOLLOW openat(2), and the policy-path gate.
  * The cap-gated public surface is in fs.c (file ops) and fs_dir.c (dir ops). */
 #include "../../oodar.h"
+#include "../../oodar_internal.h"
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -110,6 +111,21 @@ const char *b = fs_split_parent(check, par, PATH_MAX);
 if(!b||!b[0]||!strcmp(b,".")||!strcmp(b,"..")||!realpath(par,rp))return -1;
 int dfd = open(rp, O_RDONLY|O_DIRECTORY|O_CLOEXEC); if(dfd<0)return -1;
 int fd = openat(dfd, b, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOFOLLOW, 0666);
+close(dfd); return fd;
+}
+int fs_open_ro_nofollow(const char *path) {
+char par[PATH_MAX], rp[PATH_MAX], abs[PATH_MAX];
+const char *check = path;
+if (path[0] != '/') {
+  char cwd[PATH_MAX];
+  if (!getcwd(cwd, sizeof cwd)) return -1;
+  if (snprintf(abs, sizeof abs, "%s/%s", cwd, path) >= (int)sizeof abs) return -1;
+  check = abs;
+}
+const char *b = fs_split_parent(check, par, PATH_MAX);
+if(!b||!b[0]||!strcmp(b,".")||!strcmp(b,"..")||!realpath(par,rp))return -1;
+int dfd = open(rp, O_RDONLY|O_DIRECTORY|O_CLOEXEC); if(dfd<0)return -1;
+int fd = openat(dfd, b, O_RDONLY|O_CLOEXEC|O_NOFOLLOW);
 close(dfd); return fd;
 }
 static int policy_locked(const char *p) {

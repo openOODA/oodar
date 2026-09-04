@@ -1,6 +1,6 @@
 // # oodar/qa — Substrate Self-Tests
 //
-// Logline: The v2.2.0+ qa/ subdir holds 2 test utilities (dudect_c_native, oo_hip_so_smoke) + 11 tier-5 tests_challenger_*.c files that exercise the 8D Red Team matrix (per openOODA/practices/8d-red-team.oot) plus 3 lint tests that enforce the 256-line cap, ANCHOR.oo coverage, and cap_table.json drift.
+// Logline: qa/ holds 2 utilities, challenger probes (cap, path, contract 67 mutators, wave1, wave3, dudect HMAC+GCM), fuzz_smoke, and 3 C lints. No python in the lint path.
 //
 // Setup: Self-tests ship with the package. The 2 utilities are smoke / benchmark tests; the 11 challenger tests are adversarial / regression probes (4 added in v3.2.x: contract, differential, fuzz, attenuate_v2; 1 added in v3.3.0: pathcap; 1 added in v3.3.4: actor_race). The 3 lint tests run in CI (Makefile lint target). The umbrella TU (oodar.c) EXCLUDES the qa/ subdir — these are run by the developer, not the runtime.
 //

@@ -1,0 +1,212 @@
+# TODO — oodar v3.4.2 round-7 execution list
+File: oodar/audit/todo.oot
+
+Executed 2026-09-04 in oodar v4.0.0 Floor. Waves 1-7 landed.
+Hostile tests: qa/tests_challenger_wave1.c, wave3.c, extended contract (67),
+pathcap 8 beats, attenuate v1-empty, cap_threat socket via apply_matrix in child.
+
+Closed already (skip): LCG abort on cap/HMAC-key getentropy;
+56/56 cap=0 require; otp_supervise race; api_surface=95.
+
+# Wave 1 — Ambient authority and fail-open (CRITICAL)
+
+1. Remove oo_sandbox_apply() from oo_slist_new.
+   File: core/list/list.c:99-102.
+   Done: list construction does not install seccomp or stamp
+   Landlock. Hostile test: OoSList create, then socket() still
+   behaves as before apply; no LINUX_LANDLOCK_SECCOMP status.
+
+2. Cap-gate or unexport oo_sandbox_apply.
+   Files: sandbox.h, sandbox_config.c, oodar.h include chain.
+   Done: apply requires SysCap or is not on the public ABI.
+   Contract test covers it with cap=0.
+
+3. Fail closed when seccomp install fails.
+   File: sandbox_config.c:79-87.
+   Done: fail_closed_on_kernel_miss is ignored (always closed).
+   Return string never says SECCOMP_ENFORCED unless g_capf_on==1.
+   Hostile test: force filter fail, assert ok=0.
+
+4. Unexport OS helpers from oodar.h.
+   Symbols: ffi_verify_signature, path_under_allowdir,
+   path_under_sys_lib, oo_process_policy_getenv,
+   oo_child_filter_env. Make them static / internal.
+   Done: nm -D / public header has none of them. oo_dlopen still
+   verifies signatures after FfiCap. sys_exec child still filters
+   env. Hostile test: those symbols are not linkable from a
+   consumer TU that only includes oodar.h.
+
+5. Reject negative OoStr.len in HMAC and hash helpers.
+   Files: sec/crypto/symmetric/hmac.c, hash.c, sha3.c, seal.c.
+   Done: len<0 returns empty / fail-closed, no size_t wrap.
+   Hostile test: msg.len=-1 does not crash and does not succeed.
+
+# Wave 2 — Capability model (HIGH)
+
+6. Bind Rule 2 into the HMAC.
+   File: sec/cap/cap_attenuate_hmac.c.
+   Done: MAC is HMAC(key, parent_hmac || parent_rights ||
+   child_rights). Forged parent_rights="ffffffff" fails.
+   v1 oo_cap_attenuate returns empty (no subset-free mint).
+   Hostile test in tests_challenger_attenuate_v2.c.
+
+7. Make OoPathCap a real directory cap and wire FS.
+   File: cap_attenuate_path.c plus fs/os/fs.c, fs_dir.c.
+   Done: prefix match requires next char '/' or exact end.
+   Child prefix must nest under parent prefix. oo_read_file,
+   oo_path_exists, oo_file_size, oo_fs_read_dir check it.
+   Hostile tests: /tmp vs /tmpfoo; /tmp then /etc must fail.
+
+8. TimeCap/RandCap use full 64-bit make_cap_tok, no band.
+   File: sec/cap/cap_time.c.
+   Done: no 0x00FFFFFFFFFFFFFF mask, no 0x5/0x6 high bits.
+   Same helper as caps.c. tok==0 redraws or aborts.
+
+9. One zeroize for every cap store.
+   Files: caps.c plus cap_alloc.c, cap_ffi.c, cap_time.c.
+   Done: atexit wipes alloc/ffi/time/rand as well as the 22
+   canonical tokens and g_kernel_hmac_key.
+
+10. Decide CompilerRead vs FfiCap on host dumps.
+    File: fs/os/host.c. Decision: host_ast_dump / host_check /
+    host_token_dump require CompilerReadCap. host_build keeps
+    FfiCap. Mark COMPILER_READ implemented=true in cap_table.json.
+
+# Wave 3 — Memory, actors, net, crypto (HIGH)
+
+11. Return plaintext from pq_aead_open on success.
+    File: sec/pqc/pq_sig/pq_aead_open.c:116-128.
+    Done: success returns pt; tag fail returns empty; empty-pt
+    is distinct from auth fail. Wipe keys on every error path
+    in pq_aead_seal.c too.
+
+12. Enforce loopback on UDP send and TCP connect.
+    Files: netfloor_udp.c, netfloor_tcp.c.
+    Decision: comments win. Reject non-127.0.0.0/8 after
+    inet_aton / getaddrinfo. Hostile test: 8.8.8.8 fails closed.
+
+13. Lookup write_int/read_int under the alloc mutex.
+    File: core/mem/alloc.c.
+    Done: foreign pointer and freed pointer fail closed without
+    UAF. Table lookup, not ptr-sizeof arithmetic alone.
+    Hostile test: free then write_int in another thread.
+
+14. Close actor/channel destroy vs send TOCTOU.
+    Files: actor.c, actor_channel.c, actor_thread.c.
+    Done: live is checked only while holding the slot mutex.
+    Mutex is not destroyed while a waiter can lock it, or boot
+    lock covers destroy. Hostile test: 8 threads send vs destroy.
+
+15. Fix actor_restart spawn-fail (live=0, mutex still init).
+    File: actor.c restart fail path.
+    Done: no double pthread_mutex_init. Slot is fully recycled
+    or stays live with an error return.
+
+# Wave 4 — Tests that can actually fail
+
+16. Extend contract test.
+    File: qa/tests_challenger_contract.c.
+    Add: oo_sandbox_apply (or prove it is gone), oo_write_file,
+    oo_now_ms, oo_sleep_ms, oo_random, oo_write_int, oo_read_int,
+    oo_free, oo_free_bytes, oo_metrics_reset, oo_metrics_export.
+    Done: cap=0 fail-closed on every public mutator in oodar.h
+    that takes a cap, plus apply if it remains public.
+
+17. Replace vacuous probes.
+    - dudect: drop self-vs-self oo_cg_sign. Probe AES-GCM open
+      with equal-length classes (valid vs bad tag).
+    - proc_mem_leak Phase B: assert open("/proc/self/mem") fails
+      after restrict, or allowlist /proc and assert read works
+      only then. One contract, not both.
+    - cap_threat: raw socket() success is FAIL if the claim is
+      OS containment. INFO is forbidden.
+    - attenuate_v2: add forged parent_rights and v1-must-fail.
+    - pathcap: add /tmp vs /tmpfoo and widen-chain cases.
+    - fuzz_smoke: include hmac negative len and slist_new.
+
+18. Make lint-cap-table check C symbols, not itself.
+    Decision: parse caps.h in C. Stop calling
+    scripts/gen_cap_table.py from the test. Require names must
+    match oo_cap_require_fswrite / fsread. Grantee paths must
+    exist on disk. METRICS grantee is core/event/metrics.c.
+
+19. Add Makefile test target that runs Wave-4 binaries.
+    Files: scripts/Makefile.
+    Done: `make test` builds and runs challengers + lint.
+    Double-run contract in CI. Challengers are not developer-only.
+
+# Wave 5 — Docs and tables match disk
+
+20. Rewrite SECURITY_MODEL.oot to 26 tokens, Metrics at 0x800
+    as the v3.0.0 Floor reuse, Bind as core, atexit covering
+    all stores, Rule 2 only on v2 with MAC-bound rights.
+    Drop kernel_seal / enclave_enter or restore the code.
+
+21. Rewrite CAPABILITIES_TABLE.oot. Delete app/hitl/hitl.c.
+    Bind/TCP/UDP/THREAD/GPU/ENV are core, not future-state.
+    Host dumps: CompilerRead. FFI: dlopen/host_build.
+
+22. Rewrite TESTING.oot: 10 challenger tests + fuzz + 3 lints.
+    Root ANCHOR.oo: v3.4.2, umbrella 95. sec/cap/ANCHOR.oo:
+    Bind implemented. sec/ANCHOR.oo: no Audit/Hitl/Sync/Mem/Http.
+    docs/ANCHOR.oo, qa/ANCHOR.oo, scripts/ANCHOR.oo, BUILD_AND_INSTALL.oot,
+    core/ANCHOR.oo, sec/crypto/symmetric/ANCHOR.oo: kill stale paths.
+    cap_table.json: _version 3.4.2; category vs implemented
+    consistent; rule_2 note no longer “deferred”.
+    mlkem_internal.c line claim 472 not 460.
+    SUBSTRATE_AUDIT_TLDR.oot: banner “superseded by audit/round7.oot”.
+
+23. Add Setup: to the 25 nested ANCHOR.oo files that omit it.
+
+# Wave 6 — Medium physics
+
+24. oo_sandbox_probe_backend uses ll_abi_version(), not #ifdef.
+
+25. Make oo_landlock_mark_applied static. Do not trust a public
+    bool as “kernel applied”. Prefer restrict_self errno.
+
+26. FS reads: openat + O_NOFOLLOW on the confined dirfd
+    (match the write path). No realpath-then-fopen.
+
+27. Drop LL_FS_EXECUTE from Landlock read bits.
+
+28. oo_random and oo_meta_epoch abort() on getentropy failure.
+    Do not return -1 or epoch=-1.
+
+29. Arena checkpoint restores {id, off, gen} or the public
+    names stop claiming checkpoint/rollback.
+
+30. Weak-ref: increment weak with CAS while strong>0. Never
+    free while weak>0. Use epoch. Cap-gate oo_weak_is_alive.
+
+31. Net slot table: one mutex around boot/alloc/lookup/close.
+
+32. One C example in examples/ that grants AllocCap and allocs.
+    Update examples/ANCHOR.oo.
+
+# Wave 7 — Floor / later (do not mix into a Patch)
+
+33. Default-deny seccomp, or stop claiming kernel isolation
+    for Thread/Net/FS. This is a Floor.
+
+34. 128-bit tokens or kernel-mediated cap store. 64-bit
+    user-space tokens remain residual until then.
+
+35. SIGKILL-safe wipe is not possible in user space. Document
+    as residual or move tokens to a memfd sealed by Landlock.
+
+36. Real RASP rollback (not g_ck[8] long-long stack).
+
+37. AES-NI / bitsliced AES. Dudect on GCM is Wave 4; constant-
+    time AES is this Floor if S-box timing remains.
+
+38. Governance: replace scripts/*.py with .oo or C. Keep at
+    most README.md. Split Makefile if the 256-line law is
+    applied to it. hip_kern.hip 529 lines: split or exception.
+
+# Stop conditions
+
+- A Wave 1 item still open: no release notes that say
+  fail-closed or zero ambient authority.
+- A Wave 4 item still open: no “audit closed” claim.
+- Wave 7 items ship only with a Floor bump and consumer rebuild.

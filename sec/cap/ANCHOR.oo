@@ -1,7 +1,9 @@
 // # sec/cap — Capability Tokens
 //
-// Logline: The capability token system (Pillar 5). 19 implemented tokens (FsRead, FsWrite, Net, Tcp, Udp, Sys, Process, Env, Time, Rand, Alloc, Thread, Gpu, Ffi, Fs, Arena, Sign, CompilerRead, Metrics) + 7 future-state reserved (Audio, Camera, Usb, Hid, Window, Frame, Bind — documented in cap_table.json for forward compat). Token derivation uses getentropy(3) — fail-closed (no LCG fallback) per NORTHSTAR. Plus the cap helpers (grant, require, attenuate, OoPathCap, seal, eq).
+// Logline: The capability token system (Pillar 5). 20 implemented tokens including Bind and CompilerRead. 6 future-state reserved (Audio, Camera, Usb, Hid, Window, Frame). Token derivation uses getentropy(3) — fail-closed (no LCG fallback). Rule 2 HMAC is MAC-bound. Path caps use directory boundaries.
 //
+//
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. caps.h — the OODAR_CAP_* bit-layout and the 19 implemented + 7 reserved token kinds.
 //   2. caps.c — orchestrator: the getentropy-derived token creation and attestation; the 22-token canonical store.

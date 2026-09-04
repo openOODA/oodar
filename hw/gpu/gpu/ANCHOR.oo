@@ -3,6 +3,8 @@
 // Logline: The GPU orchestrator, the buffer pool, streams, memory,
 // classify/dispatch, and the HIP backend (dlopen / dispatch / launch).
 //
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
+//
 // Beats:
 //   1. gpu.c — orchestrator: the OoGpu type, init, probe.
 //   2. gpu_pool.c — segregated VRAM pool (32 bins).

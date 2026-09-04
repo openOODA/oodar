@@ -81,7 +81,7 @@ OoResS sand_darwin_seatbelt_apply(const oo_sandbox_config_t *cfg) {
     }
   }
 
-  if (cfg->allowed_caps_mask & (OODAR_CAP_NET | OODAR_CAP_HTTP | OODAR_CAP_TCP | OODAR_CAP_UDP | OODAR_CAP_BIND)) {
+  if (cfg->allowed_caps_mask & (OODAR_CAP_NET | OODAR_CAP_TCP | OODAR_CAP_UDP | OODAR_CAP_BIND)) {
     off += (size_t)snprintf(profile + off, sizeof(profile) - off,
       "(allow network*)\n(allow system-socket)\n");
   }
@@ -160,7 +160,7 @@ OoResS sand_openbsd_sandbox_apply(const oo_sandbox_config_t *cfg) {
     return (OoResS){0, oo_str_lit("ERR\tunveil\tfailed to seal unveil list")};
   }
 
-  if (cfg->allowed_caps_mask & (OODAR_CAP_NET | OODAR_CAP_HTTP | OODAR_CAP_TCP | OODAR_CAP_UDP | OODAR_CAP_BIND)) {
+  if (cfg->allowed_caps_mask & (OODAR_CAP_NET | OODAR_CAP_TCP | OODAR_CAP_UDP | OODAR_CAP_BIND)) {
     strncat(promises, " inet dns", sizeof(promises) - strlen(promises) - 1);
   }
   if (cfg->allowed_caps_mask & (OODAR_CAP_PROCESS | OODAR_CAP_SYS)) {

@@ -30,10 +30,11 @@ static OoStr cap_empty_str(void) {
 /* v3.3.0: parse a rights string (a 4-char or 8-char hex string) into
  * a 32-bit bitmask. The string format matches what oodac emits
  * (a 32-bit or 64-bit hex representation of the cap bitmask). */
-static long long cap_parse_rights(OoStr s) {
-  if (s.len <= 0 || !s.data) return 0;
+static int cap_parse_rights(OoStr s, long long *out) {
   long long r = 0;
-  for (long long i = 0; i < s.len && i < 16; i++) {
+  long long i;
+  if (s.len <= 0 || !s.data || !out) return 0;
+  for (i = 0; i < s.len && i < 16; i++) {
     int c = (unsigned char)s.data[i];
     int d;
     if (c >= '0' && c <= '9') d = c - '0';
@@ -42,64 +43,64 @@ static long long cap_parse_rights(OoStr s) {
     else return 0;
     r = (r << 4) | d;
   }
-  return r;
+  *out = r;
+  return 1;
 }
 
-/* v3.3.0: the new bitmask-checked attenuate. The Rule 2 check
- * verifies that the child's rights bitmask is a subset of the
- * parent's rights. If not, the call returns "" (fail-closed). */
+static OoStr cap_mac_v2(OoStr parent_hmac, OoStr parent_rights, OoStr child_rights) {
+  size_t n;
+  char *buf;
+  OoStr key, msg, h;
+  oo_caps_init();
+  n = (size_t)parent_hmac.len + (size_t)parent_rights.len + (size_t)child_rights.len;
+  buf = (char *)malloc(n ? n : 1);
+  if (!buf) return cap_empty_str();
+  memcpy(buf, parent_hmac.data, (size_t)parent_hmac.len);
+  memcpy(buf + parent_hmac.len, parent_rights.data, (size_t)parent_rights.len);
+  memcpy(buf + parent_hmac.len + parent_rights.len, child_rights.data,
+         (size_t)child_rights.len);
+  key.data = (char *)g_kernel_hmac_key;
+  key.len = 32;
+  msg.data = buf;
+  msg.len = (long long)n;
+  h = crypto_hmac_sha256_internal(key, msg);
+  crypto_secure_wipe(buf, n);
+  free(buf);
+  return h;
+}
+
 OoStr oo_cap_attenuate_v2(OoStr parent_hmac, OoStr parent_rights, OoStr child_rights) {
+  long long pr, cr;
   if (parent_hmac.len <= 0 || !parent_hmac.data) return cap_empty_str();
-  if (parent_rights.len <= 0 || !parent_rights.data) return cap_empty_str();
-  if (child_rights.len <= 0 || !child_rights.data) return cap_empty_str();
-  long long pr = cap_parse_rights(parent_rights);
-  long long cr = cap_parse_rights(child_rights);
-  /* Rule 2: parent & child == child. Equivalently, child & ~parent == 0. */
-  if ((cr & ~pr) != 0) {
-    /* Child requests rights the parent does not have — fail closed. */
-    return cap_empty_str();
-  }
+  if (!cap_parse_rights(parent_rights, &pr)) return cap_empty_str();
+  if (!cap_parse_rights(child_rights, &cr)) return cap_empty_str();
+  if ((cr & ~pr) != 0) return cap_empty_str();
   oo_event_emit(oo_str_lit("cap.attenuate"));
-  return crypto_hmac_sha256_internal(parent_hmac, child_rights);
+  return cap_mac_v2(parent_hmac, parent_rights, child_rights);
 }
 
 int oo_cap_attenuate_v2_ok(OoStr parent_hmac, OoStr parent_rights, OoStr child_rights) {
   OoStr h;
   int ok;
+  long long pr, cr;
   if (parent_hmac.len <= 0 || !parent_hmac.data) return 0;
-  if (parent_rights.len <= 0 || !parent_rights.data) return 0;
-  if (child_rights.len <= 0 || !child_rights.data) return 0;
-  long long pr = cap_parse_rights(parent_rights);
-  long long cr = cap_parse_rights(child_rights);
+  if (!cap_parse_rights(parent_rights, &pr)) return 0;
+  if (!cap_parse_rights(child_rights, &cr)) return 0;
   if ((cr & ~pr) != 0) return 0;
-  h = crypto_hmac_sha256_internal(parent_hmac, child_rights);
+  h = cap_mac_v2(parent_hmac, parent_rights, child_rights);
   ok = (h.len == 64);
   oo_str_release(h);
   return ok;
 }
 
-/* v3.3.0: keep the old API for back-compat. The old API does NOT
- * do the Rule 2 check (it has no way to know the parent's
- * rights). New code MUST use oo_cap_attenuate_v2. The old
- * function is preserved with the same signature so existing
- * consumers don't need to rebuild. */
 OoStr oo_cap_attenuate(OoStr parent_hmac, OoStr child_rights) {
-  /* DEFERRED CHECK: the old API has no way to know parent_rights.
-   * The verifier (oodac) is expected to enforce Rule 2 at the
-   * higher level. The C-level helper is a thin HMAC. */
-  if (parent_hmac.len <= 0 || !parent_hmac.data || child_rights.len <= 0 || !child_rights.data)
-    return cap_empty_str();
-  oo_event_emit(oo_str_lit("cap.attenuate"));
-  return crypto_hmac_sha256_internal(parent_hmac, child_rights);
+  (void)parent_hmac;
+  (void)child_rights;
+  return cap_empty_str();
 }
 
 int oo_cap_attenuate_ok(OoStr parent_hmac, OoStr child_rights) {
-  OoStr h;
-  int ok;
-  if (parent_hmac.len <= 0 || !parent_hmac.data || child_rights.len <= 0 || !child_rights.data)
-    return 0;
-  h = crypto_hmac_sha256_internal(parent_hmac, child_rights);
-  ok = (h.len == 64);
-  oo_str_release(h);
-  return ok;
+  (void)parent_hmac;
+  (void)child_rights;
+  return 0;
 }

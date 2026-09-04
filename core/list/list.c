@@ -4,6 +4,7 @@
  * the ambient-quota-aware allocator in list_alloc.c, and the COW set ops
  * in list_set.c. flist.c / llist.c are unchanged. */
 #include "../../oodar.h"
+#include "../../oodar_internal.h"
 #include <pthread.h>
 
 /* Ambient-quota counter mutex across threads. */
@@ -98,7 +99,6 @@ long long oo_ilist_len(OoIList l) { return l.len; }
 
 OoSList oo_slist_new(void) {
   OoSList l = {NULL, 0, 0};
-  (void)oo_sandbox_apply();
   return l;
 }
 

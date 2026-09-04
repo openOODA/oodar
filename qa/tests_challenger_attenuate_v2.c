@@ -45,8 +45,9 @@ static struct case_t CASES[] = {
   {"child_zero",           "ff",      "00",      1},
   /* Child = parent for one bit. */
   {"single_bit_match",     "01",      "01",      1},
-  /* Single bit, parent has it, child has different. */
   {"single_bit_diff",      "01",      "02",      0},
+  {"forged_parent_ffffffff","01",     "ff",      0},
+  {"invalid_hex",          "zz",      "01",      0},
   {NULL, NULL, NULL, 0}
 };
 
@@ -67,9 +68,16 @@ int main(void) {
               CASES[i].name, CASES[i].parent_rights, CASES[i].child_rights, ok);
     }
   }
+  {
+    OoStr v1 = oo_cap_attenuate(pm, oo_str_lit("01"));
+    if (v1.len != 0) {
+      fprintf(stderr, "FAIL\trule2\tv1 API minted a seal (must return empty)\n");
+      failures++;
+    }
+  }
   if (failures == 0) {
-    printf("OK\trule2\t%d/%d Rule 2 cases pass (subset accepted, superset rejected)\n",
-           (int)(sizeof(CASES)/sizeof(CASES[0]) - 1) - failures,
+    printf("OK\trule2\t%d/%d Rule 2 cases pass (subset accepted, superset rejected, v1 empty)\n",
+           (int)(sizeof(CASES)/sizeof(CASES[0]) - 1),
            (int)(sizeof(CASES)/sizeof(CASES[0]) - 1));
     return 0;
   }

@@ -3,6 +3,8 @@
 // Logline: Module-Lattice-Based Digital Signature Algorithm. Keygen,
 // Sign, Verify. First-party PQC, fail-closed.
 //
+// Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
+//
 // Beats:
 //   1. mldsa.c — orchestrator: ML-DSA-65 keygen/sign/verify.
 //   2. mldsa_internal.c — FIPS 204 NTT + sampling + byte conversions (the algorithm core).

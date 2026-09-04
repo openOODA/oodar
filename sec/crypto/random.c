@@ -25,10 +25,9 @@ long long oo_random(long long cap) {
   }
   /* Fail-closed: no LCG fallback. getentropy() must succeed for unpredictability. */
   fprintf(stderr, "ERR\tcap\trandom: getentropy() failed; refusing to derive unpredictability\n");
-  return -1;
+  abort();
 #else
-  /* Fail-closed: no LCG fallback. getentropy() is required. */
   fprintf(stderr, "ERR\tcap\trandom: getentropy() not available; refusing to derive unpredictability\n");
-  return -1;
+  abort();
 #endif
 }

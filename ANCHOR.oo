@@ -1,6 +1,6 @@
-// # oodar — Gen 1 Host Substrate (v3.4.0)
+// # oodar — Gen 1 Host Substrate (v4.0.0)
 //
-// Logline: The canonical home of the openOODA Gen 1 host substrate. Compiled openOODA binaries link against the oo_* symbols exported from the 6 per-domain subdirs (core, sec, fs, net, hw, app); the build entry point is `gcc oodar.c`. The umbrella TU is 90 .c files; the public ABI is oodar.h (and the shared type defs in types.h) at the root.
+// Logline: The canonical home of the openOODA Gen 1 host substrate. Compiled openOODA binaries link against the oo_* symbols exported from the 6 per-domain subdirs (core, sec, fs, net, hw, app); the build entry point is `gcc oodar.c`. The umbrella TU is 95 .c files; the public ABI is oodar.h (and the shared type defs in types.h) at the root.
 //
 // Setup: Pure structural file. The 6 per-domain tactical subdirs mirror std's vocabulary (core, sec, fs, net, hw, app). Each tactical subdir has its own ANCHOR.oo. Some tactical subdirs have nested sub-subdirs (e.g., core/event/, sec/cap/, app/actor/) that also have their own ANCHOR.oo, mirroring std's per-domain organization. The umbrella oodar.c is the single-TU build entry — it #include's the 90 .c files in dependency order. The public API is oodar.h (and the shared type defs in types.h) at the root. The qa/ subdir holds the test utilities and tier-5 tests_challenger_*.c files; they are excluded from the umbrella TU and are not part of the public ABI. The scripts/ subdir holds the Makefile (liboodar.a) and the reproducible-build script (repro_build.sh).
 //

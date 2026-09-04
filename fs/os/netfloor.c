@@ -9,6 +9,7 @@
  * residual gate. The TCP ops live in netfloor_tcp.c and the UDP ops
  * live in netfloor_udp.c. */
 #include "../../oodar.h"
+#include <pthread.h>
 #include <unistd.h>
 #include <errno.h>
 #include <netdb.h>
@@ -27,15 +28,18 @@
 int g_net_fd[OO_NET_SLOTS];
 int g_net_kind[OO_NET_SLOTS];
 int g_net_inited;
+static pthread_mutex_t g_net_mu = PTHREAD_MUTEX_INITIALIZER;
 
 void net_boot(void) {
   int i;
-  if (g_net_inited) return;
+  pthread_mutex_lock(&g_net_mu);
+  if (g_net_inited) { pthread_mutex_unlock(&g_net_mu); return; }
   for (i = 0; i < OO_NET_SLOTS; i++) {
     g_net_fd[i] = -1;
     g_net_kind[i] = OO_NET_EMPTY;
   }
   g_net_inited = 1;
+  pthread_mutex_unlock(&g_net_mu);
 }
 
 OoResS net_err(const char *msg) {
@@ -48,23 +52,33 @@ OoResS net_err(const char *msg) {
 int net_alloc_slot(int fd, int kind) {
   int i;
   net_boot();
+  pthread_mutex_lock(&g_net_mu);
   for (i = 0; i < OO_NET_SLOTS; i++) {
     if (g_net_kind[i] == OO_NET_EMPTY) {
       g_net_fd[i] = fd;
       g_net_kind[i] = kind;
+      pthread_mutex_unlock(&g_net_mu);
       return i;
     }
   }
+  pthread_mutex_unlock(&g_net_mu);
   return -1;
 }
 
 int net_lookup(long long slot, int want_kind) {
   int s = (int)slot;
+  int fd;
   net_boot();
-  if (s < 0 || s >= OO_NET_SLOTS) return -1;
-  if (g_net_kind[s] == OO_NET_EMPTY) return -1;
-  if (want_kind != 0 && g_net_kind[s] != want_kind) return -2;
-  return g_net_fd[s];
+  pthread_mutex_lock(&g_net_mu);
+  if (s < 0 || s >= OO_NET_SLOTS) { pthread_mutex_unlock(&g_net_mu); return -1; }
+  if (g_net_kind[s] == OO_NET_EMPTY) { pthread_mutex_unlock(&g_net_mu); return -1; }
+  if (want_kind != 0 && g_net_kind[s] != want_kind) {
+    pthread_mutex_unlock(&g_net_mu);
+    return -2;
+  }
+  fd = g_net_fd[s];
+  pthread_mutex_unlock(&g_net_mu);
+  return fd;
 }
 
 OoResS net_ok_fd(int slot) {

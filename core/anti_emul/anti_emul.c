@@ -1,6 +1,8 @@
 /* Path-A metamorphic floor: process-local epoch + mix helpers for immune layouts.
  * Not runtime assembly mutation. Full DESIGN metamorphic product is residual. */
 #include "../../oodar.h"
+#include "../../oodar_internal.h"
+#include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
 #if defined(__linux__) || defined(__APPLE__)
@@ -15,14 +17,12 @@ static void meta_once_init(void) {
   unsigned char b[8];
 #if defined(__linux__) || defined(__APPLE__)
   if (getentropy(b, sizeof b) != 0) {
-    /* Fail-closed: no LCG fallback. getentropy() must succeed for unpredictable epoch. */
-    g_meta_epoch = -1;
-    return;
+    fprintf(stderr, "ERR\tcap\tgetentropy failed for meta epoch\n");
+    abort();
   }
 #else
-  /* Fail-closed: no LCG fallback. getentropy() is required. */
-  g_meta_epoch = -1;
-  return;
+  fprintf(stderr, "ERR\tcap\tgetentropy unavailable for meta epoch\n");
+  abort();
 #endif
   g_meta_epoch = (long long)((((unsigned long long)b[0]) << 56)
       | (((unsigned long long)b[1]) << 48)

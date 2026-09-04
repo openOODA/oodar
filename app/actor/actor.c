@@ -1,10 +1,5 @@
-/* v2.3.0 split: orchestrator for the OTP-style actor runtime under
- * ThreadCap with OS worker threads. Owns the OoActor type and the 16-slot
- * g_actors[] mailbox table. actor_spawn → joinable pthread worker +
- * private mailbox channel; Ok("actor:N"). actor_send / actor_recv are
- * mutex / condvar-synchronized mailbox wrappers. cap_rpc_send / cap_rpc_recv
- * were folded out to actor_rpc.c. The thread / channel / closure surfaces
- * were also moved to actor_thread.c / actor_channel.c / actor_closure.c. */
+/* OTP-style actors under ThreadCap. Mailbox table in this file.
+ * RPC / thread / channel / closure live in sibling actor_*.c files. */
 #include "../../oodar.h"
 #include <pthread.h>
 #include <stdint.h>
@@ -105,10 +100,15 @@ OoResS oo_actor_send(long long cap, long long id, OoStr msg) {
     r.ok = 0; r.val = oo_str_lit("actor_send: bad id"); return r;
   }
   a = &g_actors[s];
-  if (!a->live) { r.ok = 0; r.val = oo_str_lit("actor_send: empty slot"); return r; }
+  pthread_mutex_lock(&g_act_boot);
+  if (!a->live) {
+    pthread_mutex_unlock(&g_act_boot);
+    r.ok = 0; r.val = oo_str_lit("actor_send: empty slot"); return r;
+  }
   pthread_mutex_lock(&a->mu);
   if (a->count >= OO_ACTOR_QDEPTH) {
     pthread_mutex_unlock(&a->mu);
+    pthread_mutex_unlock(&g_act_boot);
     r.ok = 0; r.val = oo_str_lit("actor_send: full"); return r;
   }
   a->msgs[a->tail] = oo_act_copy(msg);
@@ -116,6 +116,7 @@ OoResS oo_actor_send(long long cap, long long id, OoStr msg) {
   a->count++;
   pthread_cond_signal(&a->cond);
   pthread_mutex_unlock(&a->mu);
+  pthread_mutex_unlock(&g_act_boot);
   r.ok = 1; r.val = oo_str_lit("sent"); return r;
 }
 
@@ -129,10 +130,15 @@ OoResS oo_actor_recv(long long cap, long long id) {
     r.ok = 0; r.val = oo_str_lit("actor_recv: bad id"); return r;
   }
   a = &g_actors[s];
-  if (!a->live) { r.ok = 0; r.val = oo_str_lit("actor_recv: empty slot"); return r; }
+  pthread_mutex_lock(&g_act_boot);
+  if (!a->live) {
+    pthread_mutex_unlock(&g_act_boot);
+    r.ok = 0; r.val = oo_str_lit("actor_recv: empty slot"); return r;
+  }
   pthread_mutex_lock(&a->mu);
   if (a->count <= 0) {
     pthread_mutex_unlock(&a->mu);
+    pthread_mutex_unlock(&g_act_boot);
     r.ok = 0; r.val = oo_str_lit("actor_recv: empty"); return r;
   }
   r.ok = 1;
@@ -141,6 +147,7 @@ OoResS oo_actor_recv(long long cap, long long id) {
   a->count--;
   pthread_cond_signal(&a->not_full);
   pthread_mutex_unlock(&a->mu);
+  pthread_mutex_unlock(&g_act_boot);
   return r;
 }
 
@@ -162,8 +169,6 @@ OoResS oo_actor_destroy(long long cap, long long id) {
   a->stop_req = 1;
   pthread_cond_broadcast(&a->cond);
   pthread_mutex_unlock(&a->mu);
-  /* Hold g_act_boot until pthread_join + destroy complete, so a concurrent
-   * spawn cannot reuse this slot and observe a half-destroyed mutex/cond. */
   pthread_join(a->thr, NULL);
   pthread_mutex_lock(&a->mu);
   while (a->count > 0) {
@@ -204,8 +209,6 @@ OoResS oo_actor_restart(long long cap, long long id) {
   pthread_cond_broadcast(&a->cond);
   pthread_mutex_unlock(&a->mu);
 
-  /* Hold g_act_boot across the join so concurrent callers cannot observe
-   * a transient dead slot between join and pthread_create. */
   pthread_join(a->thr, NULL);
 
   pthread_mutex_lock(&a->mu);
@@ -214,6 +217,9 @@ OoResS oo_actor_restart(long long cap, long long id) {
 
   if (pthread_create(&a->thr, NULL, oo_actor_worker_loop, (void *)(intptr_t)s) != 0) {
     a->live = 0;
+    pthread_mutex_destroy(&a->mu);
+    pthread_cond_destroy(&a->cond);
+    pthread_cond_destroy(&a->not_full);
     pthread_mutex_unlock(&g_act_boot);
     r.val = oo_str_lit("actor_restart: spawn failed"); return r;
   }
@@ -229,10 +235,6 @@ OoResS oo_otp_supervise(long long cap, long long id) {
   oo_cap_require_thread(cap, "otp_supervise");
   r.ok = 0; r.val = oo_str_lit("otp_supervise: bad id");
   if (s < 0 || s >= OO_ACTOR_SLOTS) return r;
-  /* v3.3.4 round-5: hold g_act_boot across the g_otp_once check-and-set
-   * so two concurrent callers cannot both pass "already" and both call
-   * oo_actor_restart. oo_actor_restart re-takes g_act_boot; release first
-   * to avoid self-deadlock — the OTP flag is already set. */
   pthread_mutex_lock(&g_act_boot);
   if (g_otp_once[s]) {
     pthread_mutex_unlock(&g_act_boot);
