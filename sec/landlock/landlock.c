@@ -144,6 +144,15 @@ int oo_landlock_is_available(void) {
   return ll_abi_version() > 0;
 }
 
+/* v2.1.0: applied-state tracker. Set to 1 once oo_landlock_restrict
+ * has successfully enforced a ruleset on the current process. Read by
+ * oo_proc_mem_read to refuse /proc/self/mem reads unless the kernel-
+ * mediated sandbox is genuinely APPLIED (not merely "available"). */
+static int g_ll_applied = 0;
+int oo_landlock_is_applied(void) {
+  return g_ll_applied;
+}
+
 static unsigned long long ll_handled_fs(int abi) {
   unsigned long long a = LL_FS_ABI1;
   if (abi >= 2) a |= LL_FS_REFER;
@@ -281,6 +290,7 @@ OoResS oo_landlock_restrict(long long cap, OoStr read_dirs, OoStr write_dirs) {
     return ll_err("ERR\tlandlock\trestrict_self failed");
   }
   close(ruleset_fd);
+  g_ll_applied = 1; /* v2.1.0: mark the ruleset as applied for proc_mem. */
   return (OoResS){1, oo_str_lit("OK_LANDLOCK_ENFORCED")};
 #endif
 }

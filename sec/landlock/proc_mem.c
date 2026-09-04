@@ -39,12 +39,17 @@ OoResS oo_proc_mem_read(long long cap, long long offset, long long n) {
   if (offset > (1LL << 47)) {
     return r;
   }
-  /* First-principles gate: refuse to read /proc/self/mem unless the
-   * kernel-mediated sandbox (Landlock) is available. This breaks the
-   * circular trust between user-space cap storage and the /proc/self/mem
-   * reader — an attacker reading process memory cannot forge a Landlock
-   * enforcement, only a user-space token. */
+  /* First-principles gate (v2.1.0): refuse unless the Landlock ruleset
+   * is APPLIED to the current process — not merely "the kernel supports
+   * Landlock". Checking is_available() would let an attacker call us
+   * without ever calling oo_sandbox_apply(); checking the *applied* state
+   * requires that the caller went through the sandbox pipeline. This
+   * breaks the circular trust between user-space cap storage and the
+   * /proc/self/mem reader. */
   if (!oo_landlock_is_available()) {
+    return r;
+  }
+  if (!oo_landlock_is_applied()) {
     return r;
   }
   oo_cap_require_sys(cap, "proc_mem_read");

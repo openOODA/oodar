@@ -242,7 +242,11 @@ OoResS oo_cap_rpc_send(long long cap, OoStr payload) {
   OoResS r;
   OoStr mac;
   char *out;
-  oo_cap_require_thread(cap, "cap_rpc_send");
+  /* v2.1.0: was oo_cap_require_thread. Cap-rpc is a sign-style operation
+   * (HMAC over the payload), not a thread-spawn operation. ThreadCap is
+   * too coarse — every actor recipient would have needed ThreadCap just
+   * to verify a signed message. SignCap is the right cap. */
+  oo_cap_require_sign(cap, "cap_rpc_send");
   r.ok = 0; r.val = oo_str_lit("cap_rpc_send: bad payload");
   if (payload.len < 0 || payload.len > 192) return r;
   mac = oo_rpc_mac(cap, payload);
@@ -263,7 +267,8 @@ OoResS oo_cap_rpc_recv(long long cap, OoStr sealed) {
   OoResS r;
   OoStr pay, mac;
   char *out;
-  oo_cap_require_thread(cap, "cap_rpc_recv");
+  /* v2.1.0: see cap_rpc_send — SignCap, not ThreadCap. */
+  oo_cap_require_sign(cap, "cap_rpc_recv");
   r.ok = 0; r.val = oo_str_lit("cap_rpc_recv: hmac");
   if (!sealed.data || sealed.len < 64) return r;
   pay.data = sealed.data + 64; pay.len = sealed.len - 64;

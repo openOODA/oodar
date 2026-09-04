@@ -55,7 +55,8 @@ OoResV oo_write_file(long long cap, OoStr path, OoStr content);
 int oo_path_exists(long long cap, OoStr path);
 long long oo_file_size(long long cap, OoStr path);
 OoResS oo_env_get(long long cap, OoStr key);
-long long fs_file_size(long long cap, OoStr path);
+/* v2.1.0: removed legacy fs_file_size — declared in v2.0.0 but never
+ * implemented. The canonical entry point is oo_file_size. */
 OoSList oo_fs_read_dir(long long cap, OoStr path);
 int oo_fs_is_dir(long long cap, OoStr path);
 OoResV oo_fs_remove_file(long long cap, OoStr path);
@@ -203,6 +204,7 @@ void oo_reso_lf_release(OoResO_LF v);
 int oo_res_eq_s(OoResS a, OoResS b);
 
 int oo_landlock_is_available(void);
+int oo_landlock_is_applied(void); /* v2.1.0: true iff oo_landlock_restrict has been called and succeeded on this process. */
 OoResS oo_landlock_restrict(long long cap, OoStr read_dirs_colon, OoStr write_dirs_colon);
 
 OoResS oo_arena_create(long long cap, long long bytes);

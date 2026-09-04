@@ -179,24 +179,23 @@ int oo_metrics_self_test(void) {
 /* Event-listener functions invoked by the event bus when a producer emits
  * the corresponding named event. The producer no longer calls into metrics
  * directly; the event bus dispatches. */
-static void on_cap_seal(void) { OoStr n = oo_str_lit("cap_seal"); oo_metrics_incr(n); }
 static void on_cap_attenuate(void) { OoStr n = oo_str_lit("cap_attenuate"); oo_metrics_incr(n); }
 static void on_pq_sign(void) { OoStr n = oo_str_lit("pq_sign"); oo_metrics_incr(n); }
 static void on_pq_verify(void) { OoStr n = oo_str_lit("pq_verify"); oo_metrics_incr(n); }
 static void on_aead_seal(void) { OoStr n = oo_str_lit("aead_seal"); oo_metrics_incr(n); }
 static void on_aead_open(void) { OoStr n = oo_str_lit("aead_open"); oo_metrics_incr(n); }
-static void on_fs_read(void) { OoStr n = oo_str_lit("fs_read"); oo_metrics_incr(n); }
-static void on_fs_write(void) { OoStr n = oo_str_lit("fs_write"); oo_metrics_incr(n); }
+/* v2.1.0: removed on_cap_seal, on_fs_read, on_fs_write (no emitters). */
 
 static void metrics_subscribe_all(void) {
-  oo_event_subscribe(oo_str_lit("cap.seal"), on_cap_seal);
+  /* v2.1.0: removed cap.seal, fs.read, fs.write subscriptions. They
+   * were never emitted (no oo_event_emit call site in the umbrella).
+   * Keep cap.attenuate (emitted in caps.c:154), pq.sign/verify and
+   * aead.seal/open (emitted in pq_sig.c). */
   oo_event_subscribe(oo_str_lit("cap.attenuate"), on_cap_attenuate);
   oo_event_subscribe(oo_str_lit("pq.sign"), on_pq_sign);
   oo_event_subscribe(oo_str_lit("pq.verify"), on_pq_verify);
   oo_event_subscribe(oo_str_lit("aead.seal"), on_aead_seal);
   oo_event_subscribe(oo_str_lit("aead.open"), on_aead_open);
-  oo_event_subscribe(oo_str_lit("fs.read"), on_fs_read);
-  oo_event_subscribe(oo_str_lit("fs.write"), on_fs_write);
 }
 
 /* Constructor: subscribe at library load. GCC-specific; the runtime

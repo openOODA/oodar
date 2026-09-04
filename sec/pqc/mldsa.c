@@ -196,13 +196,29 @@ static void d_poly_uniform(int32_t a[256], const uint8_t seed[32], uint16_t nonc
   in[33] = (uint8_t)(nonce >> 8);
   oo_shake128(in, 34, buf, sizeof buf);
   ctr = d_rej_uniform(a, 256, buf, sizeof buf);
+  /* v2.1.0: was `while (ctr < 256) { ...; break; }` — the `break` made
+   * the loop a single iteration, so any rejection failure silently left
+   * the coefficient uninitialised. ML-DSA FIPS 204 §4.1.1 requires
+   * deterministic re-sampling. Now: keep drawing more bytes from SHAKE
+   * (advance the nonce-derived state) until we have all 256 coefficients
+   * or we exhaust the budget. */
   while (ctr < 256) {
+    size_t need = 256 - ctr;
     uint8_t more[168];
-    oo_shake128(in, 34, buf, sizeof buf); /* deterministic extra: should not be needed */
-    (void)more;
-    break;
+    if (sizeof more < need * 3) break; /* budget guard */
+    oo_shake128(in, 34, more, sizeof more);
+    unsigned int got = d_rej_uniform(a + ctr, (unsigned int)need, more, sizeof more);
+    ctr += got;
+    if (got == 0) break; /* no progress possible in this draw */
   }
   (void)ctr;
+  if (ctr < 256) {
+    /* deterministic sampling exhausted the budget; this should not happen
+     * for a well-seeded nonce, but fail closed rather than emit a bad
+     * polynomial. */
+    fprintf(stderr, "ERR\tpqc\tdeterministic sample exhausted in expand_a (ctr=%u)\n", ctr);
+    exit(1);
+  }
 }
 static unsigned int d_rej_eta(int32_t *a, unsigned int len, const uint8_t *buf, unsigned int buflen) {
   unsigned int ctr = 0, pos = 0;
