@@ -1,5 +1,14 @@
+/* v2.3.0 split: closure primitive. Replaces app/actor/closure.c. The
+ * OoClosure / OoFlatEnvHeader types now live in types/types_actor.h
+ * (included via types.h → oodar.h), so this file is impl-only.
+ *
+ * OoClosure is a stack-or-heap callable: stack closures borrow env
+ * (dtor=NULL), heap closures own env via OoFlatEnvHeader refcount.
+ * The flat-alloc helper lays out a [header][payload] block where the
+ * header sits at payload - sizeof(OoFlatEnvHeader). */
 #include "../../oodar.h"
-#include "closure.h"
+#include <stdlib.h>
+#include <string.h>
 
 OoClosure oo_closure_stack(void *fn, void *stack_env) {
     OoClosure clo;
@@ -13,7 +22,7 @@ void *oo_closure_flat_alloc(size_t env_payload_size, void (*dtor)(void*)) {
     size_t hdr_sz = sizeof(OoFlatEnvHeader);
     void *payload = oo_payload_alloc(hdr_sz, env_payload_size);
     if (!payload) abort();
-    
+
     OoFlatEnvHeader *hdr = ((OoFlatEnvHeader *)payload) - 1;
     hdr->ref_count = 1;
     hdr->flags = 0;
@@ -53,7 +62,7 @@ void oo_closure_flat_release(void *env) {
     OoFlatEnvHeader *hdr = ((OoFlatEnvHeader *)env) - 1;
     uint32_t fl = __atomic_load_n(&hdr->flags, __ATOMIC_ACQUIRE);
     if (fl & OO_FLAG_STATIC) return;
-    
+
     uint32_t prev = __atomic_fetch_sub(&hdr->ref_count, 1, __ATOMIC_ACQ_REL);
     if (prev == 1) {
         if (hdr->dtor) {

@@ -3,10 +3,18 @@
 // Logline: Actor-based concurrency (spawn, send, recv, restart), channels, joinable pthread-backed threads, and closures. The oodar-native execution model.
 //
 // Beats:
-//   1. thread.c — the joinable pthread slot table (OoThreadSlot type defined inline in thread.c).
-//   2. actor.c — the OTP-style actor (spawn/send/recv/destroy) + the cap-RPC (cap_rpc_send/recv use SignCap since v2.1.0).
-//   3. channel.c — the typed message channel.
-//   4. closure.h, closure.c — the OoClosure type (fn + env + dtor, stack-or-heap). Generic callable primitive, NOT actor-specific. Lives here only because the OTP-style dispatch in actor.c is its primary consumer.
+//   1. actor.c — the OTP-style actor (spawn/send/recv/destroy) + the cap-RPC (cap_rpc_send/recv use SignCap since v2.1.0).
+//   2. actor_thread.c — the joinable pthread slot table (OoThreadSlot type defined inline in actor_thread.c).
+//   3. actor_channel.c — the typed message channel.
+//   4. actor_rpc.c — the cap-RPC helpers (cap_rpc_send / cap_rpc_recv), SignCap-gated.
+//   5. actor_closure.c — the OoClosure type (fn + env + dtor, stack-or-heap). Generic callable primitive, NOT actor-specific. Lives here only because the OTP-style dispatch in actor.c is its primary consumer.
+//   6. closure.h — the OoClosure type declaration.
+//
+// v2.3.0 file split: the original 302-line actor.c and the small
+// thread.c / channel.c / closure.c were renamed to actor_thread.c /
+// actor_channel.c / actor_closure.c to follow the <domain>_<concept>
+// naming convention. The cap-RPC was extracted to actor_rpc.c so
+// SignCap-gated code lives in its own TU.
 //
 // ──▓▓ app/actor ANCHOR ──▓▓──
 // :: OTP-style — supervise, restart, no shared state ::

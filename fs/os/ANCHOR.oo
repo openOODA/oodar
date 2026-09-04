@@ -3,15 +3,25 @@
 // Logline: The OS syscall shims (sys_exec, sys_args, sys_prctl), the policy getenv filter (OODA_/OO_ keys only), the file I/O surface, the net-floor loopback constraint, the host process info, the rlimit setter, the time+rand source, and the Landlock-gated proc_mem.
 //
 // Beats:
-//   1. sys.c — sys_exec, sys_args, policy getenv, child filter env.
-//   2. fs.c — file I/O with cap-gated path safety.
-//   3. netfloor.c — net-floor loopback constraint.
-//   4. host.c — host process info (pid, ppid, etc.).
-//   5. dns.c — the loopback-only resolver.
-//   6. dns.h — the OoDNS resolver type.
-//   7. rlimit.c — setrlimit wrapper.
-//   8. rlimit.h — the OoRlimit type.
-//   9. time_rand.c — monotonic time + secure random.
+//   1. sys.c — orchestrator: sys_exec, sys_args, policy getenv, child filter env.
+//   2. sys_env.c — policy getenv filter (OODA_/OO_ keys only).
+//   3. sys_stamp.c — file mtime stamp (oo_file_stamp, v3.0.0 cap-gated).
+//   4. sys_stdin.c — stdin read (oo_read_stdin / oo_read_stdin_chunk, v3.0.0 cap-gated).
+//   5. fs.c — orchestrator: file I/O with cap-gated path safety.
+//   6. fs_dir.c — directory iteration (oo_fs_dir / oo_fs_dir_next).
+//   7. fs_lowlevel.c — open/read/write/close with cap-gated path validation.
+//   8. netfloor.c — orchestrator: net-floor loopback constraint.
+//   9. netfloor_tcp.c — TCP send/recv on the loopback floor.
+//  10. netfloor_udp.c — UDP send/recv on the loopback floor.
+//  11. host.c — host process info (pid, ppid, etc.).
+//  12. dns.c — the loopback-only resolver.
+//  13. rlimit.c — setrlimit wrapper.
+//  14. time_rand.c — monotonic time + secure random.
+//
+// v2.3.0 file split: the original 279-line fs.c, 293-line netfloor.c,
+// and 306-line sys.c were each split into an orchestrator +
+// 2-3 satellite files. The split is functional (one syscall family
+// per file): low-level vs. dir, TCP vs. UDP, env vs. stamp vs. stdin.
 //
 // ──▓▓ fs/os ANCHOR ──▓▓──
 // :: fail-closed: no getaddrinfo, no unrestricted env ::

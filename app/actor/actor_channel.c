@@ -1,6 +1,10 @@
-/* M164: process-local message channels under ThreadCap (path A).
+/* v2.3.0 split: process-local message channels under ThreadCap (path A).
  * Bounded string queues: 16 slots × 8 messages; mutex + condvar.
- * Not multi-process, not actor model, not DESIGN fearless concurrency. */
+ * Not multi-process, not actor model, not DESIGN fearless concurrency.
+ * Created from the v2.2.0 app/actor/channel.c; the v2.3.0/file-split
+ * orchestrator adds the actor_ prefix to all actor-directory files for
+ * one-concept-per-file consistency. The old channel.c is left in place
+ * for the parent's integration pass to retire. */
 #include "../../oodar.h"
 #include <pthread.h>
 

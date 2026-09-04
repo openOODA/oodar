@@ -3,10 +3,23 @@
 // Logline: The classical crypto primitives — MD5, SHA-1, SHA-2, SHA-3, HMAC, AES, AEAD (AES-GCM, chacha20-poly1305).
 //
 // Beats:
-//   1. crypto.c — md5, sha1, sha2, hmac_sha256, sha512, secure_wipe, ct_cmp.
-//   2. aead.c — AES-GCM + chacha20-poly1305 seal/open.
-//   3. sha3.c — SHA-3-256.
-//   4. hash.c — misc hash family.
+//   1. symmetric/crypto.c — orchestrator: md5, sha1, sha2, hmac_sha256, sha512, secure_wipe, ct_cmp.
+//   2. symmetric/hash.c — md5, sha1, sha2, sha512 primitives.
+//   3. symmetric/hmac.c — HMAC-SHA-256 (used by cap_seal).
+//   4. symmetric/secure.c — secure_wipe + constant-time compare (ct_cmp).
+//   5. aead/aead.c — orchestrator: AEAD seal/open dispatch (AES-GCM / chacha20-poly1305).
+//   6. aead/aes_gcm.c — AES-128-GCM (NIST SP 800-38D).
+//   7. aead/chacha20_poly1305.c — chacha20-poly1305 (RFC 8439).
+//   8. hash.c — misc hash family glue (kept at top level — not split).
+//   9. seal.c — the cap-seal wrapper (kept at top level — not split).
+//  10. sha3.c — SHA-3-256 (kept at top level — not split).
+//  11. crypto_internal.h — internal-API declarations shared by the split TUs.
+//
+// v2.3.0 file split: the original 445-line crypto.c was split into
+// the symmetric/ subdir (4 files), and the original 476-line aead.c
+// was split into the aead/ subdir (3 files). The split is functional:
+// one primitive family per file. The shared state (no global state —
+// all crypto_*_internal functions are pure) means no externs needed.
 //
 // ──▓▓ sec/crypto ANCHOR ──▓▓──
 // :: constant-time primitives + secure_wipe on free ::

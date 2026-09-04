@@ -17,18 +17,20 @@
 # it must match the most recent git tag. See RULES.oot §1.24
 # and rfcs/0006-versioning-and-release-protocol.oot.
 
-oodar=3.0.0
-release_tag=3.0.0
+oodar=2.3.0
+release_tag=2.3.0
 ooda=2.10.0
 ooda_max=2.99.0
-api_surface=57
-# Note: api_surface counts all .c files that ship in v2.0.0
+api_surface=94
+# Note: api_surface counts all .c files that ship in v2.3.0
 # (distributed across 6 per-domain subdirs: core, sec, fs, net, hw, app).
 # v2.0.0 removed app/actor/cycle.c (zero callers, Bacon-Rajan
-# cycle detection). dudect_c_native.c and oo_hip_so_smoke.c remain
-# in pqc/ and gpu/ respectively; they are test utilities that will
-# move to qa/ in a follow-up. The public ABI count is the count of
-# distinct .c files in the repo, excluding build/host artifacts.
+# cycle detection). v2.3.0 moves dudect_c_native.c and
+# oo_hip_so_smoke.c from pqc/ and gpu/ to qa/ (they were test
+# utilities that the file split surfaced as a natural cleanup).
+# The public ABI count is the count of distinct .c files in the
+# repo, excluding build/host artifacts, qa/ tests, scripts/, and
+# the umbrella oodar.c itself.
 #
 # v2.0.0 is a Floor break from v1.0.1. The audit closed 4 cap-gating
 # gaps (oo_alloc/free/write_int/read_int/checkpoint/rollback and all
@@ -55,3 +57,18 @@ api_surface=57
 # in oodar.h outweigh the small rebalances). Consumers must
 # rebuild. See CHANGES.md "v3.0.0" for the full signature-change
 # table and the consumer migration notes.
+#
+# v2.3.0 is a Patch bump from v3.0.0 (per the v2.x version line for
+# cleanup-only releases). The 256-line file cap is now enforced across
+# all .c/.h files. 17 files over 256 lines were split into 60+ files
+# across 9 new sub-dirs (hw/gpu/gpu/, types/, sec/cap/, sec/crypto/{aead,
+# symmetric}/, sec/landlock/{landlock,sandbox}/, sec/pqc/{mlkem,mldsa,
+# pq_sig}/, core/mem/arena_*, core/list/list_*, app/actor/actor_*). The
+# public ABI is unchanged: every oo_* symbol keeps its v3.0.0 signature.
+# The split is purely organizational — the runtime is byte-equivalent
+# at the ABI level. Two algorithm-internal files (mldsa_internal.c 627
+# lines, mlkem_internal.c 460 lines) remain over 256 by design: the
+# FIPS 203/204 NTT + sampling + polynomial arithmetic are tightly
+# coupled, and splitting them would fragment the algorithm without a
+# functional boundary. See CHANGES.md "v2.3.0" for the full split
+# manifest.

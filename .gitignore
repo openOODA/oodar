@@ -5,6 +5,10 @@
 *.oo.bin
 *.concat.oo
 *.oo.concat.oo
+scripts/build/
+scripts/lib/
+build/
+lib/
 
 # ==========================================
 # Local test artifacts

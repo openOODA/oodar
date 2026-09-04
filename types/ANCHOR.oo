@@ -1,0 +1,20 @@
+// # types/ — Runtime Type Vocabulary
+//
+// Logline: The Oo* C structs (OoStr, OoResS, OoArena, OoThreadSlot, OoGpuDevice, ...). The split mirrors the .h file domains; each sub-header is the canonical home for one type family. The umbrella (types.h) pulls them all in via #include.
+//
+// Beats:
+//   1. types.h — umbrella: #includes all 6 sub-headers.
+//   2. types_str.h — OoStr, OoStrBuf, the string-literal macros.
+//   3. types_num.h — OoI64, OoU64, OoSize, the int-width typedefs.
+//   4. types_res.h — OoResS, the string-or-error result type.
+//   5. types_actor.h — OoClosure, OoChannel, the actor-primitive types.
+//   6. types_control.h — OoControlBlock, OoWeakRef, OO_FLAG_* (re-exported from core/mem/weak.h for canonical home).
+//   7. types_q.h — OoQ, the queue primitive (kept minimal; full impl in app/actor/actor_channel.c).
+//
+// v2.3.0 file split: the original 384-line types.h was split into
+// types.h (23-line umbrella) + 6 sub-headers in types/. The split
+// is purely organizational — the runtime ABI is unchanged; consumers
+// that #include "types.h" still see the full surface.
+//
+// ──▓▓ types ANCHOR ──▓▓──
+// :: one type family per header — the canonical home ::

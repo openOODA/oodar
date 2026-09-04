@@ -1,4 +1,8 @@
-/* M163: joinable pthread path A under ThreadCap (slot table, not detach). */
+/* v2.3.0 split: joinable pthread path A under ThreadCap (slot table, not
+ * detach). Created from the v2.2.0 app/actor/thread.c; the v2.3.0/file-split
+ * orchestrator adds the actor_ prefix to all actor-directory files for
+ * one-concept-per-file consistency. The old thread.c is left in place for
+ * the parent's integration pass to retire. */
 #include "../../oodar.h"
 #include <unistd.h>
 #include <pthread.h>
