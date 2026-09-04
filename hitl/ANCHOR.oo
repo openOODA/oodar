@@ -1,0 +1,11 @@
+// # hitl — Human-in-the-Loop
+//
+// Logline: The verify_human primitive — TTY-based approval with env-gated auto-approve. Fail-closed by default; requires OODA_HITL_ALLOW to enable.
+//
+// Setup: hitl.c is the implementation. Requires EnvCap + FsCap. Policy env allowlisted (OODA_HITL_ALLOW). On accept, returns Ok("approved"); on deny, returns Err(E_HITL).
+//
+// Beats:
+//   1. Read hitl.c — the verify_human TTY path.
+//
+// ──▓▓ hitl ANCHOR ──▓▓──
+// :: fail-closed: no env, no HITL ::

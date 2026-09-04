@@ -14,9 +14,9 @@ jobs:
       - name: Verify VERSION + api_surface
         run: |
           declared="$(grep '^api_surface=' VERSION | cut -d= -f2)"
-          actual="$(ls *.c 2>/dev/null | wc -l)"
+          actual="$(find . -name '*.c' -not -path './.git/*' | wc -l)"
           echo "Declared api_surface: ${declared}"
-          echo "Actual *.c count: ${actual}"
+          echo "Actual *.c count (recursive): ${actual}"
           test "${declared}" = "${actual}" || (echo "api_surface drift: declared=${declared} actual=${actual}"; exit 1)
           echo "api_surface verified: ${declared}"
       - name: Verify 256-line cap on .oo and .oot

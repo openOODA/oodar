@@ -1,0 +1,12 @@
+// # net — Network Primitives
+//
+// Logline: The URL fetcher and the TLS client. Network primitives are bound to the net-floor loopback constraint from os/.
+//
+// Setup: fetch.c is the high-level URL fetcher; tls.c is the TLS client. Both require the NetCap.
+//
+// Beats:
+//   1. Read fetch.c — URL fetch with cap-gate.
+//   2. Read tls.c — TLS connect with cap-gate.
+//
+// ──▓▓ net ANCHOR ──▓▓──
+// :: bound to os/netfloor loopback constraint ::

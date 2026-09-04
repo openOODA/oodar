@@ -1,0 +1,14 @@
+// # crypto — Symmetric + AEAD + Hash
+//
+// Logline: The classical crypto primitives — MD5, SHA-1, SHA-2, SHA-3, HMAC, AES, AEAD (AES-GCM, chacha20-poly1305), and the dudect constant-time test harness.
+//
+// Setup: crypto.c is the core (md5, sha1, sha2, hmac); aead.c is the AEAD seal/open; sha3.c is SHA-3; hash.c is the misc-hash family. The dudect test util lives in qa/ (moved there in a follow-up).
+//
+// Beats:
+//   1. Read crypto.c — the core (md5, sha1, sha2, hmac_sha256, sha512).
+//   2. Read aead.c — AES-GCM + chacha20-poly1305 seal/open.
+//   3. Read sha3.c — SHA-3-256.
+//   4. Read hash.c — the misc-hash family.
+//
+// ──▓▓ crypto ANCHOR ──▓▓──
+// :: constant-time primitives + dudect validation ::
