@@ -2,6 +2,23 @@
  * actor_spawn → joinable pthread worker + private mailbox channel; Ok("actor:N").
  * actor_send / actor_recv are mutex/condvar-synchronized mailbox wrappers. */
 #include "../../oodar.h"
+/* v2.2.0: this TU is the ONLY place in app/ that pulls in the private
+ * crypto primitives header. The dependency is bounded to two functions
+ * and both are the cap_rpc HMAC path (oo_rpc_mac + the constant-time
+ * compare in oo_cap_rpc_recv):
+ *
+ *   crypto_hmac_sha256_internal(key, msg)   — oo_rpc_mac() at L238
+ *   crypto_ct_cmp(a, b, n)                  — oo_cap_rpc_recv() at L276
+ *
+ * No other crypto_*_internal symbol is used here, and the include is
+ * not transitive (nothing in app/actor that depends on us re-exports
+ * it). The intent is documented so a future maintainer can find the
+ * use-site; a future Floor break (v3.0.0+) should expose a cap-gated
+ * public HMAC primitive in oodar.h and drop this private include.
+ *
+ * NOTE: oodar.h also pulls in crypto_internal.h when OODAR_CRYPTO_INTERNAL
+ * is defined, but this TU does NOT use that guard — the dependency is
+ * unconditional, intentional, and scoped to the cap_rpc HMAC. */
 #include "../../sec/crypto/crypto_internal.h"
 #include <pthread.h>
 #include <stdint.h>

@@ -33,6 +33,13 @@ static void ffi_once_init(void) {
   fprintf(stderr, "ERR\tcap\tgetentropy() not available; refusing to derive FFI capability token\n");
   abort();
 #endif
+  /* v2.2.0: removed the hardcoded 0x5 "ffi band" in the high byte.
+   * The canonical cap system (sec/cap/caps.c, make_cap_tok) does not
+   * use a band byte at all — the comment there calls the band byte
+   * "redundant and ... consuming entropy" — so the FFI token now uses
+   * the full 8 bytes of getentropy randomness, matching the caps.c
+   * layout. The cap is identified by which g_tok_ffi global it is
+   * stored in, not by a tag in the high byte. */
   {
     unsigned long long ent = ((((unsigned long long)b[0]) << 56) |
                               (((unsigned long long)b[1]) << 48) |
@@ -41,8 +48,8 @@ static void ffi_once_init(void) {
                               (((unsigned long long)b[4]) << 24) |
                               (((unsigned long long)b[5]) << 16) |
                               (((unsigned long long)b[6]) << 8)  |
-                              ((unsigned long long)b[7])) & 0x00FFFFFFFFFFFFFFULL;
-    g_tok_ffi = ((long long)(0x5 & 0x1F) << 56) | (long long)ent;
+                              ((unsigned long long)b[7]));
+    g_tok_ffi = (long long)ent;
   }
   if (g_tok_ffi == 0x4F4F4649LL) g_tok_ffi ^= 0x11111111LL;
 }

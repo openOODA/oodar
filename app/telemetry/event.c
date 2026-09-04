@@ -1,5 +1,12 @@
 /* Event bus implementation. Tiny — fixed-size name and subscriber tables. */
 
+/* v2.2.0: the `oo_je_*` arm-file JSON-errors mechanism (previously a
+ * covert-exfil channel via `.ooda-cache/ooda-tmp/json_errors.arm`) was
+ * removed from app/io/print.c (moved from fs/io/ in v2.2.0) as a
+ * security fix — no cap gate, no caller, and the public ABI is
+ * unchanged. The oo_event_emit / oo_event_subscribe API in this file
+ * is the supported event bus surface. */
+
 #include "event.h"
 #include <pthread.h>
 #include <string.h>

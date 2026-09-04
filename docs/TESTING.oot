@@ -1,0 +1,190 @@
+// # oodar/docs/TESTING.oot — The 8D Red Team Testing Model
+//
+// Logline: oodar's testing model is the 8-Dimensional Red Team matrix (per openOODA/practices/8d-red-team.oot) — 8 orthogonal dimensions (functional, redteam, performance, fuzz, property, regression, benchmark, adversarial) where every dimension targets a different failure mode; the v2.2.0+ qa/ subdir ships with 2 test utilities (dudect_c_native, oo_hip_so_smoke) and 5 new tier-5 tests_challenger_*.c files, and the tier-5 adversarial dimension is the primary Red Team surface for the cap+Landlock substrate.
+//
+// Setup: This file documents the 8D Red Team model as it applies to oodar. The 8 dimensions are independent test classes; each dimension is a separate concern and a separate test. The 5 tier-5 challenger tests in qa/ are .c files (NOT .oo) — they are C-level tests that link against oodar and are run by the developer, not the runtime.
+//
+// Beats:
+//   1. The 8D Red Team matrix.
+//   2. Tier-5 adversarial tests (the 5 tests_challenger_*.c).
+//   3. The existing qa/ utilities (2 smoke tests).
+//   4. How to run the tests.
+//   5. The 5 adversarial probes the challenger suite covers.
+
+# === Beat 1: The 8D Red Team matrix ===
+
+// The 8 dimensions of the Red Team matrix are:
+//
+//   1. functional — does the function work as documented?
+//      Example: oo_read_file reads the file and returns the content.
+//      Coverage: every oo_* function in oodar.h has at least one
+//      functional test.
+//
+//   2. redteam — can an attacker bypass the function's contract?
+//      Example: oo_read_file refuses to read a path outside the
+//      allowlist. Coverage: every cap-gated function has at least
+//      one redteam test that tries to bypass the cap check.
+//
+//   3. performance — does the function meet its perf budget?
+//      Example: oo_fetch completes in < 100ms for a local server.
+//      Coverage: every hot-path function has a perf budget in
+//      the .c file's top comment.
+//
+//   4. fuzz — does the function crash on random input?
+//      Example: oo_str_tok handles every permutation of an
+//      empty delimiter. Coverage: every parser has at least one
+//      fuzz test (libFuzzer-style).
+//
+//   5. property — does the function satisfy a mathematical property?
+//      Example: oo_bytes_concat(a, b).len == a.len + b.len.
+//      Coverage: every byte/string function has at least one
+//      property test.
+//
+//   6. regression — does a fix from a previous version still hold?
+//      Example: the v2.1.0 inverted-bounds fix in oo_write_int
+//      is regression-tested. Coverage: every CHANGES.md entry
+//      has a corresponding regression test.
+//
+//   7. benchmark — how does the function perform on a standardized
+//      workload? Example: dudect constant-time probe.
+//      Coverage: every crypto op has a dudect benchmark.
+//
+//   8. adversarial — does the function survive a dedicated attacker
+//      with a specific goal? Example: a cap-escape attempt that
+//      tries 4 different bypass paths. Coverage: the tier-5
+//      tests_challenger_*.c suite in qa/.
+//
+// The 8 dimensions are independent; a test in one dimension does
+// NOT replace a test in another. The full coverage matrix is the
+// outer product of the 8 dimensions and the oo_* functions; the
+// v2.2.0+ suite covers the 8 dimensions for the 5 challenger
+// scenarios below.
+
+# === Beat 2: Tier-5 adversarial tests (the 5 tests_challenger_*.c) ===
+
+// The v2.2.0+ qa/ subdir ships with 5 tier-5 challenger tests:
+//
+//   qa/tests_challenger_cap_escape.c
+//     Adversarial probe: can an attacker bypass the cap system?
+//     Tries 4 bypass paths:
+//       (a) forging a cap from a known token
+//       (b) calling oo_alloc with cap=0
+//       (c) calling oo_write_int with a foreign pointer
+//       (d) calling oo_proc_mem_read without Landlock applied
+//     Each must fail closed. This file is RED — it MUST NOT be
+//     in the umbrella (the audit must verify the cap system is
+//     sound, not bypass it).
+//
+//   qa/tests_challenger_dudect_ct.c
+//     Benchmark probe (dimension 7): runs the dudect constant-time
+//     statistical test (Welch t-test) on a few crypto operations
+//     (AES-GCM, SHA-256). Reuses the existing qa/dudect_c_native.c
+//     infrastructure (the Welch probe with ns-resolution clock).
+//     A constant-time primitive must show |t| < 4.5 across 200k
+//     samples; a non-constant-time primitive must show |t| >= 4.5.
+//
+//   qa/tests_challenger_cap_threat.c
+//     Adversarial probe: tests the cap-threat-containment model.
+//     A process with ONLY AllocCap should NOT be able to:
+//       - read /proc/self/mem
+//       - write to /etc/passwd
+//       - open a socket
+//       - spawn a thread
+//     Each must fail. The probe proves that an AllocCap holder
+//     cannot amplify its authority through side channels.
+//
+//   qa/tests_challenger_sandbox_containment.c
+//     Redteam probe: tests Landlock containment. After
+//     oo_landlock_restrict, a file OUTSIDE the allowlist must be
+//     un-openable. Note: this may require running as root or with
+//     CAP_DAC_OVERRIDE for full coverage. The test is a real
+//     sandbox-apply, then an attempt to open /etc/passwd, which
+//     must return ERR.
+//
+//   qa/tests_challenger_proc_mem_leak.c
+//     Redteam probe: verifies oo_proc_mem_read refuses without
+//     Landlock APPLIED. Tries to call it without first calling
+//     oo_landlock_restrict. The result must be an empty string
+//     (not the contents of process memory). This is the v2.1.0
+//     first-principles fix from SUBSTRATE_AUDIT_TLDR.oot Beat 2
+//     Fix 3.
+//
+// Each tests_challenger_*.c file:
+//   - has int main(void)
+//   - is self-contained
+//   - uses printf + exit(0)/exit(1) for results
+//   - is <= 256 lines
+//   - documents what it tests in a top comment
+//   - is NOT in the umbrella TU (the umbrella excludes them)
+//   - is run by the developer, not the runtime
+
+# === Beat 3: The existing qa/ utilities (2 smoke tests) ===
+
+// The qa/ subdir already has 2 test utilities (pre-v2.2.0):
+//
+//   qa/dudect_c_native.c
+//     Benchmark probe (dimension 7): Welch t-test on ct primitives
+//     with ns-resolution clock_gettime, CPU pinning for stable
+//     Welch, and a 200k*30 sample budget. The probe is a
+//     branchless-vs-branchy control that proves the framework
+//     can detect a non-constant-time implementation. A real ct
+//     primitive tested by this framework must show |t| < 4.5.
+//
+//   qa/oo_hip_so_smoke.c
+//     Functional probe (dimension 1): dlopen liboo_hip.so and
+//     verify the compute kernels (vec_add, etc.) load and run.
+//     Used to verify the hw/gpu/ wire-up on a HIP/ROCm system.
+//     On a non-HIP system the test prints ERR and exits 1.
+//
+// The 2 existing utilities are .c files, not .oo. They are NOT
+// in the umbrella TU; they are run by the developer.
+
+# === Beat 4: How to run the tests ===
+
+// The 5 challenger tests are run individually:
+//
+//   gcc -o /tmp/cap_escape qa/tests_challenger_cap_escape.c oodar.c -lpthread -ldl -lm
+//   /tmp/cap_escape
+//
+//   gcc -o /tmp/dudect_ct qa/tests_challenger_dudect_ct.c oodar.c -lpthread -ldl -lm -lm
+//   /tmp/dudect_ct
+//
+//   ... etc.
+//
+// The tests exit 0 on success (i.e., the adversarial attempt
+// FAILED, which is the expected outcome for cap-escape,
+// cap-threat, sandbox-containment, and proc-mem-leak) and
+// exit 1 on failure (i.e., the adversarial attempt SUCCEEDED,
+// which is a security defect that must be fixed).
+//
+// The dudect test is a benchmark; it exits 0 if the primitive
+// is constant-time (|t| < 4.5) and exits 1 if it is not.
+//
+// The tests are NOT run as part of `gcc oodar.c` — the developer
+// runs them on demand. This is by design: the umbrella TU is
+// for the runtime, the qa/ tests are for the developer.
+
+# === Beat 5: The 5 adversarial probes — Red 8 dimension coverage ===
+
+// Each challenger test maps to one or more Red Team dimensions:
+//
+//   tests_challenger_cap_escape.c        — dim 2 (redteam) + dim 8 (adversarial)
+//   tests_challenger_dudect_ct.c         — dim 7 (benchmark)
+//   tests_challenger_cap_threat.c        — dim 2 (redteam) + dim 8 (adversarial)
+//   tests_challenger_sandbox_containment.c — dim 2 (redteam) + dim 8 (adversarial)
+//   tests_challenger_proc_mem_leak.c     — dim 6 (regression, v2.1.0 fix)
+//
+// The 5 tests cover dimensions 2, 6, 7, 8 of the 8D matrix.
+// Dimensions 1, 3, 4, 5 are covered by other tests (not in qa/):
+//   dim 1 (functional) — the per-symbol sanity tests in the umbrella
+//   dim 3 (performance) — the per-function perf budgets in the .c files
+//   dim 4 (fuzz)       — the libFuzzer harnesses in the higher-level
+//                         packages (oodac/, ooda/)
+//   dim 5 (property)   — the per-type property tests in the higher-
+//                         level packages
+//
+// The v2.2.0+ suite is the first 8D-coverage pass; subsequent
+// versions will fill in the gaps with additional tests.
+
+// ──▓▓ oodar/docs/TESTING.oot ──▓▓──
+// :: 8D Red Team matrix — 5 challenger tests in qa/ — dimensions 2, 6, 7, 8 covered ::

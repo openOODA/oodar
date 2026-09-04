@@ -3,9 +3,8 @@
 // Logline: The OoIList / OoSList / OoFList family and the nested list types (OoLL_*, OoLLL_*, OoLLLL_*). The 3-element and 4-element variants are compressed via X-macro in llist.c.
 //
 // Beats:
-//   1. list.c — OoIList (retain/release/new/push/get/set/len).
-//   2. flist.c — OoFList (the same shape, float element).
-//   3. list_set.c — set (subset) operations.
-//   4. llist.c — nested lists, 9 type families via X-macro (Int/String/Float × 2D/3D/4D).
+//   1. list.c — OoIList / OoSList (retain/release/new/push/get/set/len). The set operations live inline at the bottom of list.c (folded from list_set.c in v2.2.0).
+//   2. flist.c — OoFList (the same shape, float element, including oo_flist_set).
+//   3. llist.c — nested lists, 9 type families via X-macro (Int/String/Float × 2D/3D/4D). The X-macro generates _set for each nested list type (OoLL_*, OoLLL_*, OoLLLL_*) inline.
 //
 // ──▓▓ core/list ANCHOR ──▓▓──

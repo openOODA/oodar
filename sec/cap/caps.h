@@ -111,4 +111,29 @@ int oo_cap_attenuate_ok(OoStr parent_hmac, OoStr child_rights);
 OoStr oo_cap_kernel_seal(long long sys, OoStr cap_id);
 OoStr oo_enclave_enter(long long sys, OoStr sealed);
 
+/* v2.2.0 item #22: path-scoped FsReadCap attenuator (NORTHSTAR §4.2).
+ * A bare FsReadCap grants read access to ANY path. An OoPathCap is an
+ * attenuation bound to a specific absolute path prefix. The MAC is the
+ * HMAC-SHA-256 of (parent_cap || prefix) under the kernel's per-process
+ * HMAC key (g_kernel_hmac_key), so a forged prefix or parent_cap fails
+ * the constant-time check in oo_path_cap_check.
+ *
+ * Chain rule: the cap parameter to oo_attenuate_fsread_to_path may be
+ * either the raw FsReadCap/FS token OR the parent_cap field of a
+ * previously-derived OoPathCap — re-attenuation is allowed and reuses
+ * the same MAC key, so each prefix gets a distinct, non-spoofable MAC.
+ *
+ * Ownership: OoPathCap holds a borrow of the caller's prefix OoStr
+ * (shallow copy of the (data, len) view). The caller MUST keep the
+ * underlying prefix buffer alive for as long as the OoPathCap is used.
+ */
+typedef struct {
+  long long parent_cap;   /* the cap this is attenuated from (FsReadCap / FsCap / prior OoPathCap.parent_cap) */
+  OoStr prefix;           /* absolute path prefix this cap is allowed to read (caller-owned) */
+  unsigned char mac[32];  /* HMAC-SHA-256(g_kernel_hmac_key, parent_cap || prefix) */
+} OoPathCap;
+
+OoPathCap oo_attenuate_fsread_to_path(long long cap, OoStr prefix);
+int oo_path_cap_check(OoPathCap path_cap, OoStr path);
+
 #endif

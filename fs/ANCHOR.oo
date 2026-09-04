@@ -1,6 +1,6 @@
 // # fs — Filesystem + Host OS (mirrors std/fs)
 //
-// Logline: The host surface — OS syscalls (sys_exec, sys_args), the policy getenv filter, file I/O, the net-floor loopback constraint, the host process info, the rlimit setter, the time+rand source, the loopback-only DNS resolver, and the print family.
+// Logline: The host surface — OS syscalls (sys_exec, sys_args), the policy getenv filter, file I/O, the net-floor loopback constraint, the host process info, the rlimit setter, the time+rand source, and the loopback-only DNS resolver. The print family moved to app/io/ in v2.2.0 (it's an output app bridge, not a host primitive).
 //
 // Setup: os/ is the syscall-level surface. All operations are cap-gated: ProcessCap for sys_exec, FsCap for file I/O, NetCap for netfloor/dns, EnvCap for getenv. The DNS resolver refuses to call getaddrinfo (which would walk /etc/hosts and upstream DNS, defeating the net-floor loopback constraint).
 //
@@ -12,7 +12,6 @@
 //   5. os/dns.c — the loopback-only DNS resolver (the security-relevant policy point).
 //   6. os/rlimit.c — setrlimit wrapper (RLIMIT_AS, RLIMIT_NOFILE, RLIMIT_CPU).
 //   7. os/time_rand.c — monotonic time + secure random.
-//   8. io/print.c — stdout/stderr print family (no cap-gate in v1.0.1).
 //
 // ──▓▓ fs ANCHOR ──▓▓──
 // :: fail-closed: no getaddrinfo, no unrestricted env ::

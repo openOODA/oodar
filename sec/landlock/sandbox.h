@@ -67,10 +67,11 @@ OoResS oo_sandbox_restrict_caps(long long sys_cap, uint32_t allowed_caps_mask);
 OoResS oo_sandbox_set_quotas(long long sys_cap, long long mem_mb, long long cpu_sec, long long max_fds);
 oo_sandbox_status_t oo_sandbox_status(void);
 
-/* C Interface Helpers */
-int oo_sandbox_c_apply_matrix(const char *writedir, uint64_t cap_mask);
-int oo_sandbox_c_restrict_caps(uint64_t cap_mask);
-int oo_sandbox_c_set_quotas(uint64_t mem_mb, uint64_t cpu_sec, uint64_t max_fds);
+/* C Interface Helpers (v2.2.0: require sys_cap as first arg; the function
+ * validates it with oo_cap_require_sys() and fails closed on mismatch) */
+int oo_sandbox_c_apply_matrix(long long sys_cap, const char *writedir, uint64_t cap_mask);
+int oo_sandbox_c_restrict_caps(long long sys_cap, uint64_t cap_mask);
+int oo_sandbox_c_set_quotas(long long sys_cap, uint64_t mem_mb, uint64_t cpu_sec, uint64_t max_fds);
 
 #ifdef __cplusplus
 }

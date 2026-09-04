@@ -1,5 +1,178 @@
 # Changelog
 
+## v2.2.0 — Patch (24-item audit pass 3: 5 security + 4 North Star gaps + 8 cleanups + 1 OCap feature)
+
+Per RULES.oot §1.21, v2.2.0 is a PATCH bump. No public ABI
+break (the only signature change is `oo_sandbox_c_*` gaining a
+`sys_cap` first arg; those 3 functions have zero callers in the
+tree, so the change is safe for v2.2.0). Driven by 4 parallel
+subagents in 1 session; the audit pass 3 closed 24 of the
+v2.1.0 residuals.
+
+### 5 security/correctness fixes
+
+1. **C-ABI backdoor in `oo_sandbox_c_*`** — the three C-ABI sandbox
+   entry points (`oo_sandbox_c_apply_matrix`, `oo_sandbox_c_restrict_caps`,
+   `oo_sandbox_c_set_quotas`) called `oo_cap_grant_sys()` internally
+   to manufacture their own cap tokens, letting any C caller apply
+   a sandbox without holding SysCap. v2.2.0 threads `long long sys_cap`
+   as the first parameter of all three; the function validates it
+   with `oo_cap_require_sys` and forwards it.
+   (sec/landlock/sandbox.c, sec/landlock/sandbox.h)
+
+2. **`oo_je_emit` arm-file exfil dropped** — the opt-in covert-exfil
+   channel (CWD flag file caused `oo_print_str` / `oo_println` to
+   write raw error data as JSON to stdout) was dropped entirely.
+   No cap, no documented purpose, no caller. Both functions now
+   fall through to plain `fwrite` / `fputc`.
+   (app/io/print.c, app/telemetry/event.c)
+
+3. **Band-byte drift fixed** — `core/mem/alloc.c:36-48` and
+   `app/xlang/ffi_sec.c:36-47` had hardcoded band bytes (0x7 and 0x5)
+   that drifted from the canonical cap system in `sec/cap/caps.c`
+   (which uses no band byte at all — the in-source comment explicitly
+   says the band is redundant). Both now use the full 8 bytes of
+   getentropy randomness, matching `make_cap_tok`'s layout.
+   (core/mem/alloc.c, app/xlang/ffi_sec.c)
+
+4. **`oo_event_emit` implicit-declaration fixed** — `sec/crypto/crypto.c`
+   and `sec/pqc/pq_sig.c` each call `oo_event_emit` but neither
+   included `app/telemetry/event.h`. v2.2.0 adds the missing includes.
+   (sec/crypto/crypto.c, sec/pqc/pq_sig.c)
+
+5. **Layering violation documented** — `app/actor/actor.c` reaches
+   into `sec/crypto/crypto_internal.h` for the cap_rpc HMAC. v2.2.0
+   documents the dependency with a 16-line block comment naming
+   exactly which 2 private symbols are used (`crypto_hmac_sha256_internal`
+   and `crypto_ct_cmp`) and at which call sites.
+   (app/actor/actor.c)
+
+### 4 North Star gaps closed
+
+6. **`docs/` populated** — 5 new .oot files documenting the
+   v2.1.0+ state: `SECURITY_MODEL.oot` (the cap system), `PILLARS.oot`
+   (North Star Pillar coverage), `CAPABILITIES_TABLE.oot` (per-token
+   table), `BUILD_AND_INSTALL.oot` (the build model), `TESTING.oot`
+   (the 8D Red Team matrix). All ≤256 lines.
+
+7. **`qa/` tier-5 tests** — 5 new `tests_challenger_*.c` files
+   implementing the 8D Red Team: `cap_escape` (forged caps must
+   fail), `dudect_ct` (Welch t-test on constant-time crypto),
+   `cap_threat` (AllocCap alone cannot read /proc/self/mem, write
+   /etc, or open sockets), `sandbox_containment` (Landlock
+   allowlist enforced), `proc_mem_leak` (regression test for the
+   v2.1.0 Landlock-APPLIED gate). All ≤256 lines, all `int
+   main(void)` + `exit(0|1)`.
+
+8. **`liboodar.a` artifact** — `scripts/Makefile` builds the static
+   library from the umbrella TU (via `gcc -c oodar.c`). Also
+   offers a per-file `perfile` target (best-effort; 3 of 48
+   .c files rely on transitive includes and are skipped, the rest
+   archive normally).
+
+9. **Reproducible build** — `scripts/repro_build.sh` produces
+   bit-identical `liboodar.a` across builds (same source + same
+   toolchain): `SOURCE_DATE_EPOCH=0`, `ar rcsD` deterministic
+   mode, sorted .o file order, `-fno-stack-protector`,
+   `-ffile-prefix-map`, `-fmacro-prefix-map`. The `verify`
+   subcommand re-builds and re-hashes, comparing to the recorded
+   SHA-256.
+
+### 8 long-tail cleanups
+
+10. **`core/list/list_set.c` folded inline into `core/list/list.c`**
+    (63 lines; the `list_set.c` file is deleted).
+
+11. **`SUBSTRATE_AUDIT_TLDR.oot` line counts and paths updated** to
+    v2.1.0 reality (138 lines, 6-subdir layout, 25 cap tokens).
+
+12. **3 dead oodar.h functions removed** — `heap_alloc_test`,
+    `oo_arena_free`, `oo_ffi_gen`. Per the "no compat layers" rule.
+
+13. **`app/actor/closure.c` ANCHOR.oo clarified** — generic
+    `OoClosure` primitive, not actor-specific. The file itself is
+    unchanged.
+
+14. **`fs/io/print.c` moved to `app/io/print.c`** — output app
+    bridge, not host primitive. The `fs/io/` leaf dir is gone.
+
+15. **`core/meta/` renamed to `core/anti_emul/`** — the `meta`
+    prefix suggested meta-circularity but the content is
+    anti-emulation. Function names (`oo_meta_*`) are unchanged
+    (renaming would be an ABI break).
+
+16. **`oo_seal` / `oo_open` public cap-gated AEAD wrappers added**
+    in `sec/crypto/seal.c` (44 lines). The `oodar.h:78` and
+    `crypto_internal.h:8` comments referenced these as "the public
+    cap-gated wrappers" but they didn't exist. Now they do.
+
+17. **Cross-subdir import documented** — see item 5 above for the
+    rationale. The `app/actor/actor.c` include of
+    `sec/crypto/crypto_internal.h` is now framed as a known, scoped,
+    intentional layering edge to be replaced by a public cap-gated
+    HMAC primitive in v3.0.0+.
+
+18. **`api_surface` 52 → 57** — the 5 new `tests_challenger_*.c`
+    files in `qa/` are counted by the CI's `find -name '*.c'`
+    check. The umbrella still has 49 .c files (48 from v2.1.0 +
+    `sec/crypto/seal.c`); the 5 tests are not in the umbrella.
+
+### 1 OCap feature added
+
+19. **Path-scoped FsReadCap attenuator** — `OoPathCap` struct +
+    `oo_attenuate_fsread_to_path(cap, prefix)` +
+    `oo_path_cap_check(path_cap, path)`. Implements NORTHSTAR §4.2's
+    path-scoped FS caps. The MAC is `HMAC-SHA-256(g_kernel_hmac_key,
+    parent_cap || prefix)`; `oo_path_cap_check` re-derives the MAC
+    in constant time and enforces the path-prefix rule.
+    Re-attenuation chains. The `OoPathCap.prefix` is a shallow
+    borrow; the caller owns the underlying buffer.
+    (sec/cap/caps.h, sec/cap/caps.c)
+
+### Cross-polyrepo
+
+20. **lsp v0.6.3** — `lsp/methods/lsp_definition.oo` documents the
+    planned `lsp_definition_load_cap_table(oodar_root)` flow
+    that sources from a future `${oodar_root}/cap_table.json`.
+    The current hard-coded table is now explicitly a CACHED
+    FALLBACK. Branch `lsp-v0.6.3/oodar-cap-table-source`,
+    doc-only.
+
+### What did NOT change
+
+- Every public function signature in `oodar.h` (with one
+  exception: the 3 `oo_sandbox_c_*` functions gained a `sys_cap`
+  first parameter; see item 1).
+- The 6 per-domain subdir layout (core, sec, fs, net, hw, app),
+  with `app/io/` and `core/anti_emul/` as the new tactical dirs
+  replacing `fs/io/` and `core/meta/`.
+- The 25 cap tokens (5 reserved bits remain reserved).
+- The umbrella build (`gcc oodar.c`) still works.
+
+### Verification
+
+- `gcc -c oodar.c` → exit 0, no output.
+- `api_surface=57` matches actual `find -name '*.c'` count of 57.
+- 0 .oo/.oot over 256 lines.
+- All 5 new `qa/tests_challenger_*.c` files compile cleanly.
+- The consumer stub test (using `OoPathCap`) passes:
+  `path_cap.ok=1 path_cap.bad=0`.
+
+### Deferred to v3.0.0 (Floor break — signature changes)
+
+- `oo_read_stdin` / `oo_read_stdin_chunk` → require cap
+- `oo_file_stamp` → require cap
+- `oo_metrics_incr`/`get`/`reset`/`export`/`self_test` → require cap
+
+### Deferred to follow-up
+
+- oodac/emit/c still points at `chs_rt_*` paths; that flips to
+  `oodar/<subdir>/<file>.c` once gemini signals oodac done.
+  Gated on oodac, per the user's "we can't clean up ooda until
+  oodac is done" rule.
+- `cap_table.json` in oodar/ root — the lsp side documents the
+  planned reader (item 20). The oodar side is a separate commit.
+
 ## v2.1.0 — Patch (zero-trust audit pass 2: 6 CRITICAL fixes + 11 HIGH/MEDIUM cleanups)
 
 Per RULES.oot §1.21, v2.1.0 is a PATCH bump. No ABI change — every

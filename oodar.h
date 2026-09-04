@@ -76,10 +76,16 @@ void oo_process_exit(long long c);
 OoResS oo_proc_mem_read(long long cap, long long offset, long long n);
 
 /* v2.0.0 Floor break: crypto_*_internal primitives moved to sec/crypto/crypto_internal.h.
- * External consumers must use the cap-gated wrappers (oo_seal, oo_open) instead. */
+ * v2.2.0: the public cap-gated AEAD surface (oo_seal, oo_open) is now defined
+ * below. These call the private crypto_aes_gcm_seal_internal /
+ * crypto_aes_gcm_open_internal in sec/crypto/crypto_internal.h, gated by
+ * SignCap (the cap for sign-style symmetric operations; same as oo_cg_sign). */
 #ifdef OODAR_CRYPTO_INTERNAL
 #include "sec/crypto/crypto_internal.h"
 #endif
+
+OoResS oo_seal(long long cap, OoStr key, OoStr nonce, OoStr plaintext, OoStr aad);
+OoResS oo_open(long long cap, OoStr key, OoStr nonce, OoStr ct, OoStr tag, OoStr aad);
 
 OoResS oo_dlopen(long long cap, OoStr path);
 OoResS oo_dlsym(long long cap, OoStr handle, OoStr name);
@@ -160,7 +166,6 @@ long long oo_alloc(long long cap, long long size);
 void oo_free(long long cap, long long ptr);
 void (oo_write_int)(long long cap, long long ptr, long long offset, long long val);
 long long (oo_read_int)(long long cap, long long ptr, long long offset);
-long long heap_alloc_test(void);
 
 #ifndef oo_write_int
 #define OO_WRITE_INT_GET_MACRO(_1, _2, _3, _4, NAME, ...) NAME
@@ -211,7 +216,6 @@ OoResS oo_arena_create(long long cap, long long bytes);
 OoResS oo_arena_alloc(long long cap, long long id, long long n);
 OoResS oo_arena_reset(long long cap, long long id);
 OoResS oo_arena_destroy(long long cap, long long id);
-void oo_arena_free(long long cap, long long id);
 long long oo_soa_layout(OoStr name);
 long long oo_dod_layout(long long n);
 long long oo_checkpoint(long long cap, long long v);
@@ -223,7 +227,6 @@ OoStr oo_read_stdin(void);
 OoResS oo_read_stdin_chunk(long long timeout_ms);
 OoStr oo_file_stamp(OoStr path);
 long long oo_import_c(long long cap, OoStr hdr);
-long long oo_ffi_gen(long long cap, OoStr hdr);
 long long oo_lto_xlang_link(long long cap, OoStr a, OoStr b);
 
 #endif
