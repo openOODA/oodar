@@ -31,5 +31,5 @@ jobs:
           echo "256-line cap verified"
   auto-release:
     needs: verify
-    uses: openOODA/openOODA/.github/workflows/auto-release.yml@v1.0.6
+    uses: openOODA/openOODA/.github/workflows/auto-release.yml@v1.0.14
     secrets: inherit
