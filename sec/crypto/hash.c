@@ -83,7 +83,7 @@ static void sha1_bytes(const unsigned char *str, size_t len, unsigned char *hash
    * vectors for inputs under 32 bytes (where the length fits in 1 byte). */
   for (i = 0; i < 8; i++) msg[total - 8 + i] = (unsigned char)((ml >> (8 * (7 - i))) & 0xff);
   for (chunk = 0; chunk < total; chunk += 64) {
-    uint32_t w[80], a,b,c,d,e,f,k,temp,j;
+    uint32_t w[80], a,b,c,d,e,f,k,temp;
     for (i = 0; i < 16; i++) {
       w[i] = ((uint32_t)msg[chunk+i*4]<<24)|((uint32_t)msg[chunk+i*4+1]<<16)|
              ((uint32_t)msg[chunk+i*4+2]<<8)|(uint32_t)msg[chunk+i*4+3];

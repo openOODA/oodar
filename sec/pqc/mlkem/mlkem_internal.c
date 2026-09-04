@@ -161,14 +161,12 @@ static void k_poly_tomont(int16_t r[256]) {
   int i; for (i = 0; i < 256; i++) r[i] = k_montgomery((int32_t)r[i] * f);
 }
 
-/* === 24-bit and 32-bit little-endian byte loaders (FIPS 203 §4.2.1). === */
-
-static uint32_t k_load24(const uint8_t *x) {
-  uint32_t r = x[0]; r |= (uint32_t)x[1] << 8; r |= (uint32_t)x[2] << 16; return r;
-}
-static uint32_t k_load32(const uint8_t *x) {
-  uint32_t r = x[0]; r |= (uint32_t)x[1] << 8; r |= (uint32_t)x[2] << 16; r |= (uint32_t)x[3] << 24; return r;
-}
+/* === 24-bit and 32-bit little-endian byte loaders (FIPS 203 §4.2.1). ===
+ * v3.3.2: k_load24 and k_load32 are defined but never called
+ * (FIPS 203 uses k_load32 in encode/decode, which we don't need
+ * for the oodar cap surface). Removed to clear the
+ * -Wunused-function warnings and shrink the file by 6 lines.
+ * The intent of the comment is preserved for the human auditor. */
 
 /* === Sampling: CBD (centered binomial), NTT-domain rejection, PRF. === */
 
@@ -188,7 +186,6 @@ static void k_cbd2(int16_t r[256], const uint8_t buf[128]) {
 }
 
 static void k_sample_ntt(int16_t r[256], const uint8_t seed[34]) {
-  uint8_t buf[168];
   /* SHAKE-128 absorb seed||i||j then squeeze; we implement via a streaming-less pull. */
   /* Rejection: request blocks of 168 bytes. */
   {
@@ -211,7 +208,22 @@ static void k_sample_ntt(int16_t r[256], const uint8_t seed[34]) {
   }
 }
 
-static void k_prf(uint8_t *out, size_t outn, const uint8_t seed[64], uint8_t nonce) {
+/* v3.3.2 round-5 audit fix: the seed parameter is 32 bytes, not
+ * 64. The previous signature `const uint8_t seed[64]` lied to the
+ * compiler (and to the human auditor) — k_prf only ever used 32
+ * bytes of seed. The "64" was a copy from a reference
+ * implementation that used SHAKE256 with 64-byte block alignment.
+ * Calling k_prf with a 32-byte seed array would trigger -Wstringop-overread
+ * because the function declared a 64-byte parameter but
+ * oo_shake256 was passed a 33-byte ext buffer derived from
+ * only 32 bytes of seed (the rest would be uninitialized stack
+ * garbage if the seed was actually 32 bytes).
+ *
+ * The seed is the public matrix seed from keygen or the
+ * per-message seed from encaps. 32 bytes is what FIPS 203
+ * specifies. The fix: change the signature to match the
+ * implementation. */
+static void k_prf(uint8_t *out, size_t outn, const uint8_t seed[32], uint8_t nonce) {
   uint8_t ext[33];
   memcpy(ext, seed, 32); ext[32] = nonce;
   oo_shake256(ext, 33, out, outn);

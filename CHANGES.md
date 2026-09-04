@@ -1328,3 +1328,54 @@ all pass.
 
 **Public ABI:** unchanged. The function signature is the
 same; only the internal cap check is canonicalized.
+
+## v3.3.2 — Patch (round-5 follow-up: stringop-overread in mlkem k_prf)
+
+v3.3.2 is a **Patch** bump from v3.3.1. Round-5 audit continued
+with `-Wall -Wextra` build, which surfaced 1 real bug and
+several dead-code leftovers from the v3.1.0 LCG-fallback
+removals.
+
+**The bug:** `sec/pqc/mlkem/mlkem_internal.c:214`
+
+`k_prf` had signature `const uint8_t seed[64]` but the
+implementation only used 32 bytes of seed. The compiler
+correctly warned: `k_prf reading 64 bytes from a region of
+size 32 [-Wstringop-overread]`. Calling k_prf with a
+32-byte seed array would either crash (with hardened libc)
+or read 32 bytes of stack garbage (the trailing 32 bytes
+of the supposed-64-byte argument).
+
+The "64" was a copy from a reference implementation that
+used 64-byte block alignment for SHAKE256. FIPS 203 only
+uses 32-byte seeds for `k_prf`. The fix: change the signature
+to `const uint8_t seed[32]`.
+
+**Why this matters:** the function is called by every
+ML-KEM keygen, encaps, and decaps. A 32-byte overread on
+each invocation would leak ~32 bytes of uninitialized stack
+memory into the SHAKE256 input, potentially exposing
+adjacent stack state (return addresses, previous frame
+data, etc.). The signature lie hid this from the human
+auditor and from static analyzers that trust the
+declaration.
+
+**The dead code:**
+
+| File | Lines | What was there | Why it was there |
+|---|---|---|---|
+| `sec/pqc/mlkem/mlkem_internal.c` | k_load24, k_load32 | 24/32-bit LE byte loaders (FIPS 203 §4.2.1) | Defined but never called. The encode/decode paths don't need them in oodar's cap surface. |
+| `sec/pqc/mlkem/mlkem_internal.c` | buf[168] | unused | k_sample_ntt declared it but used big[840] instead. |
+| `sec/crypto/hash.c` | j | unused | SHA-1 loop counter, leftover from v3.1.0 LCG cleanup. |
+| `sec/cap/caps.c`, `core/mem/alloc.c`, `app/xlang/ffi_sec.c`, `core/anti_emul/anti_emul.c` | acc, i | unused | Loop counter variables from the v3.1.0 LCG-fallback removals. The LCG `for (i = 0; i < n; i++) { acc = ...; b[i] = acc >> ...; }` pattern was replaced with `getentropy()` but the variables were not removed. |
+
+**Build warnings: 21 → 8 (all benign).** The remaining 8 are:
+- 1 `/*` within comment (cosmetic, arena.c:6)
+- 2 `format-truncation` on liboo_hip.so path (benign, gpu_hip_dlopen.c)
+- 5 `misleading-indentation` (style, the `if (oc) free(c); if (oa) free(a);` pattern)
+
+**Test results:** all 10 challenger tests + 3 lint + adversarial
+all pass.
+
+**Public ABI:** unchanged. The k_prf fix is internal; no
+exported symbol changed.

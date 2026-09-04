@@ -90,8 +90,6 @@ static void caps_zeroize(void) {
 
 static void caps_once_init(void) {
   unsigned char b[184];
-  size_t i;
-  unsigned long long acc;
 #if defined(__linux__) || defined(__APPLE__)
   if (getentropy(b, sizeof b) != 0) {
     /* Fail-closed: no LCG fallback. getentropy() must succeed for unpredictable tokens. */
