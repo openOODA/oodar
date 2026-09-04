@@ -35,7 +35,7 @@ All design, RFCs, practices, and onboarding live in [openOODA/openOODA](https://
 | Layer | Repo | Purpose |
 |-------|------|---------|
 | Strategic | [openOODA/openOODA](https://github.com/openOODA/openOODA) | Governance, RFCs, laws |
-| Operational | [openOODA/cli](https://github.com/openOODA/cli) | `ooda` workflow driver |
+| Operational | [openOODA/ooda](https://github.com/openOODA/ooda) | `ooda` workflow driver |
 | Operational | [openOODA/lsp](https://github.com/openOODA/lsp) | Language server |
 | Operational | [openOODA/mcp](https://github.com/openOODA/mcp) | MCP server |
 | Operational | [openOODA/opm](https://github.com/openOODA/opm) | Package manager |
