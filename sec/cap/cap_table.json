@@ -1,0 +1,285 @@
+{
+  "_comment": "The canonical cap bit-table for oodar. The lsp verifier (lsp/methods/lsp_definition.oo) and oodac (oodac/emit/c) read this file to know the cap bit positions, names, and which caps are implemented (vs. future-state reserved). The C-level truth is sec/cap/caps.h; this JSON is the structural truth; the regeneration script is scripts/gen_cap_table.py.",
+  "_version": "3.1.1",
+  "_generated_from": "sec/cap/caps.h",
+  "cap_count": 26,
+  "cap_count_implemented": 19,
+  "cap_count_future_state": 7,
+  "audit_bit_position": 11,
+  "audit_bit_value": 2048,
+  "audit_bit_note": "v2.1.0 reserved bit 0x800 (the AUDIT bit) for future re-introduction. v3.0.0 re-introduced it as OODAR_CAP_METRICS.",
+  "caps": [
+    {
+      "name": "NET",
+      "value": 1,
+      "bit": 0,
+      "implemented": true,
+      "category": "north_star",
+      "grantee": "fs/os/netfloor.c, fs/os/netfloor_tcp.c, fs/os/netfloor_udp.c",
+      "require": "oo_cap_require_net",
+      "subsumes": [
+        "TCP",
+        "UDP"
+      ]
+    },
+    {
+      "name": "PROCESS",
+      "value": 2,
+      "bit": 1,
+      "implemented": true,
+      "category": "north_star",
+      "grantee": "fs/os/sys.c (fork/execve)",
+      "require": "oo_cap_require_process",
+      "subsumes": []
+    },
+    {
+      "name": "FSWRITE",
+      "value": 4,
+      "bit": 2,
+      "implemented": true,
+      "category": "north_star",
+      "grantee": "fs/os/fs.c (open with O_WRONLY|O_CREAT|O_TRUNC)",
+      "require": "oo_cap_require_fs_write",
+      "subsumes": []
+    },
+    {
+      "name": "FSREAD",
+      "value": 8,
+      "bit": 3,
+      "implemented": true,
+      "category": "north_star",
+      "grantee": "fs/os/fs.c (open with O_RDONLY)",
+      "require": "oo_cap_require_fs_read",
+      "subsumes": []
+    },
+    {
+      "name": "SYS",
+      "value": 16,
+      "bit": 4,
+      "implemented": true,
+      "category": "north_star",
+      "grantee": "fs/os/sys.c (raw syscall shims)",
+      "require": "oo_cap_require_sys",
+      "subsumes": []
+    },
+    {
+      "name": "FS",
+      "value": 32,
+      "bit": 5,
+      "implemented": true,
+      "category": "north_star",
+      "grantee": "fs/os/fs.c (path validation, dir iteration)",
+      "require": "oo_cap_require_fs",
+      "subsumes": [
+        "FSREAD",
+        "FSWRITE"
+      ]
+    },
+    {
+      "name": "TIME",
+      "value": 64,
+      "bit": 6,
+      "implemented": true,
+      "category": "north_star",
+      "grantee": "fs/os/time_rand.c (monotonic clock)",
+      "require": "oo_cap_require_time",
+      "subsumes": []
+    },
+    {
+      "name": "RAND",
+      "value": 128,
+      "bit": 7,
+      "implemented": true,
+      "category": "north_star",
+      "grantee": "fs/os/time_rand.c (getentropy-derived rand)",
+      "require": "oo_cap_require_rand",
+      "subsumes": []
+    },
+    {
+      "name": "ALLOC",
+      "value": 256,
+      "bit": 8,
+      "implemented": true,
+      "category": "north_star",
+      "grantee": "core/mem/alloc.c (oo_alloc/free)",
+      "require": "oo_cap_require_alloc",
+      "subsumes": []
+    },
+    {
+      "name": "ARENA",
+      "value": 512,
+      "bit": 9,
+      "implemented": true,
+      "category": "north_star",
+      "grantee": "core/mem/arena.c (oo_checkpoint/oo_rollback)",
+      "require": "oo_cap_require_arena",
+      "subsumes": []
+    },
+    {
+      "name": "FFI",
+      "value": 1024,
+      "bit": 10,
+      "implemented": true,
+      "category": "north_star",
+      "grantee": "app/xlang/ffi.c, app/xlang/ffi_sec.c",
+      "require": "oo_cap_require_ffi",
+      "subsumes": []
+    },
+    {
+      "name": "METRICS",
+      "value": 2048,
+      "bit": 11,
+      "implemented": true,
+      "category": "north_star",
+      "grantee": "app/telemetry/metrics.c (oo_metrics_incr)",
+      "require": "oo_cap_require_metrics",
+      "subsumes": []
+    },
+    {
+      "name": "SIGN",
+      "value": 4096,
+      "bit": 12,
+      "implemented": true,
+      "category": "north_star",
+      "grantee": "app/actor/actor_rpc.c (cap-RPC sign/verify)",
+      "require": "oo_cap_require_sign",
+      "subsumes": []
+    },
+    {
+      "name": "TCP",
+      "value": 131072,
+      "bit": 17,
+      "implemented": true,
+      "category": "future_state",
+      "grantee": "fs/os/netfloor_tcp.c",
+      "require": "oo_cap_require_tcp",
+      "subsumes": []
+    },
+    {
+      "name": "UDP",
+      "value": 262144,
+      "bit": 18,
+      "implemented": true,
+      "category": "future_state",
+      "grantee": "fs/os/netfloor_udp.c (oo_udp_send/recv only)",
+      "require": "oo_cap_require_udp",
+      "subsumes": []
+    },
+    {
+      "name": "BIND",
+      "value": 524288,
+      "bit": 19,
+      "implemented": true,
+      "category": "future_state",
+      "grantee": "fs/os/netfloor_udp.c (oo_bind_udp), fs/os/netfloor_tcp.c (oo_bind_tcp)",
+      "require": "oo_cap_require_bind",
+      "subsumes": []
+    },
+    {
+      "name": "AUDIO",
+      "value": 1048576,
+      "bit": 20,
+      "implemented": false,
+      "category": "future_state",
+      "grantee": "(reserved for app/audio/)",
+      "require": "(none \u2014 token reserved)",
+      "subsumes": []
+    },
+    {
+      "name": "CAMERA",
+      "value": 2097152,
+      "bit": 21,
+      "implemented": false,
+      "category": "future_state",
+      "grantee": "(reserved for app/camera/)",
+      "require": "(none \u2014 token reserved)",
+      "subsumes": []
+    },
+    {
+      "name": "USB",
+      "value": 4194304,
+      "bit": 22,
+      "implemented": false,
+      "category": "future_state",
+      "grantee": "(reserved for hw/usb/)",
+      "require": "(none \u2014 token reserved)",
+      "subsumes": []
+    },
+    {
+      "name": "HID",
+      "value": 8388608,
+      "bit": 23,
+      "implemented": false,
+      "category": "future_state",
+      "grantee": "(reserved for app/hid/)",
+      "require": "(none \u2014 token reserved)",
+      "subsumes": []
+    },
+    {
+      "name": "WINDOW",
+      "value": 16777216,
+      "bit": 24,
+      "implemented": false,
+      "category": "future_state",
+      "grantee": "(reserved for app/window/)",
+      "require": "(none \u2014 token reserved)",
+      "subsumes": []
+    },
+    {
+      "name": "FRAME",
+      "value": 33554432,
+      "bit": 25,
+      "implemented": false,
+      "category": "future_state",
+      "grantee": "(reserved for app/frame/)",
+      "require": "(none \u2014 token reserved)",
+      "subsumes": []
+    },
+    {
+      "name": "THREAD",
+      "value": 67108864,
+      "bit": 26,
+      "implemented": true,
+      "category": "future_state",
+      "grantee": "app/actor/actor_thread.c (oo_thread_spawn)",
+      "require": "oo_cap_require_thread",
+      "subsumes": []
+    },
+    {
+      "name": "GPU",
+      "value": 134217728,
+      "bit": 27,
+      "implemented": true,
+      "category": "future_state",
+      "grantee": "hw/gpu/gpu/gpu_hip.c (oo_gpu_hip_try_launch)",
+      "require": "oo_cap_require_gpu",
+      "subsumes": []
+    },
+    {
+      "name": "ENV",
+      "value": 268435456,
+      "bit": 28,
+      "implemented": true,
+      "category": "future_state",
+      "grantee": "fs/os/sys_env.c (policy getenv filter)",
+      "require": "oo_cap_require_env",
+      "subsumes": []
+    },
+    {
+      "name": "COMPILER_READ",
+      "value": 536870912,
+      "bit": 29,
+      "implemented": false,
+      "category": "future_state",
+      "grantee": "(reserved for oodac emit-time compile read)",
+      "require": "(none \u2014 token reserved)",
+      "subsumes": []
+    }
+  ],
+  "subsumption_rules": [
+    "FS subsumes FSREAD, FSWRITE",
+    "NET subsumes TCP, UDP, BIND"
+  ],
+  "rule_2_attenuation_note": "v3.1.0 deferred. The bitmask subset check on oo_cap_attenuate (parent_rights & child_rights == child_rights) is the v3.2.0 Floor break. See CHANGES.md v3.1.0 \u00a7 'Deferred to v3.2.0 Floor break'.",
+  "_regen": "python3 scripts/gen_cap_table.py > sec/cap/cap_table.json"
+}
