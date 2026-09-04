@@ -33,7 +33,13 @@ static void alloc_init_once(void) {
   fprintf(stderr, "ERR\tcap\tgetentropy() not available; refusing to derive alloc capability token\n");
   abort();
 #endif
-  /* 0x7… band (fs=1 sys=2 env=3 net=4 time=5 rand=6 alloc=7) */
+  /* v2.2.0: removed the hardcoded 0x7 "alloc band" in the high byte.
+   * The canonical cap system (sec/cap/caps.c, make_cap_tok) does not
+   * use a band byte at all — the comment there calls the band byte
+   * "redundant and ... consuming entropy" — so the alloc token now
+   * uses the full 8 bytes of getentropy randomness, matching the
+   * caps.c layout. The cap is identified by which g_tok_alloc global
+   * it is stored in, not by a tag in the high byte. */
   {
     unsigned long long ent = ((((unsigned long long)b[0]) << 56) |
                               (((unsigned long long)b[1]) << 48) |

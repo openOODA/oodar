@@ -31,6 +31,10 @@
  * the upgrade is real, not a marker.
  */
 #include "../../oodar.h"
+/* v2.2.0: explicit include — oo_event_emit is called from this TU; relying
+ * on the implicit-declaration fallback would hide a missing prototype under
+ * -Wstrict-prototypes and is a latent bug if the signature ever changes. */
+#include "../../app/telemetry/event.h"
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
