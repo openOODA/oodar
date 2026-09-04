@@ -211,6 +211,26 @@ OoResS oo_rlimit_set_mem_mb(long long cap, long long megabytes);
 OoResS oo_rlimit_set_nofile(long long cap, long long max_fds);
 OoResS oo_rlimit_set_cpu_sec(long long cap, long long seconds);
 
+/* Result-with-optional retain/release pairs (7 type families × 2 ops = 14 fns). */
+void oo_reso_i_retain(OoResO_I v);
+void oo_reso_i_release(OoResO_I v);
+void oo_reso_s_retain(OoResO_S v);
+void oo_reso_s_release(OoResO_S v);
+void oo_reso_b_retain(OoResO_B v);
+void oo_reso_b_release(OoResO_B v);
+void oo_reso_f_retain(OoResO_F v);
+void oo_reso_f_release(OoResO_F v);
+void oo_reso_li_retain(OoResO_LI v);
+void oo_reso_li_release(OoResO_LI v);
+void oo_reso_ls_retain(OoResO_LS v);
+void oo_reso_ls_release(OoResO_LS v);
+void oo_reso_lf_retain(OoResO_LF v);
+void oo_reso_lf_release(OoResO_LF v);
+
+OoSList str_split(OoStr s, OoStr delim);
+OoStr str_trim(OoStr s);
+int oo_res_eq_s(OoResS a, OoResS b);
+
 int oo_landlock_is_available(void);
 OoResS oo_landlock_restrict(long long cap, OoStr read_dirs_colon, OoStr write_dirs_colon);
 

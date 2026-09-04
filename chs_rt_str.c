@@ -119,3 +119,21 @@ OoStr oo_str_concat_multi(int n, ...) {
 }
 
 long long oo_str_byte_len(OoStr s) { return s.len; }
+
+/* OoResO_* retain/release pairs: result-with-optional types that hold
+ * either a payload (val, has_val==1) or an error string (err, ok==0).
+ * If ok==1 and has_val==1 → retain/release the payload. If ok==0 → retain/release the err. */
+void oo_reso_i_retain(OoResO_I v) { if (!v.ok) oo_str_retain(v.err); }
+void oo_reso_i_release(OoResO_I v) { if (!v.ok) oo_str_release(v.err); }
+void oo_reso_s_retain(OoResO_S v) { if (v.ok && v.has_val) oo_str_retain(v.val); else if (!v.ok) oo_str_retain(v.err); }
+void oo_reso_s_release(OoResO_S v) { if (v.ok && v.has_val) oo_str_release(v.val); else if (!v.ok) oo_str_release(v.err); }
+void oo_reso_b_retain(OoResO_B v) { if (!v.ok) oo_str_retain(v.err); }
+void oo_reso_b_release(OoResO_B v) { if (!v.ok) oo_str_release(v.err); }
+void oo_reso_f_retain(OoResO_F v) { if (!v.ok) oo_str_retain(v.err); }
+void oo_reso_f_release(OoResO_F v) { if (!v.ok) oo_str_release(v.err); }
+void oo_reso_li_retain(OoResO_LI v) { if (v.ok && v.has_val) oo_ilist_retain(v.val); else if (!v.ok) oo_str_retain(v.err); }
+void oo_reso_li_release(OoResO_LI v) { if (v.ok && v.has_val) oo_ilist_release(v.val); else if (!v.ok) oo_str_release(v.err); }
+void oo_reso_ls_retain(OoResO_LS v) { if (v.ok && v.has_val) oo_slist_retain(v.val); else if (!v.ok) oo_str_retain(v.err); }
+void oo_reso_ls_release(OoResO_LS v) { if (v.ok && v.has_val) oo_slist_release(v.val); else if (!v.ok) oo_str_release(v.err); }
+void oo_reso_lf_retain(OoResO_LF v) { if (v.ok && v.has_val) oo_flist_retain(v.val); else if (!v.ok) oo_str_retain(v.err); }
+void oo_reso_lf_release(OoResO_LF v) { if (v.ok && v.has_val) oo_flist_release(v.val); else if (!v.ok) oo_str_release(v.err); }

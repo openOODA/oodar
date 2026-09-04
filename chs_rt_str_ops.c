@@ -1,4 +1,6 @@
 #include "chs_rt.h"
+#include <ctype.h>
+#include <string.h>
 
 /* Path A M165: owned string ops (byte index). Not &str borrow / no lifetime. */
 int oo_str_eq(OoStr a, OoStr b) {
@@ -168,4 +170,70 @@ OoStr oo_str_to_uppercase(OoStr s) {
   OoStr r; r.len = s.len; r.data = oo_str_alloc_payload((size_t)r.len);
   for (long long i = 0; i < s.len; i++) r.data[i] = (char)toupper((unsigned char)s.data[i]);
   return r;
+}
+
+/* str_split: tokenize by delimiter. Empty delim or empty s → return single-element list. */
+OoSList str_split(OoStr s, OoStr delim) {
+  OoSList l = oo_slist_new();
+  if (!s.data || s.len <= 0) return l;
+  if (!delim.data || delim.len <= 0) {
+    OoSList next = oo_slist_push(l, s);
+    oo_slist_release(l);
+    return next;
+  }
+  long long start = 0;
+  for (long long i = 0; i + delim.len <= s.len; i++) {
+    if (memcmp(s.data + i, delim.data, (size_t)delim.len) == 0) {
+      OoStr part;
+      part.len = i - start;
+      part.data = oo_str_alloc_payload((size_t)part.len);
+      if (part.len > 0) memcpy(part.data, s.data + start, (size_t)part.len);
+      OoSList next = oo_slist_push(l, part);
+      oo_slist_release(l);
+      l = next;
+      oo_str_release(part);
+      i += delim.len - 1;
+      start = i + 1;
+    }
+  }
+  OoStr part;
+  part.len = s.len - start;
+  part.data = oo_str_alloc_payload((size_t)part.len);
+  if (part.len > 0) memcpy(part.data, s.data + start, (size_t)part.len);
+  OoSList next = oo_slist_push(l, part);
+  oo_slist_release(l);
+  l = next;
+  oo_str_release(part);
+  return l;
+}
+
+/* str_trim: strip leading and trailing ASCII whitespace. */
+OoStr str_trim(OoStr s) {
+  if (!s.data || s.len <= 0) {
+    OoStr r;
+    r.len = 0;
+    r.data = oo_str_alloc_payload(0);
+    return r;
+  }
+  long long start = 0;
+  while (start < s.len && isspace((unsigned char)s.data[start])) {
+    start++;
+  }
+  long long end = s.len;
+  while (end > start && isspace((unsigned char)s.data[end - 1])) {
+    end--;
+  }
+  OoStr r;
+  r.len = end - start;
+  r.data = oo_str_alloc_payload((size_t)r.len);
+  if (r.len > 0) memcpy(r.data, s.data + start, (size_t)r.len);
+  return r;
+}
+
+/* Result[String, String] structural equality. Compares the ok bit and, if
+ * both sides are Ok, the payload strings via oo_str_eq. */
+int oo_res_eq_s(OoResS a, OoResS b) {
+  if (a.ok != b.ok) return 0;
+  if (a.ok == 0) return 1;
+  return oo_str_eq(a.val, b.val);
 }
