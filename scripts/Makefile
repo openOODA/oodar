@@ -7,7 +7,7 @@
 #
 # Setup: The Makefile is self-contained and works on any Linux system
 # with GNU make and GCC. It does not require autotools or any package
-# manager. The 94 .c files in the umbrella are listed in UMBRELLA_SRCS
+# manager. The 99 .c files in the umbrella are listed in UMBRELLA_SRCS
 # below (mirrors oodar.c:13-60). For the `perfile` target, each .c is
 # compiled individually — note that some .c files in the umbrella rely
 # on transitive includes (they don't #include oodar.h themselves),
@@ -87,7 +87,11 @@ UMBRELLA_SRCS := \
 	sec/cap/cap.c \
 	sec/cap/cap_grant.c \
 	sec/cap/cap_require.c \
-	sec/cap/cap_attenuate.c \
+	sec/cap/cap_attenuate_path.c \
+	sec/cap/cap_attenuate_hmac.c \
+	sec/cap/cap_alloc.c \
+	sec/cap/cap_time.c \
+	sec/cap/cap_ffi.c \
 	sec/landlock/landlock/landlock.c \
 	sec/landlock/landlock/landlock_restrict.c \
 	sec/landlock/sandbox/sandbox.c \
@@ -169,10 +173,11 @@ UMBRELLA_SRCS := \
 	sec/pqc/pq_sig/pq_aead_seal.c \
 	sec/pqc/pq_sig/pq_aead_open.c \
 	sec/pqc/pq_sig/pq_hmac.c \
-	app/telemetry/metrics.c \
+	core/event/metrics.c \
 	app/actor/actor_closure.c \
 	core/mem/align.c \
-	core/mem/weak.c
+	core/mem/weak.c \
+	sec/crypto/random.c
 
 # Derived: .o files in BUILD_DIR, one per .c. Each .o lives at
 # build/<path>.o (preserving the source path so the build dir
