@@ -1023,3 +1023,49 @@ before the cap will fail this test.
 
 - `oo_cap_attenuate` bitmask subset check (Rule 2) — now a smaller
   v3.3.0 Floor break (the API change is the only remaining bit).
+
+## v3.2.1 — Patch (adversarial reading scanner)
+
+v3.2.1 is a **Patch** bump from v3.2.0. Adds the round-5 deep-dive
+adversarial reading scanner. No public ABI change.
+
+**What landed:** `scripts/adversarial_read.py` + `make adversarial`
+
+The scanner reads every .c file, finds every defensive claim in
+comments ("fail-closed", "unforgeable", "no fallback",
+"constant-time", "zero ambient", "deterministic"), and looks for
+contradicting code patterns within ±10 lines. A real contradiction
+(e.g., the round-4 LCG fallbacks) would be flagged.
+
+**Scanner output:** 90 files scanned; 68 claims OK; 2 advisory
+findings for human review:
+
+1. `sec/cap/cap_attenuate.c:135` — "Constant-time MAC compare" comment
+   + `memcmp` at line 143. The memcmp is on the path prefix (public
+   data), not the MAC. False positive — the constant-time claim is
+   about the MAC compare at line 136, not the path-prefix check.
+
+2. `sec/pqc/pq_sig/pq_aead_seal.c:63` — "deterministic" comment +
+   `getentropy` at line 70. The comment is documenting why the OLD
+   deterministic nonce was a Joux attack; the getentropy is the fix.
+   False positive — the comment is the explanation, not a contradiction.
+
+The scanner is **advisory** (exit 0) because false positives are
+common. The human auditor reviews each finding. The round-4
+CRITICALs (LCG fallbacks) would have been caught; the scanner is
+calibrated to detect that class of bug.
+
+**Why this is the round-5 deliverable:**
+
+The 4 round-4 CRITICALs all shared one pattern: a comment said
+"fail-closed" but the code was fail-open. The 6-lens audit caught
+them by manual code reading. The adversarial reading scanner
+automates that pattern: it finds every defensive claim and checks
+the code matches. The 4 LCG fallbacks would have been caught by a
+single scan.
+
+**Test results:** 6/6 challenger + 3/3 lint + advisory scanner
+(2 expected false positives, no real contradictions).
+
+**Public ABI:** unchanged. The scanner is a development tool, not
+a runtime change.

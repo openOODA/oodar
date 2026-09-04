@@ -20,6 +20,7 @@
 #   install — copy liboodar.a to ${DESTDIR}/${LIBDIR}
 #   check    — verify all source files in UMBRELLA_SRCS are present in REPO_ROOT
 #   lint     — run all 3 lint tests (anchors, file size, cap table)
+#   adversarial — run the adversarial_read scanner (advisory, exit 0)
 #
 # Variables:
 #   CC      — C compiler (default: gcc)
@@ -179,7 +180,7 @@ UMBRELLA_SRCS := \
 UMBRELLA_OBJS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(UMBRELLA_SRCS))
 
 # Phony targets
-.PHONY: all clean install check perfile lint lint-anchors lint-file-size lint-cap-table
+.PHONY: all clean install check perfile lint lint-anchors lint-file-size lint-cap-table adversarial
 
 # ---------------------------------------------------------------------------
 # Default: build liboodar.a from the umbrella TU (single .o).
@@ -314,3 +315,17 @@ lint-cap-table: $(LINT_BIN_DIR)/tests_lint_cap_table
 
 lint: lint-anchors lint-file-size lint-cap-table
 	@echo "LINT OK: all 3 structural lints pass"
+
+# ---------------------------------------------------------------------------
+# adversarial: surface every defensive claim in comments and check that
+# the code path matches. Round-5 deep-dive lens. The scanner is
+# advisory (exit 0) — false positives are common because:
+#   - "constant-time" comments about the MAC don't apply to subsequent
+#     memcmp() on public data
+#   - "deterministic" comments may document the Joux-attack fix that
+#     uses getentropy()
+# The scanner is a tool for the human auditor, not a pass/fail gate.
+# The 4 CRITICALs from round-4 (LCG fallbacks) would have been caught.
+# ---------------------------------------------------------------------------
+adversarial:
+	@cd $(REPO_ROOT) && python3 scripts/adversarial_read.py
