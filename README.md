@@ -44,7 +44,7 @@ All design, RFCs, practices, and onboarding live in [openOODA/openOODA](https://
 | [openOODA/catalog](https://github.com/openOODA/catalog) | Public package catalog |
 | [openOODA/lsp](https://github.com/openOODA/lsp) | Language server |
 | [openOODA/mcp](https://github.com/openOODA/mcp) | MCP server |
-| [openOODA/blackbox](https://github.com/openOODA/blackbox) | Flight recorder & crash autopsy telemetry |
+| [openOODA/blackbox](https://github.com/openOODA/blackbox) | Operational Logistics: Agent-native execution flight recorder and crash autopsy engine |
 | [openOODA/website](https://github.com/openOODA/website) | Website source |
 | [openOODA/.github](https://github.com/openOODA/.github) | Org profile, shared community files, workflows |
 
