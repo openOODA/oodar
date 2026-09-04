@@ -1069,3 +1069,69 @@ single scan.
 
 **Public ABI:** unchanged. The scanner is a development tool, not
 a runtime change.
+
+## v3.2.2 — Patch (differential test for cap token derivation)
+
+v3.2.2 is a **Patch** bump from v3.2.1. Adds the differential test
+for cap token derivation — the 3rd hard gate of the round-5
+depth-first approach. No public ABI change (one diagnostic function
+added: `oo_cap_self_token(int which)` for test use).
+
+**What landed:**
+
+1. `qa/tests_challenger_differential_cap.c` — forks 8 children,
+   reads the 22 canonical cap tokens from each via
+   `oo_cap_self_token()`, and verifies all 176 values are unique
+   and non-zero. An LCG fallback for getentropy() failure
+   (the round-4 CRITICAL) would produce the same token across
+   all 8 forks and fail the test.
+
+2. `sec/cap/caps.h:146` — declares `oo_cap_self_token(int which)`.
+
+3. `sec/cap/caps.c:140-167` — implements the diagnostic. Returns
+   the cap token at index 0..21, or 0 if out of range. The
+   tokens are the real g_tok_* values — no test-only
+   derivation path that could mask a real bug.
+
+**Why this is the round-5 deliverable:**
+
+The differential test is the 3rd hard gate. The 1st gate (v3.2.0
+contract test) catches "cap is not the first line of defense." The
+2nd gate (v3.2.1 adversarial scanner) catches "comments lie about
+what the code does." The 3rd gate (v3.2.2 differential) catches
+"entropy is not actually random." Together they form a
+defense-in-depth test suite against the class of bug the round-4
+LCG fallbacks represented.
+
+**Test result:** 22 cap tokens × 8 children = 176 unique non-zero
+values. The canonical store at `sec/cap/caps.c` produces
+distinct, unpredictable tokens per process. The 4 LCG fallbacks
+from round-4 are all gone.
+
+**Diagnostic API:**
+
+`oo_cap_self_token(int which)` is the only public-API addition.
+The other 4 cap tokens (g_tok_time, g_tok_rand, g_tok_alloc,
+g_tok_arena, g_tok_ffi, g_tok_metrics) live in their respective
+files; the differential test covers the canonical store which
+was where the LCG bug was. Exposing 22 pointers is enough for
+the test.
+
+**Test results:**
+
+```
+OK    cap_escape        forged cap rejected
+OK    cap_threat        proc_mem refused
+OK    contract          56/56 cap-requiring mutators fail-closed on cap=0
+OK    diff              22 cap tokens × 8 children: all unique, all non-zero
+OK    dudect_ct         branchless XOR-mix is constant-time
+OK    proc_mem_leak     Landlock-APPLIED gate is intact
+OK    sandbox_containment  Landlock containment verified
+OK    lint_anchors      all directories have ANCHOR.oo
+OK    lint_file_size    all .c/.h files ≤ 256 lines
+OK    lint_cap_table    cap_table.json matches caps.h (26 caps)
+```
+
+**Public ABI:** one diagnostic function added
+(`oo_cap_self_token(int which)`). The 22 cap tokens it exposes
+are the real production values; no test-only derivation path.

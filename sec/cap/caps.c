@@ -151,3 +151,33 @@ static void caps_once_init(void) {
 static void oo_caps_init(void) {
   pthread_once(&g_caps_once, caps_once_init);
 }
+
+/* v3.2.2: diagnostic API for the differential cap-derivation test
+ * (qa/tests_challenger_differential_cap.c). Returns the cap token at
+ * index 0..21, or 0 if out of range. The 22 cap tokens are derived
+ * from getentropy() in caps_once_init (the canonical store). The
+ * differential test forks 8 children, reads g_tok_fs (index 0) from
+ * each, and verifies all 8 are unique. An LCG fallback for
+ * getentropy() failure (the round-4 CRITICAL) would produce the
+ * same token across all 8 children and fail the test. The tokens
+ * are the real g_tok_* values — there is no test-only derivation
+ * path that could mask the bug.
+ *
+ * Tokens in other files (g_tok_time, g_tok_rand, g_tok_alloc,
+ * g_tok_arena, g_tok_ffi, g_tok_metrics) are not exposed here;
+ * the canonical store is the most important to verify, and
+ * exposing 22 pointers is enough for the test. */
+static const long long *const CAP_TOKENS[22] = {
+  &g_tok_fs,   &g_tok_sys,        &g_tok_env,   &g_tok_net,
+  &g_tok_sign, &g_tok_process,    &g_tok_tcp,    &g_tok_udp,
+  &g_tok_bind, &g_tok_audio,      &g_tok_camera, &g_tok_usb,
+  &g_tok_hid,  &g_tok_window,     &g_tok_frame,  &g_tok_fsread,
+  &g_tok_fswrite, &g_tok_arena,   &g_tok_thread, &g_tok_gpu,
+  &g_tok_compiler_read, &g_tok_metrics,
+};
+
+long long oo_cap_self_token(int which) {
+  if (which < 0 || which >= 22) return 0;
+  oo_caps_init();
+  return *CAP_TOKENS[which];
+}

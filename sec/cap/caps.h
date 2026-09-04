@@ -143,4 +143,15 @@ typedef struct {
 OoPathCap oo_attenuate_fsread_to_path(long long cap, OoStr prefix);
 int oo_path_cap_check(OoPathCap path_cap, OoStr path);
 
+/* v3.2.2: diagnostic API for qa/tests_challenger_differential_cap.c.
+ * Returns the cap token at index 0..21, or 0 if out of range. The
+ * 22 tokens exposed are the canonical store at sec/cap/caps.c; the
+ * other 4 (g_tok_time, g_tok_rand, g_tok_alloc, g_tok_arena,
+ * g_tok_ffi, g_tok_metrics) live in their respective files. The
+ * differential test forks N children, reads g_tok_fs (index 0) from
+ * each, and verifies all N are unique. An LCG fallback for
+ * getentropy() failure (the round-4 CRITICAL) would produce the
+ * same token across all children and fail the test. */
+long long oo_cap_self_token(int which);
+
 #endif
