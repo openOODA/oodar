@@ -5,22 +5,32 @@
 # Bump MINOR: backwards-compatible feature (consumers continue to link unchanged)
 # Bump PATCH: backwards-compatible bug fix
 #
-# oodar is the Gen 1 C host substrate. Compiled openOODA binaries link against the
-# chs_rt_* symbols at build time and call them at runtime. Per RULES.oot §1.21, a
-# runtime ABI break is a Floor (MAJOR) bump; a feature addition is a Thrust (MINOR)
-# bump; a bug repair is a Patch (PATCH) bump.
-# The api_surface field is a structural check: the loader asserts the oodar
-# ANCHOR.oo exposes exactly the declared count of public chs_rt_*.c files.
+# oodar is the Gen 1 host substrate for compiled openOODA binaries. The
+# runtime ABI is the set of oo_* symbols exported by the per-subdir
+# .c files. Per RULES.oot §1.21, a runtime ABI break is a Floor (MAJOR)
+# bump; a feature addition is a Thrust (MINOR) bump; a bug repair is a
+# Patch (PATCH) bump.
+# The api_surface field is a structural check: the loader asserts the
+# oodar repo ships exactly the declared count of public .c files
+# (counted recursively across all 17 per-domain subdirs).
 # The release_tag field is the assertion of the current shipping version;
 # it must match the most recent git tag. See RULES.oot §1.24
 # and rfcs/0006-versioning-and-release-protocol.oot.
 
-oodar=0.1.0
-release_tag=0.1.0
+oodar=1.0.0
+release_tag=1.0.0
 ooda=2.10.0
 ooda_max=2.99.0
 api_surface=53
-# Note: api_surface counts all .c files that ship in v0.1.0 (chs_rt_*.c,
-# chs_rt.c, dudect_c_native.c, oo_hip_so_smoke.c). dudect_c_native.c and
-# oo_hip_so_smoke.c are test utilities that will move to qa/ in a follow-up;
-# the public ABI count will be refined when that split lands.
+# Note: api_surface counts all .c files that ship in v1.0.0
+# (distributed across 17 per-domain subdirs: cap, landlock, mem,
+# crypto, pqc, os, net, io, actor, gpu, xlang, str, list, telemetry,
+# math, meta, hitl). dudect_c_native.c and oo_hip_so_smoke.c remain
+# in pqc/ and gpu/ respectively; they are test utilities that will
+# move to qa/ in a follow-up. The public ABI count is the count of
+# distinct .c files in the repo, excluding build/host artifacts.
+#
+# v1.0.0 is a Floor break from v0.1.x. Consumers must update:
+#   - #include "chs_rt.h"      → #include "oodar.h"
+#   - build command "gcc chs_rt.c" → "gcc oodar.c"
+# Public oo_* symbols are unchanged.
