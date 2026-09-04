@@ -1,15 +1,15 @@
-// # oodar — Gen 1 Host Substrate (v1.0.1)
+// # oodar — Gen 1 Host Substrate (v2.0.0)
 //
 // Logline: The canonical home of the openOODA Gen 1 host substrate. Compiled openOODA binaries link against the oo_* symbols exported from the 6 per-domain subdirs; the build entry point is `gcc oodar.c`.
 //
-// Setup: Pure structural file. The 6 per-domain tactical subdirs mirror std's vocabulary (core, sec, fs, net, hw, app). Each tactical subdir has its own ANCHOR.oo. Some tactical subdirs have nested sub-subdirs (e.g., core/str/, sec/cap/, app/actor/) that also have their own ANCHOR.oo, mirroring std's per-domain organization. The umbrella oodar.c is the single-TU build entry — it #include's the 46 .c files in dependency order. The public API is oodar.h (the shared type defs in types.h) at the root.
+// Setup: Pure structural file. The 6 per-domain tactical subdirs mirror std's vocabulary (core, sec, fs, net, hw, app). Each tactical subdir has its own ANCHOR.oo. Some tactical subdirs have nested sub-subdirs (e.g., core/str/, sec/cap/, app/actor/) that also have their own ANCHOR.oo, mirroring std's per-domain organization. The umbrella oodar.c is the single-TU build entry — it #include's the 48 .c files in dependency order. The public API is oodar.h (and the shared type defs in types.h) at the root.
 //
 // Beats (read in this order):
 //   1. types.h          — shared type defs (OoStr, OoIList, OoRes*, OoLL*, OoControlBlock, OoWeakRef, ...).
 //   2. oodar.h          — the public API surface.
 //   3. oodar.c          — the umbrella TU (the canonical single-TU build entry).
 //   4. core/            — mirrors std/core. Universal primitives: str, list, mem, math, meta.
-//   5. sec/             — mirrors std/sec. Security primitives: cap (14 tokens), landlock (Pillar 9), crypto, pqc (PQC-by-default).
+//   5. sec/             — mirrors std/sec. Security primitives: cap (14 NORTHSTAR core + 16 future-state), landlock (Pillar 9), crypto, pqc (PQC-by-default).
 //   6. fs/              — mirrors std/fs. Filesystem + host OS: os (syscalls, DNS loopback, rlimit), io (print).
 //   7. net/             — mirrors std/net. Network primitives: fetch, tls.
 //   8. hw/              — mirrors std/hw. Hardware: gpu (HIP/ROCm, no CPU fallback).
@@ -28,14 +28,17 @@
 //   gcc -c <tactical>/<sub>/<file>.c      (per-file compile, link all .o)
 //
 // Versioning:
-//   v1.0.1 is a Thrust (MINOR) bump from v1.0.0. Internal reorg only — no
-//   public symbol changes, no API changes, no consumer changes.
-//   See CHANGES.md for the v1.0.0 → v1.0.1 migration notes.
+//   v2.0.0 is a Floor (MAJOR) bump from v1.0.1. ABI break: 6 public symbols
+//   now require capability tokens (oo_alloc, oo_free, oo_write_int,
+//   oo_read_int, oo_checkpoint, oo_rollback, and all oo_weak_*/oo_control_block_*
+//   mutators). The 22 crypto_*_internal primitives are no longer in the public
+//   header; in-tree callers use sec/crypto/crypto_internal.h. The cycle
+//   detection subsystem (cycle.c/cycle.h, 580 lines) is removed — no callers.
+//   See CHANGES.md for the v1.0.1 → v2.0.0 migration notes.
 //   Per RULES.oot §1.24 + RFC-0006, every push to main triggers an
 //   auto-release via the governance workflow.
 //
 // residual: dudect_c_native.c (sec/pqc/) and oo_hip_so_smoke.c (hw/gpu/) move to qa/ in a follow-up.
-// residual: cap-gate the weak-ref mutators (core/mem/weak.c) — Floor break, planned for v2.0.0.
 //
 // ──▓▓ oodar ANCHOR ──▓▓──
-// :: api_surface = 53 :: VERSION = 1.0.1 :: Pillar 5 + Pillar 7 + Pillar 9 ::
+// :: api_surface = 52 :: VERSION = 2.0.0 :: Pillar 5 + Pillar 7 + Pillar 9 ::

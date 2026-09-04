@@ -6,18 +6,20 @@
  * Layout (mirrors std's vocabulary): sec/ fs/ net/ hw/ app/, with
  * core/ at the top for universal primitives. oodar.h and types.h
  * live at the root; subdir files include them as
- *   #include "../../../oodar.h"
- *   #include "../../../types.h"
+ *   #include "../../oodar.h"
+ *   #include "../../types.h"
  */
 #include "sec/cap/caps.c"
 #include "sec/landlock/landlock.c"
 #include "sec/landlock/sandbox.c"
+#include "sec/landlock/proc_mem.c"
 #include "sec/cap/cap.c"
 #include "core/str/str.c"
 #include "core/str/str_intern.c"
 #include "core/str/str_from_int.c"
 #include "core/str/str_tok.c"
 #include "core/str/str_ops.c"
+#include "app/telemetry/event.c"
 #include "core/list/list.c"
 #include "core/list/flist.c"
 #include "core/list/llist.c"
@@ -52,6 +54,6 @@
 #include "sec/pqc/mldsa.c"
 #include "sec/pqc/pq_sig.c"
 #include "app/telemetry/metrics.c"
-#include "app/telemetry/event.c"
 #include "app/actor/closure.c"
 #include "core/mem/align.c"
+#include "core/mem/weak.c"

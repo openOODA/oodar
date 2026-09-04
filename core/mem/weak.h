@@ -49,22 +49,22 @@ typedef struct OoWeakRef {
 typedef OoWeakRef OoWeak;
 #endif
 
-/* Control block lifecycle */
-OoControlBlock *oo_control_block_create(void *payload, void (*dtor)(void *));
-void oo_control_block_init(OoControlBlock *ctrl, void (*dtor)(void *));
-void oo_control_block_retain(OoControlBlock *ctrl);
-void oo_control_block_release(OoControlBlock *ctrl, void *payload);
-void oo_control_block_free(OoControlBlock *ctrl);
+/* Control block lifecycle (v2.0.0: all mutators take AllocCap; queries are cap-free) */
+OoControlBlock *oo_control_block_create(long long cap, void *payload, void (*dtor)(void *));
+void oo_control_block_init(long long cap, OoControlBlock *ctrl, void (*dtor)(void *));
+void oo_control_block_retain(long long cap, OoControlBlock *ctrl);
+void oo_control_block_release(long long cap, OoControlBlock *ctrl, void *payload);
+void oo_control_block_free(long long cap, OoControlBlock *ctrl);
 
-/* Weak reference handle lifecycle */
-OoWeakRef oo_weak_create(void *payload, OoControlBlock *ctrl);
-OoWeakRef oo_weak_new(void);
-void *oo_weak_upgrade(OoWeakRef *ref);
-void *oo_weak_upgrade_val(OoWeakRef ref);
-void oo_weak_retain(OoWeakRef *ref);
-void oo_weak_release(OoWeakRef *ref);
-void oo_weak_retain_val(OoWeakRef ref);
-void oo_weak_release_val(OoWeakRef ref);
+/* Weak reference handle lifecycle (v2.0.0: mutators take AllocCap; queries are cap-free) */
+OoWeakRef oo_weak_create(long long cap, void *payload, OoControlBlock *ctrl);
+OoWeakRef oo_weak_new(long long cap);
+void *oo_weak_upgrade(long long cap, OoWeakRef *ref);
+void *oo_weak_upgrade_val(long long cap, OoWeakRef ref);
+void oo_weak_retain(long long cap, OoWeakRef *ref);
+void oo_weak_release(long long cap, OoWeakRef *ref);
+void oo_weak_retain_val(long long cap, OoWeakRef ref);
+void oo_weak_release_val(long long cap, OoWeakRef ref);
 int oo_weak_is_alive(OoWeakRef ref);
 int oo_weak_expired(OoWeakRef ref);
 uint32_t oo_weak_strong_count(OoWeakRef ref);

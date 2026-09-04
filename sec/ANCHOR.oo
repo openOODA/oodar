@@ -1,11 +1,11 @@
 // # sec — Security Primitives (mirrors std/sec)
 //
-// Logline: The security substrate. cap/ is the 14 unforgeable capability tokens (Pillar 5). landlock/ is the kernel-mediated FS containment (Pillar 9) plus the live-RAM proc_mem reader. crypto/ is the classical symmetric + AEAD + hash primitives with constant-time discipline. pqc/ is the post-quantum primitives (ML-KEM-768, ML-DSA-65) shipped by default.
+// Logline: The security substrate. cap/ is the unforgeable capability-token system (Pillar 5): 14 NORTHSTAR core tokens (FsRead, FsWrite, Net, Tcp, Udp, Sys, Process, Env, Time, Rand, Alloc, Thread, Gpu, Ffi) + 16 future-state extensions (Audit, Sign, Hitl, Sync, Mem, Http, Bind, Audio, Camera, Usb, Hid, Window, Frame, Arena, Compiler_read) for hardware caps not yet wired up. landlock/ is the kernel-mediated FS containment (Pillar 9) plus the live-RAM proc_mem reader. crypto/ is the classical symmetric + AEAD + hash primitives with constant-time discipline; the 22 crypto_*_internal symbols are private (sec/crypto/crypto_internal.h), not in the public oodar.h. pqc/ is the post-quantum primitives (ML-KEM-768, ML-DSA-65) shipped by default.
 //
-// Setup: All operations are cap-gated (every public function takes a `long long cap` as first arg and validates via oo_cap_require_*). Fail-closed: no LCG fallback, no CPU fallback for GPU, no unverified FFI.
+// Setup: All public mutators are cap-gated (every public function takes a `long long cap` as first arg and validates via oo_cap_require_*). Fail-closed: no LCG fallback, no CPU fallback for GPU, no unverified FFI. v2.0.0 Floor break closed the last 4 cap gaps: oo_alloc, oo_free, oo_write_int, oo_read_int, oo_checkpoint, oo_rollback, and all oo_weak_*/oo_control_block_* mutators.
 //
 // Beats:
-//   1. cap/ — the 14 tokens (caps.c) + helpers (cap.c) + type defs (caps.h).
+//   1. cap/ — the 30 tokens (caps.c) + helpers (cap.c) + type defs (caps.h).
 //   2. landlock/ — kernel-mediated FS containment + the proc_mem live-RAM reader (the most security-critical file in the runtime).
 //   3. crypto/ — symmetric (md5, sha1, sha2, sha3, hmac) + AEAD (aes-gcm, chacha20-poly1305) + helpers.
 //   4. pqc/ — post-quantum (mlkem, mldsa) + the pq_sig wrapper (AEAD-seal/open that binds ciphertexts to a keypair via pk-as-AAD).

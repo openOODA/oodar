@@ -1,7 +1,7 @@
 #ifndef OODAR_CAPS_H
 #define OODAR_CAPS_H
 #include "../../types.h"
-#include "sandbox.h"
+#include "../landlock/sandbox.h"
 
 #define OODAR_CAP_NET 1u
 #define OODAR_CAP_PROCESS 2u
