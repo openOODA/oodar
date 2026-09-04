@@ -30,7 +30,7 @@ api_surface=53
 # move to qa/ in a follow-up. The public ABI count is the count of
 # distinct .c files in the repo, excluding build/host artifacts.
 #
-# v1.0.0 is a Floor break from v0.1.x. Consumers must update:
-#   - #include "chs_rt.h"      → #include "oodar.h"
-#   - build command "gcc chs_rt.c" → "gcc oodar.c"
+# v1.0.0 is a Floor break from v0.1.x. See CHANGES.md for the
+# full migration notes (what changed, what consumers must
+# update, what did not change, the symbol renames table).
 # Public oo_* symbols are unchanged.

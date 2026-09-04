@@ -2,12 +2,12 @@
 //
 // Logline: The canonical home of the openOODA Gen 1 host substrate. Compiled openOODA binaries link against the oo_* symbols exported from the 17 per-domain subdirs; the build entry point is `gcc oodar.c`.
 //
-// Setup: Pure structural file. The C sources are organized into 17 per-domain subdirs, each with its own ANCHOR.oo describing the contents. The umbrella oodar.c is the single-TU build entry — it #include's the 46 .c files in dependency order. The public API is oodar.h (replaces the historical chs_rt.h). Per-subdir headers live next to the .c files that own them.
+// Setup: Pure structural file. The C sources are organized into 17 per-domain subdirs, each with its own ANCHOR.oo describing the contents. The umbrella oodar.c is the single-TU build entry — it #include's the 46 .c files in dependency order. The public API is oodar.h Per-subdir headers live next to the .c files that own them.
 //
 // Beats (read in this order):
 //   1. types.h          — shared type defs (OoStr, OoIList, OoRes*, OoLL*, OoControlBlock, OoWeakRef, ...).
-//   2. oodar.h          — the public API surface (was chs_rt.h, renamed v1.0.0).
-//   3. oodar.c          — the umbrella TU (was chs_rt.c, renamed v1.0.0).
+//   2. oodar.h          — the public API surface (renamed in v1.0.0 from the historical name).
+//   3. oodar.c          — the umbrella TU (the canonical single-TU build entry).
 //   4. cap/             — the 14 unforgeable capability tokens (Pillar 5). Includes oodar_cap_init/drop/is_sandboxed/apply_seccomp_filter.
 //   5. landlock/        — kernel-mediated FS containment (Pillar 9) + live-RAM proc_mem reader.
 //   6. mem/             — linear arena + ARC + 64-byte aligned payload.
