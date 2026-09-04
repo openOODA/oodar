@@ -1,0 +1,26 @@
+# oodar version and compat contract
+#
+# Format: NAME=MAJOR.MINOR.PATCH[-PRERELEASE]
+# Bump MAJOR: incompatible ABI change (consumers must rebuild against the new C symbols)
+# Bump MINOR: backwards-compatible feature (consumers continue to link unchanged)
+# Bump PATCH: backwards-compatible bug fix
+#
+# oodar is the Gen 1 C host substrate. Compiled openOODA binaries link against the
+# chs_rt_* symbols at build time and call them at runtime. Per RULES.oot §1.21, a
+# runtime ABI break is a Floor (MAJOR) bump; a feature addition is a Thrust (MINOR)
+# bump; a bug repair is a Patch (PATCH) bump.
+# The api_surface field is a structural check: the loader asserts the oodar
+# ANCHOR.oo exposes exactly the declared count of public chs_rt_*.c files.
+# The release_tag field is the assertion of the current shipping version;
+# it must match the most recent git tag. See RULES.oot §1.24
+# and rfcs/0006-versioning-and-release-protocol.oot.
+
+oodar=0.1.0
+release_tag=0.1.0
+ooda=2.10.0
+ooda_max=2.99.0
+api_surface=57
+# Note: api_surface counts all .c files that ship in v0.1.0 (chs_rt_*.c,
+# chs_rt.c, dudect_c_native.c, oo_hip_so_smoke.c). dudect_c_native.c and
+# oo_hip_so_smoke.c are test utilities that will move to qa/ in a follow-up;
+# the public ABI count will be refined when that split lands.

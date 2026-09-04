@@ -1,0 +1,9 @@
+// # oodar/docs — Per-Package Documentation
+//
+// Logline: Empty placeholder for the v0.1.0 release. Per-package docs will land here per RFC-0005 §6.
+//
+// Setup: Per RFC-0005, per-package docs replace global LLMS.oot-style codex dumps.
+//
+// Beats:
+//   1. Empty in v0.1.0.
+//   2. Future: per-package API docs, security substrate model, capability token model.

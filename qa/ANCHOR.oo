@@ -1,0 +1,11 @@
+// # oodar/qa — Substrate Self-Tests
+//
+// Logline: Empty placeholder for the v0.1.0 release. The tier-5 substrate break tests will land here as ooda/qa/tests_challenger_* is distributed per RFC-0004 §1.7.
+//
+// Setup: Self-tests ship with the package. Each test exercises a different probe from the 8-Dimensional Red Team matrix (e1..e8) per openOODA/practices/8d-red-team.oot.
+//
+// Beats:
+//   1. Empty in v0.1.0.
+//   2. Future: tier-5 tests move here from ooda/qa/tests_challenger_*.
+//
+// residual: tests_t5_adv01_capability_escape, tests_t5_adv03_constant_time_dudect, tests_t5_adv08_cap_threat_containment, tests_t5_adv20_runtime_substrate_break.

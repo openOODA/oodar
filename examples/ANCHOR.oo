@@ -1,0 +1,9 @@
+// # oodar/examples — Sample Usage
+//
+// Logline: Empty placeholder for the v0.1.0 release. Sample usage will land here per RFC-0005 §7.
+//
+// Setup: Per RFC-0005, samples are the minimum viable demonstration of one real use case.
+//
+// Beats:
+//   1. Empty in v0.1.0.
+//   2. Future: minimal C client that links oodar and exercises one capability token.

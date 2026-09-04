@@ -1,0 +1,33 @@
+name: oodar CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify VERSION + api_surface
+        run: |
+          declared="$(grep '^api_surface=' VERSION | cut -d= -f2)"
+          actual="$(ls *.c 2>/dev/null | wc -l)"
+          echo "Declared api_surface: ${declared}"
+          echo "Actual *.c count: ${actual}"
+          test "${declared}" = "${actual}" || (echo "api_surface drift: declared=${declared} actual=${actual}"; exit 1)
+          echo "api_surface verified: ${declared}"
+      - name: Verify 256-line cap on .oo and .oot
+        run: |
+          for f in $(find . -name '*.oo' -o -name '*.oot'); do
+            n=$(wc -l < "$f")
+            if [ "$n" -gt 256 ]; then
+              echo "256-line cap violation: $f = $n lines"
+              exit 1
+            fi
+          done
+          echo "256-line cap verified"
+      - name: Auto-release
+        uses: openOODA/openOODA/.github/workflows/auto-release.yml@v1.0.6

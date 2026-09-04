@@ -1,0 +1,9 @@
+// # oodar/scripts — Build, Test, Verify, Release Entry Points
+//
+// Logline: Empty placeholder for the v0.1.0 release. The build, test, verify, and release entry points per RFC-0005 §4 will land here.
+//
+// Setup: Per RFC-0005, the canonical four scripts are build.oo, test.oo, verify.oo, and release.oo.
+//
+// Beats:
+//   1. Empty in v0.1.0.
+//   2. Future: build, test, verify, release entry points land here.

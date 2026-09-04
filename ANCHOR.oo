@@ -1,0 +1,22 @@
+// # oodar — Gen 1 C Host Substrate
+//
+// Logline: Re-exports the canonical Gen 1 silicon substrate for compiled openOODA binaries — capability tokens, Landlock sandbox, linear arenas, PQC primitives, OS shims, FFI glue, and GPU dispatch.
+//
+// Setup: Pure structural file. The C sources are flat in this directory. The tactical-subsystem shape (qa/, scripts/, docs/, examples/) is scaffolded but empty in v0.1.0; the C library is the product surface. Compiled openOODA binaries link against these symbols at build time and call them at runtime. The `chs_rt_*` symbol prefix is the historical C Host Substrate — Runtime naming and is preserved unchanged for v0.1.0.
+//
+// Beats:
+//   1. Capability tokens — chs_rt_caps.c, chs_rt_cap.c, chs_rt_weak.c.
+//   2. Landlock sandbox — chs_rt_landlock.c, chs_rt_sandbox.c, chs_rt_proc_mem.c.
+//   3. Linear arena + deterministic ARC — chs_rt_arena.c, chs_rt_alloc.c.
+//   4. PQC + constant-time — chs_rt_mldsa.c, chs_rt_mlkem.c, chs_rt_pq_sig.c, dudect_c_native.c.
+//   5. OS shims — chs_rt_fs.c, chs_rt_netfloor.c, chs_rt_thread.c, chs_rt_sys.c, chs_rt_host.c.
+//   6. FFI and xlang glue — chs_rt_ffi.c, chs_rt_ffi_sec.c, chs_rt_xlang.c, chs_rt_closure.c.
+//   7. GPU dispatch — chs_rt_gpu.c, chs_rt_gpu_hip.c, chs_rt_hip_kern.hip.
+//   8. Container primitives — chs_rt_str.c, chs_rt_list.c, chs_rt_llist.c.
+//   9. Cycles, metrics, and time — chs_rt_cycle.c, chs_rt_metrics.c, chs_rt_time_rand.c.
+//  10. SUBSTRATE_AUDIT_TLDR.oot — durable record of the 3 first-principles fixes and 3 residual concerns.
+//
+// residual: tier-5 substrate break tests land in qa/ as the runtime battery is split out of ooda/qa/.
+//
+// ──▓▓ oodar ANCHOR ──▓▓──
+// :: api_surface = <count of chs_rt_*.c files> :: VERSION = 0.1.0 ::
