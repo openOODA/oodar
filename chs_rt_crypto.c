@@ -97,7 +97,7 @@ OoStr crypto_sha256_internal(OoStr data) {
   sha256_bytes((const unsigned char *)data.data, (size_t)data.len, digest);
   /* ARC: payload must be preceded by OoStrHeader (oo_str_alloc_payload). */
   char *hex = oo_str_alloc_payload(64);
-  for (int i = 0; i < 32; i++) sprintf(hex + i * 2, "%02x", digest[i]);
+  for (int i = 0; i < 32; i++) snprintf(hex + i * 2, 3, "%02x", digest[i]);
   hex[64] = '\0';
   OoStr r; r.data = hex; r.len = 64; return r;
 }
@@ -137,7 +137,7 @@ OoStr crypto_hmac_sha256_internal(OoStr key, OoStr msg) {
   crypto_secure_wipe(inner_digest, sizeof(inner_digest));
 
   char *hex = oo_str_alloc_payload(64);
-  for (int i = 0; i < 32; i++) sprintf(hex + i * 2, "%02x", outer_digest[i]);
+  for (int i = 0; i < 32; i++) snprintf(hex + i * 2, 3, "%02x", outer_digest[i]);
   hex[64] = '\0';
   crypto_secure_wipe(outer_digest, sizeof(outer_digest));
   OoStr r; r.data = hex; r.len = 64; return r;
@@ -197,7 +197,7 @@ OoStr json_format_string_internal(OoStr s) {
     else if (c == '\n') { buf[pos++] = '\\'; buf[pos++] = 'n'; }
     else if (c == '\r') { buf[pos++] = '\\'; buf[pos++] = 'r'; }
     else if (c == '\t') { buf[pos++] = '\\'; buf[pos++] = 't'; }
-    else if ((unsigned char)c < 32) { pos += sprintf(buf + pos, "\\u%04x", (unsigned char)c); }
+    else if ((unsigned char)c < 32) { pos += snprintf(buf + pos, sizeof(buf) - pos, "\\u%04x", (unsigned char)c); }
     else { buf[pos++] = c; }
   }
   buf[pos++] = '"'; buf[pos] = '\0';
@@ -205,7 +205,7 @@ OoStr json_format_string_internal(OoStr s) {
 }
 
 OoStr json_format_int_internal(long long v) {
-  char buf[64]; sprintf(buf, "%lld", v); return oo_str_lit(buf);
+  char buf[64]; snprintf(buf, sizeof buf, "%lld", v); return oo_str_lit(buf);
 }
 
 OoStr json_format_bool_internal(int b) {
@@ -435,7 +435,7 @@ OoStr crypto_sha512_internal(OoStr data) {
   unsigned char digest[64];
   sha512_bytes((const unsigned char *)data.data, (size_t)data.len, digest);
   char *hex = oo_str_alloc_payload(128);
-  for (int i = 0; i < 64; i++) sprintf(hex + i * 2, "%02x", digest[i]);
+  for (int i = 0; i < 64; i++) snprintf(hex + i * 2, 3, "%02x", digest[i]);
   hex[128] = '\0';
   OoStr r; r.data = hex; r.len = 128; return r;
 }

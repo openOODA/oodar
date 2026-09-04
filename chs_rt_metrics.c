@@ -1,8 +1,7 @@
 /* Runtime metrics export (X4).
  *
- * Per-process counters for cap/PQC/AEAD/FS operations. Thread-unsafe; the
- * OODA runtime is single-threaded per process today. Exposed to .oo via the
- * C-ABI surface declared in chs_rt.h.
+ * Per-process counters for cap/PQC/AEAD/FS operations. Thread-safe via
+ * pthread_mutex. Exposed to .oo via the C-ABI surface declared in chs_rt.h.
  *
  * Negative-trust contract (smoke_c_runtime_metrics.c):
  *   1. oo_metrics_incr(name) creates a counter that starts at 0; a second
@@ -32,13 +31,11 @@ typedef struct {
 } metrics_slot;
 
 static metrics_slot g_metrics[METRICS_MAX];
-static int g_metrics_initialized = 0;
 static pthread_once_t g_metrics_once = PTHREAD_ONCE_INIT;
 static pthread_mutex_t g_metrics_mu = PTHREAD_MUTEX_INITIALIZER;
 
 static void metrics_init_once(void) {
   memset(g_metrics, 0, sizeof g_metrics);
-  g_metrics_initialized = 1;
 }
 
 static void oo_metrics_init(void) {
