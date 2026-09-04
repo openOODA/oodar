@@ -1,0 +1,14 @@
+// # sec — Security Primitives (mirrors std/sec)
+//
+// Logline: The security substrate. cap/ is the 14 unforgeable capability tokens (Pillar 5). landlock/ is the kernel-mediated FS containment (Pillar 9) plus the live-RAM proc_mem reader. crypto/ is the classical symmetric + AEAD + hash primitives with constant-time discipline. pqc/ is the post-quantum primitives (ML-KEM-768, ML-DSA-65) shipped by default.
+//
+// Setup: All operations are cap-gated (every public function takes a `long long cap` as first arg and validates via oo_cap_require_*). Fail-closed: no LCG fallback, no CPU fallback for GPU, no unverified FFI.
+//
+// Beats:
+//   1. cap/ — the 14 tokens (caps.c) + helpers (cap.c) + type defs (caps.h).
+//   2. landlock/ — kernel-mediated FS containment + the proc_mem live-RAM reader (the most security-critical file in the runtime).
+//   3. crypto/ — symmetric (md5, sha1, sha2, sha3, hmac) + AEAD (aes-gcm, chacha20-poly1305) + helpers.
+//   4. pqc/ — post-quantum (mlkem, mldsa) + the pq_sig wrapper (AEAD-seal/open that binds ciphertexts to a keypair via pk-as-AAD).
+//
+// ──▓▓ sec ANCHOR ──▓▓──
+// :: Pillar 5 + Pillar 9 + constant-time + dudect ::

@@ -1,0 +1,13 @@
+// # core/str — String Primitives
+//
+// Logline: The OoStr family. Retain/release, lit, concat, intern, ops.
+//
+// Beats:
+//   1. str.c — retain, release, alloc_payload, lit, concat, concat_list, concat_multi.
+//   2. str_intern.c — ASCII interning + FNV-1a hash interning pool.
+//   3. str_from_int.c — dedicated 0..8191 integer interning.
+//   4. str_ops.c — eq, contains, starts_with, ends_with, index_of, to_uppercase.
+//   5. str_tok.c — token-line builder for error messages.
+//   6. str.h — local type defs (oo_str_alloc_payload, oo_str_concat, oo_str_byte_len).
+//
+// ──▓▓ core/str ANCHOR ──▓▓──

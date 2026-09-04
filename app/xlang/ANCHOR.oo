@@ -1,0 +1,11 @@
+// # app/xlang — FFI / Cross-Language Glue
+//
+// Logline: The dlopen-based FFI, the FFI security wrapper (cap-gated, minisign-verified), and the cross-language dispatch surface.
+//
+// Beats:
+//   1. ffi.c — dlopen/dlsym/dlclose.
+//   2. ffi_sec.c — cap-gated, signature-verified FFI.
+//   3. xlang.c — cross-language dispatch (host build, import_c, lto_xlang_link).
+//
+// ──▓▓ app/xlang ANCHOR ──▓▓──
+// :: FFI is the highest-risk attack surface — every load is cap + signature gated ::

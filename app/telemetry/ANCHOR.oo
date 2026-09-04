@@ -1,0 +1,11 @@
+// # app/telemetry — Metrics + Event Bus
+//
+// Logline: The per-process counter export and the generic event bus that decouples cross-cutting telemetry from the producing subsystems.
+//
+// Beats:
+//   1. event.h — the oo_event_emit / oo_event_subscribe API.
+//   2. event.c — the mutex-guarded subscriber table.
+//   3. metrics.c — the counter export; subscribes to 8 named events via a constructor.
+//
+// ──▓▓ app/telemetry ANCHOR ──▓▓──
+// :: producers emit events; metrics is one of many listeners ::

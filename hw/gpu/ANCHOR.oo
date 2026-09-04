@@ -1,0 +1,13 @@
+// # hw/gpu — HIP/ROCm + Compute Kernels
+//
+// Logline: The GPU device, buffer, stream, event, and launch surface (HIP/ROCm only — no CPU fallback, no "noop" prefix). The liboo_hip.so dynamic loader. The compute kernel suite.
+//
+// Beats:
+//   1. gpu.h — the OoGpuDevice, OoGpuBuffer types.
+//   2. gpu.c — device probe, buffer alloc/free, stream/event, launch.
+//   3. gpu_hip.c — liboo_hip.so dynamic loader.
+//   4. hip_kern.hip — the kernel suite.
+//   5. oo_hip_so_smoke.c — smoke test (moves to qa/ in a follow-up).
+//
+// ──▓▓ hw/gpu ANCHOR ──▓▓──
+// :: HIP/ROCm only — no CPU fallback ::

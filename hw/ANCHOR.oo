@@ -1,0 +1,14 @@
+// # hw — Hardware (mirrors std/hw)
+//
+// Logline: The GPU dispatch and compute kernel layer. Currently HIP/ROCm only — no CPU fallback, no "noop" prefix, no "cpu:" substitute. The liboo_hip.so dynamic loader. The compute kernel suite (vec_add, sgemm, rmsnorm, attention, reduce_sum, rope, stencil_3d).
+//
+// Setup: gpu/ is the device + buffer + stream + event API, the liboo_hip.so dynamic loader, and the compute kernel suite. All operations require GpuCap. Empty shader / unknown prefix fails closed.
+//
+// Beats:
+//   1. gpu/gpu.c — device probe, buffer alloc/free, stream/event, sync.
+//   2. gpu/gpu_hip.c — liboo_hip.so dynamic loader (dlopen).
+//   3. gpu/hip_kern.hip — the kernel suite (vec_add, sgemm, rmsnorm, etc.).
+//   4. gpu/oo_hip_so_smoke.c — smoke test (moves to qa/ in a follow-up).
+//
+// ──▓▓ hw ANCHOR ──▓▓──
+// :: HIP/ROCm only — no CPU fallback ::
