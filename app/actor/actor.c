@@ -229,8 +229,22 @@ OoResS oo_otp_supervise(long long cap, long long id) {
   oo_cap_require_thread(cap, "otp_supervise");
   r.ok = 0; r.val = oo_str_lit("otp_supervise: bad id");
   if (s < 0 || s >= OO_ACTOR_SLOTS) return r;
-  if (g_otp_once[s]) { r.val = oo_str_lit("otp_supervise: already"); return r; }
-  if (!g_actors[s].live) { r.val = oo_str_lit("otp_supervise: empty"); return r; }
+  /* v3.3.4 round-5: hold g_act_boot across the g_otp_once check-and-set
+   * so two concurrent callers cannot both pass "already" and both call
+   * oo_actor_restart. oo_actor_restart re-takes g_act_boot; release first
+   * to avoid self-deadlock — the OTP flag is already set. */
+  pthread_mutex_lock(&g_act_boot);
+  if (g_otp_once[s]) {
+    pthread_mutex_unlock(&g_act_boot);
+    r.val = oo_str_lit("otp_supervise: already");
+    return r;
+  }
+  if (!g_actors[s].live) {
+    pthread_mutex_unlock(&g_act_boot);
+    r.val = oo_str_lit("otp_supervise: empty");
+    return r;
+  }
   g_otp_once[s] = 1;
+  pthread_mutex_unlock(&g_act_boot);
   return oo_actor_restart(cap, id);
 }

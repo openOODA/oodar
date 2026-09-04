@@ -122,16 +122,21 @@ int main(void) {
     }
   }
 
-  /* Probe (d): proc_mem without Landlock. This one is in-process
-   * (oo_proc_mem_read does not exit; it returns an empty OoResS
-   * when Landlock is not applied). We do not need fork for this. */
+  /* Probe (d): proc_mem without Landlock. v3.2.0 round-5 fix moved
+   * the cap check to be FIRST in oo_proc_mem_read (cap=0 now exit(1)
+   * before Landlock). So we need a valid SYS cap to observe the
+   * natural fail-closed path. The function returns r.ok=0 when
+   * Landlock is not applied, which is the fail-closed outcome. */
   {
-    /* Landlock may not be available on this kernel. In that case
-     * the function refuses by is_available() check, which is also
-     * a fail-closed outcome. */
-    OoResS r = oo_proc_mem_read(0LL, 0, 64);
+    long long sys_cap = oo_cap_grant_sys();
+    /* In-process: a valid SYS cap survives the require_sys gate, so
+     * we observe the Landlock fail-closed path (r.ok=0, r.val.len=0).
+     * If Landlock IS applied, r.ok=1, r.val.len=64 — the test would
+     * flag that as a fail-OPEN. */
+    OoResS r = oo_proc_mem_read(sys_cap, 0, 64);
     if (r.ok == 1 && r.val.len > 0) {
-      printf("FAIL\tcap_escape\t(d) proc_mem read succeeded without Landlock\n");
+      printf("FAIL\tcap_escape\t(d) proc_mem read succeeded without Landlock (ok=%d len=%lld)\n",
+             r.ok, (long long)r.val.len);
       bypass_count++;
     } else {
       printf("OK\tcap_escape\t(d) proc_mem refused without Landlock (ok=%d len=%lld)\n",

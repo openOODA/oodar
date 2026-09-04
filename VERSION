@@ -17,12 +17,12 @@
 # it must match the most recent git tag. See RULES.oot §1.24
 # and rfcs/0006-versioning-and-release-protocol.oot.
 
-oodar=3.3.3
-release_tag=3.3.3
+oodar=3.3.4
+release_tag=3.3.4
 ooda=2.10.0
 ooda_max=2.99.0
 api_surface=90
-# Note: api_surface counts all .c files that ship in v3.3.3
+# Note: api_surface counts all .c files that ship in v3.3.4
 # (distributed across 6 per-domain subdirs: core, sec, fs, net, hw, app).
 # v2.0.0 removed app/actor/cycle.c (zero callers, Bacon-Rajan
 # cycle detection). v2.3.0 moved dudect_c_native.c and
@@ -95,3 +95,29 @@ api_surface=90
 # core/event/ (resolving the sec/-depending-on-app/ boundary
 # violation). api_surface 94 → 90. See CHANGES.md "v3.1.0" for the
 # full audit-fix table.
+#
+# v3.3.4 is a Patch bump from v3.3.3. The round-5 deep-dive audit
+# (4 hard gates: contract test, adversarial scanner, differential test,
+# fuzzing smoke) caught 1 real concurrency bug + 1 silent test breakage
+# from v3.2.0:
+#   1. oo_otp_supervise TOCTOU: the check-and-set on g_otp_once[s]
+#      was unlocked; two concurrent callers could both pass "already"
+#      and both call oo_actor_restart — a double-restart race. Fix
+#      holds g_act_boot across the read-modify-write. New test
+#      qa/tests_challenger_actor_race.c (8 threads × 100 calls each
+#      → exactly 1 success).
+#   2. tests_challenger_cap_escape probe (d) had been silently broken
+#      since v3.2.0: the v3.2.0 fix moved the cap check to be FIRST
+#      in oo_proc_mem_read (cap=0 now exits before Landlock gate),
+#      but the test was still calling oo_proc_mem_read(0LL, ...) in
+#      the parent process, so the test process itself was being
+#      killed before reaching probe (d)'s OK/FAIL print. Fix uses
+#      oo_cap_grant_sys() so the cap check passes and we observe
+#      the natural fail-closed path (r.ok=0, r.val.len=0).
+# Public ABI is unchanged: the otp_supervise race fix and the
+# cap_escape test fix are both internal. The new test file
+# qa/tests_challenger_actor_race.c brings api_surface 90 → 91.
+# Wait — the api_surface check counts only .c files in the
+# runtime umbrella (excludes qa/). The umbrella count is still 90.
+# qa/ tests are out-of-band and not part of the production ABI.
+# See CHANGES.md "v3.3.4" for the audit + fix table.

@@ -1420,3 +1420,83 @@ trap in C. The deep-copy is small (prefixes are short, max
 4096 bytes) and removes the lifetime-management footgun. The
 cap system is "fail-closed by default" — the deep-copy makes
 the cap self-contained and immune to caller-side bugs.
+
+
+## v3.3.4 — Patch (round-5 catches 1 concurrency bug + 1 silent test breakage)
+
+The round-5 deep-dive audit (4 hard gates: contract test,
+adversarial scanner, differential test, fuzzing smoke) caught 2
+defects that the round-4 surface-area lenses missed.
+
+### Fix 1: oo_otp_supervise TOCTOU race (concurrency bug)
+
+**The bug:** `oo_otp_supervise` in `app/actor/actor.c` did
+`if (g_otp_once[s]) return; g_otp_once[s] = 1;` unlocked.
+Two concurrent threads could both pass the "already" check
+and both call `oo_actor_restart` — a double-restart. The
+actor's mutex-protected state would be torn.
+
+**Why round-4 missed it:** the 6-lens audit (zero trust,
+REDTEAM, power law, systems, OCap, Blue Ocean) read the
+code in single-threaded lens. The race is invisible without
+a concurrency probe.
+
+**The fix:** hold `g_act_boot` (the same mutex that
+`oo_actor_restart` and `oo_actor_destroy` take) across the
+read-modify-write. The OTP-once flag is set BEFORE the mutex
+is released (so a concurrent caller sees "already" and
+returns). The mutex is released BEFORE calling
+`oo_actor_restart` to avoid self-deadlock (the function
+re-takes the mutex internally).
+
+**The test:** `qa/tests_challenger_actor_race.c` forks 8
+children, each spawning 8 pthread workers that hammer
+`oo_otp_supervise` 100 times each. Pre-v3.3.4, total_success
+could be 2-8 due to the race. v3.3.4 makes it exactly 1.
+
+### Fix 2: tests_challenger_cap_escape probe (d) silently broken since v3.2.0
+
+**The bug:** the v3.2.0 floor moved the cap check to be
+the FIRST line of `oo_proc_mem_read` (cap=0 now calls
+`oo_cap_require_sys` → `exit(1)` BEFORE the Landlock gate).
+The pre-existing probe (d) called `oo_proc_mem_read(0LL, 0, 64)`
+in the *parent* process, so the test process itself was
+being killed before reaching the OK/FAIL print. The
+"OK 3/4 probes" output was a lie — probe (d) never ran.
+
+**Why round-4 missed it:** nobody ran the challenger test
+suite in CI. The test is RED (tier-5 adversarial probe)
+and lives in `qa/`, which the umbrella build excludes. The
+auto-release CI only checks `api_surface` and the 256-line
+cap on `.oo/.oot`.
+
+**The fix:** use `oo_cap_grant_sys()` (the valid SYS cap)
+so the cap check passes and the test observes the natural
+fail-closed path (`r.ok=0, r.val.len=0` because Landlock
+is not applied in the test process). The probe is now a
+real fail-closed check, not a side effect of `exit(1)`.
+
+**Why this matters:** the test was the canonical "tier-5
+adversarial probe" referenced in the v2.2.0 docs. It had
+been silently broken for 4 releases (v3.2.0 → v3.3.3). The
+fix is small, but the discovery validates the round-5
+strategy: a real test is better than a passing test.
+
+### Summary
+
+**Test results:** 11/11 challenger tests + 3/3 lint + adversarial
+all pass. New test: `qa/tests_challenger_actor_race.c` (8 threads
+→ exactly 1 success).
+
+**Public ABI:** unchanged. The race fix and the test fix are
+both internal. `api_surface=90` (qa/ tests are not in the
+umbrella).
+
+**Build warnings:** 8 remaining, all benign (1 cosmetic
+comment, 5 misleading-indentation style in AEAD free paths,
+2 snprintf format-truncation with PATH_MAX buffer and
+bounded inputs).
+
+**Why Patch not Thrust:** the public ABI is unchanged. Both
+fixes are internal correctness. The new test file does not
+add a new `oo_*` symbol.
