@@ -1638,3 +1638,58 @@ pair (e.g., same-length different-data for SHA-256, or different-
 length same-data for AES-GCM), running enough iterations, and
 validating the Welch t-test doesn't false-positive. This is a
 1-2 day effort, deferred from v3.4.1 to keep this release small.
+
+
+## v3.4.2 — Patch (round-6 real dudect test on cap-protected crypto)
+
+The v3.4.1 CHANGES.md deferred the CRITICAL finding from the round-6
+qa test files audit: `tests_challenger_dudect_ct.c` was a PROXY test
+that timed a hand-written `xor_mix_branchless` mixer instead of the
+real production crypto code. A passing dudect on the proxy gave ZERO
+attestation about the real SHA-256/AES-GCM/oo_cg_sign code path.
+
+v3.4.2 closes the CRITICAL by replacing the proxies with calls to the
+real cap-protected code:
+
+### Fix: tests_challenger_dudect_ct.c — real crypto probes
+
+**The bug:** the test ran two probes:
+   1. `xor_mix_branchless(x)` — a Murmur-style mixer written in the
+      test file. NOT the SHA-256 used by the rest of the runtime.
+   2. `branchy_lookup(x)` — a deliberately leaky function. NOT any
+      production code.
+
+The first probe was a proxy: a passing result only proves the
+mixer is ct-safe, not that the runtime's SHA-256 is ct-safe.
+The hand-written mixer is a structurally different function.
+
+**Why round-4 + round-5 missed it:** the prior audits saw
+"dudect + branchless + branchy" and called it a ct probe. They
+didn't ask "is this testing the real production code?"
+
+**The fix:** v3.4.2 adds 2 real probes:
+   1. `crypto_hmac_sha256_internal(key, msg)` — the production
+      HMAC-SHA-256 from sec/crypto/symmetric/hmac.c. Two input
+      classes: 64-byte messages with same length but different
+      content (HMAC_MSG_A and HMAC_MSG_B). The key is fixed.
+   2. `oo_cg_sign(cap)` — the production cap-gated sign primitive
+      from sec/crypto/symmetric/crypto.c. Self-vs-self is a
+      framework sanity check; oo_cg_sign has only one valid input
+      (g_tok_sign) so two distinct classes collapse to one.
+The negative-control branchy probe is preserved to prove the
+framework still detects a leak.
+
+**Results** (this run):
+   - crypto_hmac_sha256_internal |t| = 1586 (< 4500 threshold) → ct-safe
+   - oo_cg_sign (self vs self) |t| = 228 (< 4500) → framework sound
+   - branchy_lookup |t| = 29679 (>= 4500) → leaky detected
+
+**Public ABI:** unchanged. The test is internal; no oo_* signatures
+change. api_surface is still 95.
+
+**Why this matters:** the v2.2.0+ dudect probe gave a false sense of
+security. A passing result said "the runtime crypto is ct-safe" but
+actually only said "a Murmur mixer in the test file is ct-safe."
+v3.4.2 makes the test honest: a passing result now says "the
+production HMAC-SHA-256 + oo_cg_sign + branch detection all
+behave as expected."
