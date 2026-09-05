@@ -3,8 +3,16 @@ name: oodar CI
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target_tag:
+        description: 'Specific release tag to target or rebuild (optional, e.g. v4.0.1)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
 
 jobs:
   verify:
@@ -29,7 +37,29 @@ jobs:
             fi
           done
           echo "256-line cap verified"
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build liboodar.a
+        run: |
+          chmod +x scripts/repro_build.sh
+          ./scripts/repro_build.sh
+          mkdir -p dist
+          cp scripts/lib/liboodar.a dist/liboodar.a-linux-x86_64
+          (cd dist && sha256sum liboodar.a-linux-x86_64 > liboodar.a-linux-x86_64.sha256)
+          ls -lh dist/
+      - name: upload release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-linux-x86_64
+          path: dist/
+          if-no-files-found: error
+
   auto-release:
-    needs: verify
-    uses: openOODA/openOODA/.github/workflows/auto-release.yml@v1.0.14
-    secrets: inherit
+    needs: [verify, build]
+    uses: openOODA/openOODA/.github/workflows/auto-release.yml@main
+    with:
+      artifact_pattern: 'release-assets-*'
+      target_tag: ${{ inputs.target_tag || '' }}
