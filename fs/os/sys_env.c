@@ -14,7 +14,7 @@
  * Product env_get still requires EnvCap via oo_env_get. */
 const char *oo_process_policy_getenv(const char *key) {
   if (!key || !key[0]) return NULL;
-  if (strncmp(key, "OODA_", 5) != 0 && strncmp(key, "OO_", 3) != 0) {
+  if (strncmp(key, "OODA_", 5) != 0 && strncmp(key, "OO_", 3) != 0 && strcmp(key, "OODACODEX") != 0) {
     return NULL;
   }
   return getenv(key);
@@ -35,6 +35,7 @@ void oo_child_filter_env(void) {
       if (klen == 0) continue;
       if (!((klen >= 5 && strncmp(*src, "OODA_", 5) == 0) ||
             (klen >= 6 && strncmp(*src, "OODAC_", 6) == 0) ||
+            (klen == 9 && strncmp(*src, "OODACODEX", 9) == 0) ||
             (klen >= 3 && strncmp(*src, "OO_", 3) == 0)))
         continue;
       if (n + 1 >= env_cap) {
