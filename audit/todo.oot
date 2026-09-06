@@ -204,6 +204,27 @@ Closed already (skip): LCG abort on cap/HMAC-key getentropy;
     most README.md. Split Makefile if the 256-line law is
     applied to it. hip_kern.hip 529 lines: split or exception.
 
+# Wave 8 — 2026-09-06 clean wave (Patch, 0 CRITICALs)
+
+Executed 2026-09-06 in oodar v4.0.0 Patch verification. Delta_path=0,
+api_surface=96 held, repro_build hash 36f298fb6ed7294fcd0880df5263f2d032cce414fed3f57ad37a0b521b194b0f byte-identical.
+
+Gates green:
+- make lint — all 3 lints pass (2 algorithm-internal exceptions documented: mldsa_internal.c 627L, mlkem_internal.c 472L; FIPS 203/204 NTT + sampling tightly coupled per VERSION v2.3.0 note)
+- repro_build.sh — liboodar.a 1.4M, ar rcsD deterministic, sha256 above
+- 12 challengers double-run — 11/11 pass with OODAR_REPO (pathcap, actor_race, contract, attenuate_v2, differential_cap, sandbox_containment, proc_mem_leak, dudect_ct skipped, wave1, wave3; 3 with random output compared by exit code per double-run law)
+- blackbox trace empty, watch no crash, autopsy no JSON
+- mcp verify — blackbox mcp --stdio protocolVersion 2024-11-05 returns openOODA blackbox v0.1.0; tools/list contains blackbox_autopsy/blackbox_diff/blackbox_trace
+- lsp — ooda-lsp 424K present; file-mode via ooda-lsp-grok proxy (1ms poll fix)
+- header hygiene — oodar.h contains only oo_* + OODAR_CRYPTO_INTERNAL guard; os helpers in oodar_internal.h only (header_hides probes pass with OODAR_REPO); nm -g shows 419 T oo_ symbols plus internal crypto_*_internal/d_* (expected per CHANGES v3.0.0)
+
+FIPS seam map (for future split if ever needed, no split this Patch):
+- mldsa_internal.c 627L — 86 field, 102 NTT, 134 poly, 211 sampling, 301 pack, 446 hex, 503 matrix multiply, 599 keygen; 17 statics
+- mlkem_internal.c 472L — 46 hex, 86 field, 102 NTT, 164 loaders (removed), 171 sampling, 236 compress, 354 matrix, 388 KPKE; 30 statics
+- Decision: keep exceptions per VERSION, do not fragment FIPS algorithm this Patch. Next Floor may split at FIPS comment seams with provenance.
+
+No new cap, no signature change, no dependency. Stationary topology held.
+
 # Stop conditions
 
 - A Wave 1 item still open: no release notes that say
