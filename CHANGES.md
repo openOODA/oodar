@@ -1,5 +1,31 @@
 # Changelog
 
+## v4.0.1 — Patch (2026-09-06 clean wave, 0 CRITICALs, stationary)
+
+Per RULES.oot §1.21, v4.0.1 is a PATCH bump. No ABI break — every
+`oo_*` signature is unchanged. `api_surface=96` held, `repro_build`
+hash `36f298fb6ed7294fcd0880df5263f2d032cce414fed3f57ad37a0b521b194b0f`
+byte-identical, `Delta_path=0`.
+
+Wave 8 (2026-09-06) verified the v4.0.0 Floor with 0 CRITICALs:
+
+- `make lint` — 3/3 green (2 FIPS exceptions documented: `mldsa_internal.c` 627L,
+  `mlkem_internal.c` 472L — FIPS 203/204 NTT + sampling tightly coupled per
+  `VERSION` v2.3.0 note; seam map recorded in `audit/todo.oot` wave 8)
+- `repro_build.sh` — `liboodar.a` 1.4M, `ar rcsD` deterministic
+- 12 challengers double-run — 11/11 pass with `OODAR_REPO` (pathcap,
+  actor_race, contract, attenuate_v2, differential_cap, sandbox_containment,
+  proc_mem_leak, wave1, wave3; random-output probes compared by exit code)
+- `blackbox trace` empty, `watch --once` no crash, `blackbox mcp --stdio`
+  `2024-11-05` returns `openOODA blackbox v0.1.0`
+- `mcp`/`lsp` installed binaries used as tools (no repo edits): `ooda-mcp`
+  + `ooda-mcp-grok` proxy, `ooda-lsp` + `ooda-lsp-grok` proxy
+- Header hygiene — `oodar.h` only `oo_*` + `OODAR_CRYPTO_INTERNAL` guard;
+  OS helpers in `oodar_internal.h` only (wave1 `header_hides` passes)
+
+No new cap, no new dependency, no signature change. Next Floor may split
+the 2 FIPS files at comment-delimited seams with provenance if needed.
+
 ## v3.0.0 — Floor (cap-gating sweep: 8 public mutators, 1 new MetricsCap)
 
 Per RULES.oot §1.21, v3.0.0 is a MAJOR (Floor) bump. **The public ABI
