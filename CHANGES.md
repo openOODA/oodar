@@ -1,5 +1,29 @@
 # Changelog
 
+## v4.1.0 — Thrust (2026-09-06 FIPS split at seams, 9 — no ABI break)
+
+Per RULES.oot §1.21, v4.1.0 is a MINOR (Thrust) bump. No ABI break — every
+`oo_*` signature is unchanged. `api_surface=96→100` (+6 split files −2 old),
+`repro_build` hash new, `Delta_path=0`.
+
+v4.0.0 Wave 8 was 0 CRITICALs but kept 2 `256` exceptions (`mldsa_internal.c`
+627L, `mlkem_internal.c` 472L). v4.1.0 splits both at FIPS comment seams:
+
+- `mldsa_internal.c` `627L` → `mldsa_ntt.c` `210L` + `mldsa_poly.c` `216L`
+  + `mldsa_sample.c` `203L` (seams `Sampling`/`Signature`/`Byte`).
+  `mldsa_internal.h` holds the `DQ`/`DN`/`DTAU`/`DETA`/`DGAMMA1` defines
+  and `oo_shake` decls; the 17 `static` helpers stay `static` per split.
+- `mlkem_internal.c` `472L` → `mlkem_ntt.c` `160L` + `mlkem_sample.c` `161L`
+  + `mlkem_poly.c` `153L` (seams `NTT`/`Sample`/`Poly`).
+  `mlkem_internal.h` holds the `KQ`/`KETA1`/`KPOLYBYTES` defines.
+- `oodar.c` umbrella order `mlkem_ntt → mlkem_sample → mlkem_poly → mlkem`
+  and `mldsa_ntt → mldsa_poly → mldsa_sample → mldsa`.
+- `qa/tests_lint_file_size.c` EXCEPTIONS `mldsa_internal.c`/`mlkem_internal.c`
+  removed; `hw/gpu/hip_kern.hip` `529L` is the only remaining exception
+  (`.hip` not `.c`).
+- `make lint` `3/3` green with `all .c/.h files ≤ 256 lines` (no
+  `2 exceptions` note), `api_surface=100`.
+
 ## v4.0.1 — Patch (2026-09-06 clean wave, 0 CRITICALs, stationary)
 
 Per RULES.oot §1.21, v4.0.1 is a PATCH bump. No ABI break — every

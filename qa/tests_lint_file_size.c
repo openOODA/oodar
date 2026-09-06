@@ -8,11 +8,11 @@
  *
  * v3.1.2 added: this CI lint, after the v2.3.0 file split landed
  * 60+ files across 9 new sub-dirs and the v3.1.0 audit further
- * trimmed arena.c, gpu_launch.c, and pq_aead.c. Two algorithm-
- * internal files (mldsa_internal.c, mlkem_internal.c) are
- * documented exceptions — the FIPS 203/204 NTT + sampling +
- * polynomial arithmetic are tightly coupled and splitting them
- * would fragment the algorithm without a functional boundary.
+ * trimmed arena.c, gpu_launch.c, and pq_aead.c. v4.1.0 split
+ * mldsa_internal.c (627L) and mlkem_internal.c (472L) at FIPS
+ * seams into 6 files (mldsa_ntt/poly/sample + mlkem_ntt/sample/poly)
+ * each ≤256, so the only remaining exception is hw/gpu/hip_kern.hip
+ * (529L, .hip not .c).
  *
  * Exit codes:
  *   0 — every file ≤ 256 lines (excluding documented exceptions)
@@ -32,8 +32,6 @@
  * Add to this list only with a CHANGES.md note. Paths may be
  * relative to the repo root, with or without a leading "./". */
 static const char *EXCEPTIONS[] = {
-  "sec/pqc/mldsa/mldsa_internal.c",
-  "sec/pqc/mlkem/mlkem_internal.c",
   "hw/gpu/hip_kern.hip",
   NULL,
 };
@@ -106,7 +104,7 @@ int main(void) {
   buf[n] = 0;
   fclose(report);
   if (ok) {
-    printf("OK\tlint\tall .c/.h files ≤ 256 lines (2 algorithm-internal exceptions documented)\n");
+    printf("OK\tlint\tall .c/.h files ≤ 256 lines\n");
     return 0;
   }
   fprintf(stderr, "FAIL\tlint\tfiles over 256 lines:\n%s", buf);

@@ -225,6 +225,19 @@ FIPS seam map (for future split if ever needed, no split this Patch):
 
 No new cap, no signature change, no dependency. Stationary topology held.
 
+# Wave 9 — 2026-09-06 FIPS split at seams, 9 — Thrust, no ABI break
+
+Executed 2026-09-06 in oodar v4.1.0 Thrust. Delta_path=0, api_surface 96→100.
+
+Gates green (same 0 CRITICALs as Wave 8, now 0 `256` exceptions):
+- make lint — 3/3 green with `all .c/.h files ≤ 256 lines` (no `2 exceptions` note). `qa/tests_lint_file_size.c` EXCEPTIONS `mldsa_internal.c`/`mlkem_internal.c` removed; `hip_kern.hip` `529L` is the only remaining exception (`.hip` not `.c`).
+- `mldsa_internal.c` `627L` → `mldsa_ntt.c` `210L` + `mldsa_poly.c` `216L` + `mldsa_sample.c` `203L`; `mlkem_internal.c` `472L` → `mlkem_ntt.c` `160L` + `mlkem_sample.c` `161L` + `mlkem_poly.c` `153L`. `mldsa_internal.h`/`mlkem_internal.h` hold the `DQ`/`KQ` defines and `oo_shake` decls; 17/30 `static` helpers stay `static` per split.
+- `oodar.c` umbrella order `mlkem_ntt → mlkem_sample → mlkem_poly → mlkem` and `mldsa_ntt → mldsa_poly → mldsa_sample → mldsa`; `gcc -c oodar.c` `1.9M` `0`.
+- `repro_build.sh` `liboodar.a` `1.4M` `ec7d4f0b807e79b400afec777958d65dad50717c7705041b1c0682132c815840` `VERIFY OK` (byte-identical logic, TU split).
+- 11 challengers double-run `11/11 PASS` with `OODAR_REPO` (`cap_escape` `OK` etc.); `blackbox trace` empty, `blackbox mcp 2024-11-05` `verified`, `lsp 2.12.0` `verified`.
+
+No new cap, no signature change. `VERSION` `4.1.0` `api_surface=100`, `CHANGES.md` `4.1.0` Thrust.
+
 # Stop conditions
 
 - A Wave 1 item still open: no release notes that say

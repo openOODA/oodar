@@ -17,11 +17,11 @@
 # it must match the most recent git tag. See RULES.oot §1.24
 # and rfcs/0006-versioning-and-release-protocol.oot.
 
-oodar=4.0.0
-release_tag=4.0.0
+oodar=4.1.0
+release_tag=4.1.0
 ooda=2.10.0
 ooda_max=2.99.0
-api_surface=96
+api_surface=100
 # Note: api_surface counts domain .c files (core/ sec/ fs/ net/ hw/ app/).
 # CI matches that find. qa/ and examples/ are not in the ABI count.
 # Note: api_surface counts all .c files that ship in v3.4.2
