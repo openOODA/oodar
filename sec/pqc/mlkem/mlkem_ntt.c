@@ -66,7 +66,7 @@ int k_hex_load(OoStr s, uint8_t *out, size_t want) {
   return 0;
 }
 
-OoStr k_hex_out(const uint8_t *p, size_t n) {
+OoStr k_pqc_hex_out(const uint8_t *p, size_t n) {
   static const char *hx = "0123456789abcdef";
   char *buf = oo_str_alloc_payload(n * 2);
   size_t i;
@@ -74,7 +74,7 @@ OoStr k_hex_out(const uint8_t *p, size_t n) {
   { OoStr r; r.data = buf; r.len = (long long)(n * 2); return r; }
 }
 
-OoStr k_hex_out_cat(const uint8_t *a, size_t na, const uint8_t *b, size_t nb) {
+OoStr k_pqc_hex_out_cat(const uint8_t *a, size_t na, const uint8_t *b, size_t nb) {
   static const char *hx = "0123456789abcdef";
   size_t n = na + nb, i;
   char *buf = oo_str_alloc_payload(n * 2);

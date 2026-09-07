@@ -22,8 +22,8 @@ void kpke_decrypt(const uint8_t skc[1152], const uint8_t c[1088], uint8_t m[32])
 
 /* Hex I/O glue shared with mlkem.c (defined in mlkem_internal.c). */
 extern int k_hex_load(OoStr s, uint8_t *out, size_t want);
-extern OoStr k_hex_out(const uint8_t *p, size_t n);
-extern OoStr k_hex_out_cat(const uint8_t *a, size_t na, const uint8_t *b, size_t nb);
+extern OoStr k_pqc_hex_out(const uint8_t *p, size_t n);
+extern OoStr k_pqc_hex_out_cat(const uint8_t *a, size_t na, const uint8_t *b, size_t nb);
 
 /* ML-KEM.Encaps(ek, m): shared secret K = SHA3-512(m || H(ek)) [:32],
  * ciphertext c = KPKE.Encrypt(ek, m, K[32:]).
@@ -44,7 +44,7 @@ OoStr crypto_mlkem768_encaps_internal(OoStr ek, OoStr m) {
   memcpy(min, msg, 32); memcpy(min + 32, h, 32);
   oo_sha3_512_bytes(min, 64, kr);
   kpke_encrypt(pk, msg, kr + 32, ct);
-  r = k_hex_out_cat(ct, 1088, kr, 32);
+  r = k_pqc_hex_out_cat(ct, 1088, kr, 32);
   crypto_secure_wipe(msg, sizeof msg);
   crypto_secure_wipe(kr, sizeof kr);
   crypto_secure_wipe(min, sizeof min);
@@ -89,7 +89,7 @@ OoStr crypto_mlkem768_decaps_internal(OoStr dk, OoStr ct_in) {
     for (i = 0; i < 32; i++) kr[i] = (uint8_t)((kr[i] & ~fail) | (kbar[i] & fail));
     crypto_secure_wipe(buf, sizeof buf);
   }
-  r = k_hex_out(kr, 32);
+  r = k_pqc_hex_out(kr, 32);
   crypto_secure_wipe(sk, sizeof sk);
   crypto_secure_wipe(m, sizeof m);
   crypto_secure_wipe(kr, sizeof kr);

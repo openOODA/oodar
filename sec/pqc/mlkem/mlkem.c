@@ -31,8 +31,8 @@ void kpke_keygen(const uint8_t d[32], uint8_t pk[1184], uint8_t skc[1152]);
  * mlkem_internal.c with external linkage so the sibling KEM file can share it. */
 OoStr crypto_mlkem768_keygen_internal(OoStr dz);
 extern int k_hex_load(OoStr s, uint8_t *out, size_t want);
-extern OoStr k_hex_out(const uint8_t *p, size_t n);
-extern OoStr k_hex_out_cat(const uint8_t *a, size_t na, const uint8_t *b, size_t nb);
+extern OoStr k_pqc_hex_out(const uint8_t *p, size_t n);
+extern OoStr k_pqc_hex_out_cat(const uint8_t *a, size_t na, const uint8_t *b, size_t nb);
 
 OoStr crypto_mlkem768_keygen_internal(OoStr dz) {
   uint8_t buf[64], pk[1184], sk[2400], h[32];
@@ -47,7 +47,7 @@ OoStr crypto_mlkem768_keygen_internal(OoStr dz) {
   oo_sha3_256_bytes(pk, 1184, h);
   memcpy(sk + 1152 + 1184, h, 32);
   memcpy(sk + 1152 + 1184 + 32, buf + 32, 32);
-  r = k_hex_out_cat(pk, 1184, sk, 2400);
+  r = k_pqc_hex_out_cat(pk, 1184, sk, 2400);
   crypto_secure_wipe(buf, sizeof buf);
   crypto_secure_wipe(sk, sizeof sk);
   crypto_secure_wipe(h, sizeof h);
