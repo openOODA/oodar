@@ -8,7 +8,14 @@ long long oo_cap_grant_sys(void) { oo_caps_init(); oo_sandbox_note_proc(); retur
 long long oo_cap_grant_env(void) { oo_caps_init(); return g_tok_env; }
 long long oo_cap_grant_net(void) { oo_caps_init(); oo_sandbox_note_net(); return g_tok_net; }
 long long oo_cap_grant_sign(void) { oo_caps_init(); return g_tok_sign; }
-long long oo_cap_grant_process(void) { oo_caps_init(); oo_sandbox_note_proc(); return g_tok_process; }
+static int g_process_handed;
+long long oo_cap_grant_process(void) {
+  oo_caps_init();
+  oo_sandbox_note_proc();
+  g_process_handed = 1;
+  return g_tok_process;
+}
+int oo_cap_process_handed(void) { oo_caps_init(); return g_process_handed; }
 /* v2.1.0: removed oo_cap_grant_sync, oo_cap_grant_mem, oo_cap_grant_http
  * (dead caps — granted but never required). */
 long long oo_cap_grant_tcp(void) { oo_caps_init(); oo_sandbox_note_net(); return g_tok_tcp; }

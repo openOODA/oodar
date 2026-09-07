@@ -5,6 +5,8 @@
  * child-exec flow (oo_sys_exec / oo_child_filter_env).
  * Cap tokens: oo_sys_exec / oo_sys_args need ProcessCap. */
 #include "../../oodar.h"
+#include "../../sec/cap/caps.h"
+#include "../../core/blackbox/blackbox.h"
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -137,5 +139,9 @@ OoSList oo_sys_args(long long cap) {
 }
 
 void oo_process_exit(long long c) {
+  if (!oo_cap_process_handed()) {
+    blackbox_trap_cap("ProcessCap", "oo_process_exit", __FILE__, __LINE__);
+    fprintf(stderr, "ERR\tcap\tprocess_exit: missing ProcessCap\n");
+  }
   exit((int)c);
 }

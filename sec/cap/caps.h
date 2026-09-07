@@ -94,6 +94,7 @@ void oo_cap_require_ffi(long long got, const char *op);
  * never defined), oo_cap_require_sync/mem/http (dead). */
 void oo_cap_require_sign(long long got, const char *op);
 void oo_cap_require_process(long long got, const char *op);
+int oo_cap_process_handed(void);
 void oo_cap_require_tcp(long long got, const char *op);
 void oo_cap_require_udp(long long got, const char *op);
 void oo_cap_require_bind(long long got, const char *op);
