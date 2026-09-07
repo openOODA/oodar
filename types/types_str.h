@@ -119,6 +119,9 @@ OoStr oo_slist_get(OoSList l, long long i);
 long long oo_slist_len(OoSList l);
 OoSList oo_slist_set(OoSList l, long long i, OoStr v);
 int oo_slist_eq(OoSList a, OoSList b);
+OoSList oo_slist_slice(OoSList l, long long lo, long long hi);
+OoIList oo_ilist_slice(OoIList l, long long lo, long long hi);
+OoFList oo_flist_slice(OoFList l, long long lo, long long hi);
 
 OoFList oo_flist_new(void);
 void oo_flist_free(OoFList l);

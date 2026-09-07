@@ -6,6 +6,7 @@
 // Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. list.c — OoIList / OoSList (retain/release/new/push/get/len).
+//      list_slice.c — oo_slist_slice / oo_ilist_slice / oo_flist_slice.
 //   2. list_alloc.c — bulk-list allocation helpers (oo_list_alloc_n / free / set).
 //   3. list_atomic.c — atomic variants of push/get for concurrent actors.
 //   4. list_set.c — the OoIList / OoSList set operations.

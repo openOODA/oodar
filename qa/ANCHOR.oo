@@ -8,6 +8,7 @@
 //   1. dudect_c_native.c     — Welch t-test probe (Red 8 dim 7, benchmark).
 //   2. oo_hip_so_smoke.c     — HIP/ROCm kernel load smoke (Red 8 dim 1, functional).
 //   3. tests_challenger_contract.c           — 56 cap=0 fail-closed mutators (v3.2.0).
+//      tests_challenger_sys.c                — spawn/wait/kill/epoll/inotify/prctl/exec_wait cap=0.
 //   4. tests_challenger_attenuate_v2.c       — 9 Rule 2 bitmask cases (v3.3.0).
 //   5. tests_challenger_cap_escape.c         — cap system bypass attempt (Red 8 dim 2+8, adversarial).
 //   6. tests_challenger_cap_threat.c         — cap-threat containment (Red 8 dim 2+8, adversarial).

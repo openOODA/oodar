@@ -6,6 +6,7 @@
 // Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
 // Beats:
 //   1. sys.c — orchestrator: sys_exec, sys_args, policy getenv, child filter env.
+//      sys_exec_wait.c inherits stdio. sys_residual.c refuses spawn/wait/kill/epoll/inotify/prctl.
 //   2. sys_env.c — policy getenv filter (OODA_/OO_ keys only).
 //   3. sys_stamp.c — file mtime stamp (oo_file_stamp, v3.0.0 cap-gated).
 //   4. sys_stdin.c — stdin read (oo_read_stdin / oo_read_stdin_chunk, v3.0.0 cap-gated).

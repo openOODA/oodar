@@ -109,12 +109,15 @@ UMBRELLA_SRCS := \
 	core/list/list_alloc.c \
 	core/list/list_atomic.c \
 	core/list/list_set.c \
+	core/list/list_slice.c \
 	core/list/flist.c \
 	core/list/llist.c \
 	fs/os/sys_env.c \
 	fs/os/sys_stamp.c \
 	fs/os/sys_stdin.c \
 	fs/os/sys.c \
+	fs/os/sys_exec_wait.c \
+	fs/os/sys_residual.c \
 	net/fetch.c \
 	app/xlang/ffi_sec.c \
 	app/xlang/ffi.c \
@@ -337,7 +340,7 @@ adversarial:
 	@echo "SKIP adversarial python scanner (Wave 7: no .py in CI)"
 
 TEST_DIR := $(BUILD_DIR)/test
-CHALLENGERS := tests_challenger_contract tests_challenger_wave1 \
+CHALLENGERS := tests_challenger_contract tests_challenger_sys tests_challenger_wave1 \
 	tests_challenger_wave3 tests_challenger_attenuate_v2 \
 	tests_challenger_pathcap tests_challenger_cap_escape \
 	tests_challenger_cap_threat tests_challenger_differential_cap \
@@ -354,6 +357,8 @@ test: lint $(addprefix $(TEST_DIR)/,$(CHALLENGERS))
 	@echo "RUN contract (double-run)"
 	@$(TEST_DIR)/tests_challenger_contract
 	@$(TEST_DIR)/tests_challenger_contract
+	@$(TEST_DIR)/tests_challenger_sys
+	@$(TEST_DIR)/tests_challenger_sys
 	@OODAR_REPO=$(REPO_ROOT) $(TEST_DIR)/tests_challenger_wave1
 	@$(TEST_DIR)/tests_challenger_wave3
 	@$(TEST_DIR)/tests_challenger_attenuate_v2

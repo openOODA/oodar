@@ -71,6 +71,13 @@ OoResV oo_fs_symlink(long long cap, OoStr target, OoStr linkpath);
 
 OoSList oo_sys_args(long long cap);
 OoResS oo_sys_exec(long long cap, int argc, OoStr *argv);
+OoResI oo_sys_exec_wait(long long cap, OoStr cmd, OoSList a);
+OoResS oo_sys_spawn(long long cap, OoStr cmd);
+OoResS oo_sys_wait(long long cap, long long pid);
+OoResS oo_sys_kill(long long cap, long long pid, long long sig);
+OoResS oo_sys_epoll_create(long long cap, long long flags);
+OoResS oo_sys_inotify_init(long long cap);
+OoResS oo_sys_prctl(long long cap, long long op);
 void oo_process_exit(long long c);
 OoResS oo_proc_mem_read(long long cap, long long offset, long long n);
 
