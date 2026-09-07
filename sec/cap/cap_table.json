@@ -278,8 +278,27 @@
   ],
   "subsumption_rules": [
     "FS subsumes FSREAD, FSWRITE",
-    "NET subsumes TCP, UDP, BIND"
+    "NET subsumes TCP, UDP, BIND",
+    "TLS attenuated from TCP via Rule 2 (HMAC, no new bit, language-only)"
   ],
-  "rule_2_attenuation_note": "oo_cap_attenuate_v2 MACs parent_hmac||parent_rights||child_rights under g_kernel_hmac_key. v1 returns empty.",
-  "_regen": "C lint qa/tests_lint_cap_table.c parses caps.h (no python)"
+  "rule_2_attenuation_note": "oo_cap_attenuate_v2 MACs parent_hmac||parent_rights||child_rights under g_kernel_hmac_key. v1 returns empty. TLS is HMAC-derived child of TCP (parent 0x20000 -> child), lattice 20+26 preserved.",
+  "_regen": "C lint qa/tests_lint_cap_table.c parses caps.h (no python)",
+  "attenuated_caps": [
+    {
+      "name": "TLS",
+      "parent": "TCP",
+      "parent_bit": 17,
+      "parent_value": 131072,
+      "attenuation": "oo_cap_attenuate_v2",
+      "rule": 2,
+      "seal": "HMAC-SHA256(g_kernel_hmac_key, parent_hmac||parent_rights||child_rights)",
+      "child_rights_hex": "20000",
+      "parent_rights_hex": "20000",
+      "category": "attenuated",
+      "language_cap": "TlsCap",
+      "note": "TlsCap is language-only attenuation over TcpCap; no new substrate bit, lattice remains 20+26",
+      "grantee": "std/net/http.oo:77 http_fetch_tls",
+      "require": "oo_cap_attenuate_v2_ok"
+    }
+  ]
 }
