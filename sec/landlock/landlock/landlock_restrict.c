@@ -23,7 +23,9 @@ static unsigned long long ll_handled_fs(int abi) {
 
 static unsigned long long ll_read_bits(int abi) {
   (void)abi;
-  return LL_FS_READ_FILE | LL_FS_READ_DIR;
+  /* EXECUTE: gcc/mkdir/clang live on read dirs (/usr:/bin). chs_rt granted
+   * this. Without it, a jailed compiler cannot sys_exec the toolchain. */
+  return LL_FS_EXECUTE | LL_FS_READ_FILE | LL_FS_READ_DIR;
 }
 
 static unsigned long long ll_write_bits(int abi) {

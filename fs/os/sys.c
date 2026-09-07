@@ -20,12 +20,11 @@ const char *oo_process_policy_getenv(const char *key);
 void oo_child_filter_env(void);
 
 /* R2/R3: fork + execvp with full argv (no system(3) shell). Captures the
- * child's stdout via a pipe so callers can branch on the captured report
- * (this is the only way to make a redteam gate that actually observes the
- * child process's verdict). Captured output is bounded to OO_SYS_EXEC_MAX_OUT
- * bytes; a child that floods the pipe will see EPIPE on its next write.
- * The returned OoStr is ref-counted so callers can oo_str_release it. */
-#define OO_SYS_EXEC_MAX_OUT (1u << 20)
+ * child's stdout and stderr via one pipe so an Err payload carries printed
+ * diagnostics (println on stdout, cap/landlock on stderr). Bounded to
+ * OO_SYS_EXEC_MAX_OUT bytes (16MiB so emit-c concat of a product main
+ * fits); a flood sees EPIPE. r.val holds the capture on Ok and Err. */
+#define OO_SYS_EXEC_MAX_OUT (1u << 24)
 
 OoResS oo_sys_exec(long long cap, int argc, OoStr *argv) {
   OoResS r;
@@ -81,6 +80,7 @@ OoResS oo_sys_exec(long long cap, int argc, OoStr *argv) {
   if (pid == 0) {
     close(pipefd[0]);
     if (dup2(pipefd[1], STDOUT_FILENO) < 0) _exit(126);
+    if (dup2(pipefd[1], STDERR_FILENO) < 0) _exit(126);
     close(pipefd[1]);
     oo_child_filter_env();
     execvp(av[0], av);
