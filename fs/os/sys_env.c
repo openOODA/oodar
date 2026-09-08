@@ -1,8 +1,10 @@
 /* sys_env.c — environment-variable surface.
- * ZT path A: process-policy getenv is fail-closed for non OODA_/OO_ keys.
+ * ZT path A: process-policy getenv is fail-closed for non OODA_/OO_/PWD keys.
  * Product env_get (oo_env_get) still requires EnvCap.
- * oo_child_filter_env scrubs the child's environ to OODA_/OODAC_/OO_ keys
- * only and forces PATH=/usr/bin:/bin. oo_policy_write_on / oo_is_policy_path
+ * oo_child_filter_env scrubs the child's environ to OODA_/OODAC_/OO_/PWD keys
+ * only and forces PATH=/usr/bin:/bin. PWD is preserved (non-secret ambient
+ * CWD state; spawned tools like `ooda fix` anchor relative writes to it;
+ * writes stay jail-checked). oo_policy_write_on / oo_is_policy_path
  * gate the policy-path check used by fs.c and fs_dir.c. */
 #include "../../oodar.h"
 #include "../../oodar_internal.h"
@@ -10,17 +12,17 @@
 #include <string.h>
 #include <unistd.h>
 
-/* ZT path A: process-policy getenv — fail-closed for non OODA_/OO_ keys.
+/* ZT path A: process-policy getenv — fail-closed for non OODA_/OO_/PWD keys.
  * Product env_get still requires EnvCap via oo_env_get. */
 const char *oo_process_policy_getenv(const char *key) {
   if (!key || !key[0]) return NULL;
-  if (strncmp(key, "OODA_", 5) != 0 && strncmp(key, "OO_", 3) != 0 && strcmp(key, "OODACODEX") != 0) {
+  if (strncmp(key, "OODA_", 5) != 0 && strncmp(key, "OO_", 3) != 0 && strcmp(key, "OODACODEX") != 0 && strcmp(key, "PWD") != 0) {
     return NULL;
   }
   return getenv(key);
 }
 
-/* Child of sys_exec / sys_spawn: keep OODA_/OO_ keys only, then PATH=/usr/bin:/bin. */
+/* Child of sys_exec / sys_spawn: keep OODA_/OO_/PWD keys only, then PATH=/usr/bin:/bin. */
 void oo_child_filter_env(void) {
   extern char **environ;
   char **src;
@@ -36,6 +38,7 @@ void oo_child_filter_env(void) {
       if (!((klen >= 5 && strncmp(*src, "OODA_", 5) == 0) ||
             (klen >= 6 && strncmp(*src, "OODAC_", 6) == 0) ||
             (klen == 9 && strncmp(*src, "OODACODEX", 9) == 0) ||
+            (klen == 3 && strncmp(*src, "PWD", 3) == 0) ||
             (klen >= 3 && strncmp(*src, "OO_", 3) == 0)))
         continue;
       if (n + 1 >= env_cap) {
