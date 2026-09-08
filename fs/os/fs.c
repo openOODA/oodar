@@ -39,9 +39,10 @@ OoResV oo_write_file(long long cap, OoStr path, OoStr content) {
 oo_cap_require_fswrite(cap, "write_file"); OoResV r={0, oo_str_lit("write_file failed")};
 char cpath[PATH_MAX];
 if (!to_cpath(path, cpath, PATH_MAX)) return r;
+if (!fs_jail_disabled()) {
 const char *dir = oo_process_policy_getenv("OODA_FS_WRITEDIR");
 if (!dir || !dir[0] || !path_under_writedir(cpath, dir)) {
-r.err = oo_str_lit("write_file denied: path not under OODA_FS_WRITEDIR"); return r; }
+r.err = oo_str_lit("write_file denied: path not under OODA_FS_WRITEDIR"); return r; } }
 if (content.len < 0) return r;
 if (oo_is_policy_path(cpath) && !oo_policy_write_on()) {
 r.err = oo_str_lit("write_file denied: policy path"); return r; }

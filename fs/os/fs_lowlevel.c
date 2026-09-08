@@ -66,7 +66,12 @@ const char *b = fs_split_parent(check, par, PATH_MAX);
 if(!b||!b[0]||!strcmp(b,".")||!strcmp(b,"..")||strchr(b,'/')||!realpath(par,rp))return 0;
 return !strncmp(rp,rd,n) && (rp[n]=='\0'||rp[n]=='/');
 }
+int fs_jail_disabled(void) {
+const char *v = oo_process_policy_getenv("OODA_NO_JAIL");
+return v && v[0] == '1' && !v[1];
+}
 static int fs_read_confined(const char *cpath) {
+if (fs_jail_disabled()) return 1;
 const char *rd = oo_process_policy_getenv("OODA_FS_READDIR");
 const char *wd = oo_process_policy_getenv("OODA_FS_WRITEDIR");
 char abs[PATH_MAX], rd_abs[PATH_MAX], wd_abs[PATH_MAX], cwd_def[PATH_MAX];
