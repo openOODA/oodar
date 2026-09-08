@@ -2,7 +2,7 @@
 //
 // Logline: qa/ holds 2 utilities, challenger probes (cap, path, contract 67 mutators, wave1, wave3, dudect HMAC+GCM), fuzz_smoke, and 3 C lints. No python in the lint path.
 //
-// Setup: Self-tests ship with the package. The 2 utilities are smoke / benchmark tests; the 11 challenger tests are adversarial / regression probes (4 added in v3.2.x: contract, differential, fuzz, attenuate_v2; 1 added in v3.3.0: pathcap; 1 added in v3.3.4: actor_race). The 3 lint tests run in CI (Makefile lint target). The umbrella TU (oodar.c) EXCLUDES the qa/ subdir — these are run by the developer, not the runtime.
+// Setup: Self-tests ship with the package. The 2 utilities are smoke / benchmark tests; the 12 challenger tests are adversarial / regression probes (4 added in v3.2.x: contract, differential, fuzz, attenuate_v2; 1 added in v3.3.0: pathcap; 1 added in v3.3.4: actor_race; 1 added in v3.3.5: env_pwd). The 3 lint tests run in CI (Makefile lint target). The umbrella TU (oodar.c) EXCLUDES the qa/ subdir — these are run by the developer, not the runtime.
 //
 // Beats:
 //   1. dudect_c_native.c     — Welch t-test probe (Red 8 dim 7, benchmark).
@@ -18,10 +18,11 @@
 //  10. tests_challenger_proc_mem_leak.c      — proc_mem Landlock-APPLIED gate (Red 8 dim 6, regression).
 //  11. tests_challenger_sandbox_containment.c — Landlock containment (Red 8 dim 2+8, redteam).
 //  12. tests_challenger_actor_race.c         — 8-thread otp_supervise race (v3.3.4).
-//  13. tests_fuzz_smoke.c                    — 200-iteration random-input crash probe (v3.2.3).
-//  14. tests_lint_anchors.c                  — every dir has ANCHOR.oo (CI).
-//  15. tests_lint_file_size.c                — every .c/.h ≤ 256 lines (CI).
-//  16. tests_lint_cap_table.c                — cap_table.json matches caps.h (CI).
+//  13. tests_challenger_env_pwd.c            — PWD preserved via policy getenv + child filter.
+//  14. tests_fuzz_smoke.c                    — 200-iteration random-input crash probe (v3.2.3).
+//  15. tests_lint_anchors.c                  — every dir has ANCHOR.oo (CI).
+//  16. tests_lint_file_size.c                — every .c/.h ≤ 256 lines (CI).
+//  17. tests_lint_cap_table.c                — cap_table.json matches caps.h (CI).
 //
 // ──▓▓ oodar/qa ANCHOR ──▓▓──
-// :: 2 utilities + 11 challenger tests + 3 lint tests — all <= 256 ::
+// :: 2 utilities + 12 challenger tests + 3 lint tests — all <= 256 ::
