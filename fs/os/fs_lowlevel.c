@@ -32,7 +32,26 @@ memcpy(c, p.data, (size_t)p.len);
 c[p.len] = '\0';
 return 1;
 }
+/* Colon-list split (matches the Landlock side, which splits OODA_FS_*DIR on
+ * ':'): any single segment granting access grants it; a "/" segment refuses
+ * the whole check, preserving the old single-dir fail-closed behavior. */
+static int path_under_writedir_one(const char *path, const char *dir);
 static int path_under_writedir(const char *path, const char *dir) {
+char seg[PATH_MAX]; const char *s;
+if (!path || !dir) return 0;
+s = dir;
+for (;;) {
+  const char *c = strchr(s, ':'); size_t n = c ? (size_t)(c - s) : strlen(s);
+  if (n == 0) { if (!c) break; s = c + 1; continue; }
+  if (n >= sizeof seg) return 0;
+  memcpy(seg, s, n); seg[n] = 0;
+  if (!strcmp(seg, "/")) return 0;
+  if (path_under_writedir_one(path, seg)) return 1;
+  if (!c) break; s = c + 1;
+}
+return 0;
+}
+static int path_under_writedir_one(const char *path, const char *dir) {
 char rp[PATH_MAX], rd[PATH_MAX], par[PATH_MAX], abs[PATH_MAX];
 const char *check = path;
 if(!path||!dir||!strcmp(dir,"/"))return 0;
@@ -49,7 +68,23 @@ const char *b = fs_split_parent(check, par, PATH_MAX);
 if(!b||!b[0]||!strcmp(b,".")||!strcmp(b,"..")||strchr(b,'/')||!realpath(par,rp))return 0;
 return !strncmp(rp,rd,n) && (rp[n]=='\0'||rp[n]=='/');
 }
+static int path_under_readdir_one(const char *path, const char *dir);
 static int path_under_readdir(const char *path, const char *dir) {
+char seg[PATH_MAX]; const char *s;
+if (!path || !dir) return 0;
+s = dir;
+for (;;) {
+  const char *c = strchr(s, ':'); size_t n = c ? (size_t)(c - s) : strlen(s);
+  if (n == 0) { if (!c) break; s = c + 1; continue; }
+  if (n >= sizeof seg) return 0;
+  memcpy(seg, s, n); seg[n] = 0;
+  if (!strcmp(seg, "/")) return 0;
+  if (path_under_readdir_one(path, seg)) return 1;
+  if (!c) break; s = c + 1;
+}
+return 0;
+}
+static int path_under_readdir_one(const char *path, const char *dir) {
 char rp[PATH_MAX], rd[PATH_MAX], par[PATH_MAX], abs[PATH_MAX];
 const char *check = path;
 if(!path||!dir||!strcmp(dir,"/"))return 0;

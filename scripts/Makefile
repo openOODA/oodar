@@ -7,8 +7,8 @@
 #
 # Setup: The Makefile is self-contained and works on any Linux system
 # with GNU make and GCC. It does not require autotools or any package
-# manager. The 99 .c files in the umbrella are listed in UMBRELLA_SRCS
-# below (mirrors oodar.c:13-60). For the `perfile` target, each .c is
+# manager. UMBRELLA_SRCS below is derived from oodar.c's #includes (the
+# umbrella TU). For the `perfile` target, each .c is
 # compiled individually — note that some .c files in the umbrella rely
 # on transitive includes (they don't #include oodar.h themselves),
 # so the per-file build is best-effort and may fail for those files.
@@ -82,107 +82,10 @@ PERFILE_LIB := $(LIB_DIR)/liboodar_perfile.a
 # {mlkem,mldsa,pq_sig}/, core/mem/arena_*, core/list/list_*, app/
 # actor/actor_*). The order below mirrors the umbrella includes.
 # ---------------------------------------------------------------------------
-UMBRELLA_SRCS := \
-	sec/cap/caps.c \
-	sec/cap/cap.c \
-	sec/cap/cap_grant.c \
-	sec/cap/cap_require.c \
-	sec/cap/cap_attenuate_path.c \
-	sec/cap/cap_attenuate_hmac.c \
-	sec/cap/cap_alloc.c \
-	sec/cap/cap_time.c \
-	sec/cap/cap_ffi.c \
-	sec/landlock/landlock/landlock.c \
-	sec/landlock/landlock/landlock_restrict.c \
-	sec/landlock/sandbox/sandbox.c \
-	sec/landlock/sandbox/sandbox_matrix.c \
-	sec/landlock/sandbox/sandbox_config.c \
-	sec/landlock/sandbox/sandbox_c.c \
-	sec/landlock/proc_mem.c \
-	core/str/str.c \
-	core/str/str_intern.c \
-	core/str/str_from_int.c \
-	core/str/str_tok.c \
-	core/str/str_ops.c \
-	core/event/event.c \
-	core/list/list.c \
-	core/list/list_alloc.c \
-	core/list/list_atomic.c \
-	core/list/list_set.c \
-	core/list/list_slice.c \
-	core/list/flist.c \
-	core/list/llist.c \
-	fs/os/sys_env.c \
-	fs/os/sys_stamp.c \
-	fs/os/sys_stdin.c \
-	fs/os/sys.c \
-	fs/os/sys_exec_wait.c \
-	fs/os/sys_residual.c \
-	net/fetch.c \
-	app/xlang/ffi_sec.c \
-	app/xlang/ffi.c \
-	app/xlang/ffi_call.c \
-	sec/crypto/hash.c \
-	fs/os/netfloor.c \
-	fs/os/netfloor_tcp.c \
-	fs/os/netfloor_udp.c \
-	net/tls.c \
-	hw/gpu/gpu/gpu.c \
-	hw/gpu/gpu/gpu_pool.c \
-	hw/gpu/gpu/gpu_mem.c \
-	hw/gpu/gpu/gpu_stream.c \
-	hw/gpu/gpu/gpu_classify.c \
-	hw/gpu/gpu/gpu_launch.c \
-	hw/gpu/gpu/gpu_hip_dlopen.c \
-	hw/gpu/gpu/gpu_hip_dispatch.c \
-	hw/gpu/gpu/gpu_hip.c \
-	app/actor/actor_thread.c \
-	app/actor/actor_channel.c \
-	app/actor/actor.c \
-	app/actor/actor_rpc.c \
-	fs/os/time_rand.c \
-	core/mem/alloc.c \
-	core/mem/arena.c \
-	core/mem/arena_pin.c \
-	core/mem/arena_soa.c \
-	core/mem/arena_dod.c \
-	core/mem/arena_checkpoint.c \
-	fs/os/fs_lowlevel.c \
-	fs/os/fs_dir.c \
-	fs/os/fs.c \
-	app/io/print.c \
-	core/math/math.c \
-	sec/crypto/symmetric/crypto.c \
-	sec/crypto/symmetric/hash.c \
-	sec/crypto/symmetric/hmac.c \
-	sec/crypto/symmetric/secure.c \
-	core/anti_emul/anti_emul.c \
-	fs/os/host.c \
-	fs/os/rlimit.c \
-	fs/os/dns.c \
-	app/xlang/xlang.c \
-	sec/crypto/sha3.c \
-	sec/crypto/aead/aead.c \
-	sec/crypto/aead/aes_gcm.c \
-	sec/crypto/aead/chacha20_poly1305.c \
-	sec/crypto/seal.c \
-	sec/pqc/mlkem/mlkem_internal.c \
-	sec/pqc/mlkem/mlkem.c \
-	sec/pqc/mlkem/mlkem_kem.c \
-	sec/pqc/mldsa/mldsa_internal.c \
-	sec/pqc/mldsa/mldsa.c \
-	sec/pqc/mldsa/mldsa_sign.c \
-	sec/pqc/mldsa/mldsa_verify.c \
-	sec/pqc/pq_sig/pq_sig.c \
-	sec/pqc/pq_sig/pq_aead_seal.c \
-	sec/pqc/pq_sig/pq_aead_open.c \
-	sec/pqc/pq_sig/pq_hmac.c \
-	core/event/metrics.c \
-	app/actor/actor_closure.c \
-	core/mem/align.c \
-	core/mem/weak.c \
-	core/blackbox/blackbox.c \
-	sec/crypto/random.c
+# UMBRELLA_SRCS is derived from oodar.c (the umbrella TU #includes every
+# source it compiles). Never hand-maintain this list: a stale entry breaks
+# the build and a missing entry silently ships stale objects.
+UMBRELLA_SRCS := $(shell sed -n 's/^#include "\([^"]*\.c\)".*/\1/p' $(REPO_ROOT)/oodar.c)
 
 # Derived: .o files in BUILD_DIR, one per .c. Each .o lives at
 # build/<path>.o (preserving the source path so the build dir
@@ -208,7 +111,10 @@ $(LIB): $(BUILD_DIR)/oodar.o | $(LIB_DIR)
 
 # Compile oodar.c into a single .o. The -I flag lets the .c files
 # find oodar.h, types.h, and the per-subdir .h files.
-$(BUILD_DIR)/oodar.o: $(REPO_ROOT)/oodar.c | $(BUILD_DIR)
+# NOTE: oodar.c is an umbrella TU that #includes every file in UMBRELLA_SRCS,
+# so the .o must depend on all of them — otherwise editing an included .c
+# silently ships a stale lib with a lying reproducible hash.
+$(BUILD_DIR)/oodar.o: $(REPO_ROOT)/oodar.c $(addprefix $(REPO_ROOT)/,$(UMBRELLA_SRCS)) | $(BUILD_DIR)
 	@echo "CC  oodar.c"
 	@$(CC) $(CFLAGS) -I$(REPO_ROOT) -c $< -o $@
 
