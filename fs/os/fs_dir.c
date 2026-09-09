@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+#include <errno.h>
 #include <sys/stat.h>
 #include <unistd.h>
 /* internal helpers (defined in fs_lowlevel.c) */
@@ -86,6 +87,8 @@ r.err = oo_str_lit("fs_mkdir denied: path not under OODA_FS_WRITEDIR"); return r
 if (policy_locked(cpath)) {
 r.err = oo_str_lit("fs_mkdir denied: policy path"); return r; }
 if (mkdir(cpath, 0777) == 0) { r.ok = 1; r.err = oo_str_lit(""); }
+else if (errno == EEXIST) { struct stat st;
+if (stat(cpath, &st) == 0 && S_ISDIR(st.st_mode)) { r.ok = 1; r.err = oo_str_lit(""); } }
 return r;
 }
 OoResV oo_fs_hardlink(long long cap, OoStr oldpath, OoStr newpath) {
