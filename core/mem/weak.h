@@ -54,7 +54,7 @@ OoControlBlock *oo_control_block_create(long long cap, void *payload, void (*dto
 void oo_control_block_init(long long cap, OoControlBlock *ctrl, void (*dtor)(void *));
 void oo_control_block_retain(long long cap, OoControlBlock *ctrl);
 void oo_control_block_release(long long cap, OoControlBlock *ctrl, void *payload);
-void oo_control_block_free(long long cap, OoControlBlock *ctrl);
+/* Wave 10: oo_control_block_free removed (fail-open free of live blocks). */
 
 /* Weak reference handle lifecycle (v2.0.0: mutators take AllocCap; queries are cap-free) */
 OoWeakRef oo_weak_create(long long cap, void *payload, OoControlBlock *ctrl);

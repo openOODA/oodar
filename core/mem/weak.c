@@ -68,12 +68,9 @@ void oo_control_block_release(long long cap, OoControlBlock *ctrl, void *payload
   }
 }
 
-void oo_control_block_free(long long cap, OoControlBlock *ctrl) {
-  oo_cap_require_alloc(cap, "control_block_free");
-  if (ctrl) {
-    free(ctrl);
-  }
-}
+/* Wave 10: oo_control_block_free deleted — it freed live blocks with no
+ * count check (release-after-free exited 0, fail-open heap corruption).
+ * Zero callers in any checkout; correct teardown is release. */
 
 OoWeakRef oo_weak_new(long long cap) {
   oo_cap_require_alloc(cap, "weak_new");
