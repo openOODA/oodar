@@ -142,6 +142,19 @@ jobs:
             echo "[blackbox-gate OK] $count probes deterministic across double-run; no flight log (no crashes recorded)"
           fi
 
+  # Immune system: every challenger runs twice in fresh processes with
+  # byte-identical stdout+stderr+exit (crypto-token tests: exit-identical).
+  # AI writes the code; this machinery makes it trustworthy.
+  immune-system:
+    needs: [verify]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: double-run identical-twice harness
+        run: |
+          chmod +x scripts/double_run.sh
+          ./scripts/double_run.sh
+
   auto-release:
     needs: [verify, build, blackbox-gate]
     uses: openOODA/openOODA/.github/workflows/auto-release.yml@vgovernance-v1.0.12

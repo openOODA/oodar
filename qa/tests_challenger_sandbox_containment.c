@@ -69,7 +69,7 @@ int main(void) {
   char tmpdir[256];
   snprintf(tmpdir, sizeof(tmpdir), "/tmp/oo_containment_%d", (int)getpid());
   if (mkdir(tmpdir, 0700) != 0 && errno != EEXIST) {
-    printf("FAIL\tsandbox_containment\tmkdir(%s) failed: %s\n", tmpdir, strerror(errno));
+    printf("FAIL\tsandbox_containment\tmkdir tmpdir failed: %s\n", strerror(errno));
     return 1;
   }
 
@@ -78,7 +78,7 @@ int main(void) {
   snprintf(sentinel, sizeof(sentinel), "%s/inside.txt", tmpdir);
   int fd = open(sentinel, O_WRONLY | O_CREAT | O_TRUNC, 0600);
   if (fd < 0) {
-    printf("FAIL\tsandbox_containment\topen(%s) failed: %s\n", sentinel, strerror(errno));
+    printf("FAIL\tsandbox_containment\topen sentinel failed: %s\n", strerror(errno));
     rmdir(tmpdir);
     return 1;
   }
@@ -117,7 +117,7 @@ int main(void) {
     return 1;
   }
   close(fd);
-  printf("OK\tsandbox_containment\topen(%s) inside allowlist succeeded\n", sentinel);
+  printf("OK\tsandbox_containment\topen sentinel inside allowlist succeeded\n");
 
   /* Try to open /etc/passwd outside the allowlist. Must fail. */
   fd = open("/etc/passwd", O_RDONLY);
