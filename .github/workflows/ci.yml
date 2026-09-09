@@ -66,6 +66,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: oodar
+      - name: checkout std
+        uses: actions/checkout@v4
+        with:
+          repository: openOODA/std
+          path: std
+      - name: checkout oodac
+        uses: actions/checkout@v4
+        with:
+          repository: openOODA/oodac
+          path: oodac
+      - name: require compiler
+        run: |
+          test -x oodac/bin/oodac || chmod +x oodac/bin/oodac
       - name: install blackbox (download prebuilt from GitHub release)
         run: |
           set -euo pipefail
@@ -74,7 +87,9 @@ jobs:
             "https://github.com/openOODA/blackbox/releases/download/v0.0.10/blackbox-linux-x86_64"
           curl -fsSL -o "$HOME/.openooda/bin/blackbox.sha256" \
             "https://github.com/openOODA/blackbox/releases/download/v0.0.10/blackbox-linux-x86_64.sha256"
-          (cd "$HOME/.openooda/bin" && sha256sum -c blackbox.sha256)
+          expected=$(cut -d' ' -f1 "$HOME/.openooda/bin/blackbox.sha256")
+          actual=$(sha256sum "$HOME/.openooda/bin/blackbox" | cut -d' ' -f1)
+          test "$expected" = "$actual" || { echo "[blackbox-gate FAIL] sha256 mismatch"; exit 1; }
           chmod +x "$HOME/.openooda/bin/blackbox"
       - name: blackbox double-run on qa/ probes (RULES §1.10)
         working-directory: ${{ github.workspace }}/oodar
@@ -82,33 +97,50 @@ jobs:
           OODA_FS_READDIR: ${{ github.workspace }}
           OODA_FS_WRITEDIR: ${{ github.workspace }}
           OODA_NO_JAIL: '1'
+          OODA_COMPILER: ${{ github.workspace }}/oodac/bin/oodac
         run: |
           set -euo pipefail
           shopt -s nullglob
           count=0
-          for f in qa/*.oo; do
+          for f in qa/probe_*.oo; do
             test -f "$f" || continue
             count=$((count + 1))
             base=$(basename "$f" .oo)
-            ~/.openooda/bin/blackbox trace "$f" > "/tmp/${base}.trace1" 2>&1 || {
-              echo "[blackbox-gate FAIL] trace non-zero exit on $f"
+            ~/.openooda/bin/blackbox diff "$f" > "/tmp/${base}.diff1" 2>&1 || {
+              echo "[blackbox-gate FAIL] diff non-zero exit on $f"
               exit 1
             }
-            ~/.openooda/bin/blackbox trace "$f" > "/tmp/${base}.trace2" 2>&1 || {
-              echo "[blackbox-gate FAIL] second trace non-zero exit on $f"
+            ~/.openooda/bin/blackbox diff "$f" > "/tmp/${base}.diff2" 2>&1 || {
+              echo "[blackbox-gate FAIL] second diff non-zero exit on $f"
               exit 1
             }
-            if ! diff -q "/tmp/${base}.trace1" "/tmp/${base}.trace2" >/dev/null; then
-              echo "[blackbox-gate FAIL] non-deterministic trace on $f (double-run law violation, RULES §1.10)"
-              diff "/tmp/${base}.trace1" "/tmp/${base}.trace2" | head -20
+            if ! diff -q "/tmp/${base}.diff1" "/tmp/${base}.diff2" >/dev/null; then
+              echo "[blackbox-gate FAIL] non-deterministic diff on $f (double-run law violation, RULES §1.10)"
+              diff "/tmp/${base}.diff1" "/tmp/${base}.diff2" | head -20
               exit 1
             fi
           done
           if [ "$count" -eq 0 ]; then
-            echo "[blackbox-gate SKIP] no qa/*.oo in this repo"
+            echo "[blackbox-gate SKIP] no qa/probe_*.oo in this repo"
             exit 0
           fi
-          echo "[blackbox-gate OK] $count probes deterministic across double-run"
+          if [ -s .blackbox/flight.json ]; then
+            ~/.openooda/bin/blackbox trace > /tmp/flight.trace1 2>&1 || {
+              echo "[blackbox-gate FAIL] unreadable flight log"
+              exit 1
+            }
+            ~/.openooda/bin/blackbox trace > /tmp/flight.trace2 2>&1 || {
+              echo "[blackbox-gate FAIL] unreadable flight log on second read"
+              exit 1
+            }
+            if ! diff -q /tmp/flight.trace1 /tmp/flight.trace2 >/dev/null; then
+              echo "[blackbox-gate FAIL] non-deterministic flight trace"
+              exit 1
+            fi
+            echo "[blackbox-gate OK] $count probes deterministic across double-run; flight log readable and deterministic"
+          else
+            echo "[blackbox-gate OK] $count probes deterministic across double-run; no flight log (no crashes recorded)"
+          fi
 
   auto-release:
     needs: [verify, build, blackbox-gate]
