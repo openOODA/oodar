@@ -66,11 +66,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: oodar
-      - name: install openOODA toolchain
+      - name: install blackbox (download prebuilt from GitHub release)
         run: |
           set -euo pipefail
-          curl -fsSL https://openooda.org/install.sh | bash
-          echo "$HOME/.openooda/bin" >> "$GITHUB_PATH"
+          mkdir -p "$HOME/.openooda/bin"
+          curl -fsSL -o "$HOME/.openooda/bin/blackbox" \
+            "https://github.com/openOODA/blackbox/releases/download/v0.0.10/blackbox-linux-x86_64"
+          curl -fsSL -o "$HOME/.openooda/bin/blackbox.sha256" \
+            "https://github.com/openOODA/blackbox/releases/download/v0.0.10/blackbox-linux-x86_64.sha256"
+          (cd "$HOME/.openooda/bin" && sha256sum -c blackbox.sha256)
+          chmod +x "$HOME/.openooda/bin/blackbox"
       - name: blackbox double-run on qa/ probes (RULES §1.10)
         working-directory: ${{ github.workspace }}/oodar
         env:
