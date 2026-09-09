@@ -112,7 +112,7 @@ jobs:
 
   auto-release:
     needs: [verify, build, blackbox-gate]
-    uses: openOODA/openOODA/.github/workflows/auto-release.yml@main
+    uses: openOODA/openOODA/.github/workflows/auto-release.yml@vgovernance-v1.0.12
     with:
       artifact_pattern: 'release-assets-*'
       target_tag: ${{ inputs.target_tag || '' }}
