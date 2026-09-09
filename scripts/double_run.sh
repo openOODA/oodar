@@ -13,8 +13,11 @@ PASS_N=0
 say() { printf '[double-run] %s\n' "$*"; }
 
 # Ensure binaries exist (also proves the suite passes once via make test).
-make -C scripts test > /tmp/oodar_doublerun_maketest.log 2>&1 \
-  || { say "FAIL: make test failed (see /tmp/oodar_doublerun_maketest.log)"; exit 1; }
+if ! make -C scripts test > /tmp/oodar_doublerun_maketest.log 2>&1; then
+  say "FAIL: make test failed; last 30 lines:"
+  tail -n 30 /tmp/oodar_doublerun_maketest.log
+  exit 1
+fi
 say "make test green; starting identical-twice loop"
 
 run_twice() {
