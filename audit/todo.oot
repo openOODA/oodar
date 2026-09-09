@@ -244,3 +244,23 @@ No new cap, no signature change. `VERSION` `4.1.0` `api_surface=100`, `CHANGES.m
   fail-closed or zero ambient authority.
 - A Wave 4 item still open: no “audit closed” claim.
 - Wave 7 items ship only with a Floor bump and consumer rebuild.
+
+# Wave 10 — 2026-09-09 hostile memory-probe audit (Muse)
+- `make test` was RED on main: lint-cap-table failed on TLS grantee
+  `std/net/http.oo:77` (sibling repo, unresolvable from OODAR_REPO root).
+  Fixed: grantee now `net/tls.c (oo_tls_connect requires TCP cap)` — the
+  in-repo enforcement point; std consumer preserved in note. Verified
+  `std/net/http.oo:77` is exactly `http_fetch_tls` before moving it.
+- Full suite after fix: `make test` exit 0, 73 OK/PASS, zero FAIL.
+- Hostile probe (/tmp/oodar_probe.c, 6 cases, fork-isolated): 5/6 hold —
+  cap0 alloc refused, write-after-free refused, double-free silent no-op,
+  OOB write refused, forged-pointer refused.
+- OPEN: `oo_control_block_free` frees a live block with no count check;
+  a subsequent `oo_control_block_release` on the dead block exits 0
+  (fail-open: atomic ops + conditional second free on freed memory).
+  Reachable today only via extern-past-the-header (not in oodar.h), but
+  liboodar.a exports all globals so a hostile C author can link it.
+  Safety currently rests on the checker never emitting an imbalanced
+  release — the exact runtime/checker seam. Fix: guard or unexport.
+- RESIDUAL (accepted): shipped liboodar.a builds with -fno-stack-protector
+  (repro determinism vs canaries tradeoff, scripts/repro_build.sh:96).

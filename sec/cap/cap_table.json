@@ -296,8 +296,8 @@
       "parent_rights_hex": "20000",
       "category": "attenuated",
       "language_cap": "TlsCap",
-      "note": "TlsCap is language-only attenuation over TcpCap; no new substrate bit, lattice remains 20+26",
-      "grantee": "std/net/http.oo:77 http_fetch_tls",
+      "note": "TlsCap is language-only attenuation over TcpCap; no new substrate bit, lattice remains 20+26. Language consumer: std/net/http.oo:77 http_fetch_tls (sibling repo, not lint-resolvable).",
+      "grantee": "net/tls.c (oo_tls_connect requires TCP cap)",
       "require": "oo_cap_attenuate_v2_ok"
     }
   ]
