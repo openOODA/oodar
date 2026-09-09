@@ -2,7 +2,7 @@
  * ZT path A: process-policy getenv is fail-closed for non OODA_/OO_/PWD keys.
  * Product env_get (oo_env_get) still requires EnvCap.
  * oo_child_filter_env scrubs the child's environ to OODA_/OODAC_/OO_/PWD keys
- * only and forces PATH=/usr/bin:/bin. PWD is preserved (non-secret ambient
+ * only and forces PATH=/usr/local/bin:/usr/bin:/bin. PWD is preserved (non-secret ambient
  * CWD state; spawned tools like `ooda fix` anchor relative writes to it;
  * writes stay jail-checked). oo_policy_write_on / oo_is_policy_path
  * gate the policy-path check used by fs.c and fs_dir.c. */
@@ -22,7 +22,11 @@ const char *oo_process_policy_getenv(const char *key) {
   return getenv(key);
 }
 
-/* Child of sys_exec / sys_spawn: keep OODA_/OO_/PWD keys only, then PATH=/usr/bin:/bin. */
+/* Child of sys_exec / sys_spawn: keep OODA_/OO_/PWD keys only, then a fixed
+ * PATH of /usr/local/bin:/usr/bin:/bin (Debian convention order). Fixed, not
+ * inherited, so builds stay reproducible; /usr/local/bin covers toolchain
+ * images whose cc lives outside /usr/bin. The Landlock jail already allowlists
+ * everything beneath /usr, so this grants no new filesystem reach. */
 void oo_child_filter_env(void) {
   extern char **environ;
   char **src;
@@ -60,7 +64,7 @@ void oo_child_filter_env(void) {
     newenv[n] = NULL;
     environ = newenv;
   }
-  setenv("PATH", "/usr/bin:/bin", 1);
+  setenv("PATH", "/usr/local/bin:/usr/bin:/bin", 1);
 }
 
 int oo_policy_write_on(void) {
