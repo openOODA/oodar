@@ -39,18 +39,25 @@ OoStr oo_read_stdin(long long cap) {
     if (got < 1024) break;
   }
   {
+    /* Wrap into a real refcounted OoStr: a raw malloc buffer has no
+     * OoStrHeader, so retain/release on it smashes malloc metadata. */
     OoStr r;
-    r.data = buf;
+    r.data = oo_str_alloc_payload(n);
+    memcpy(r.data, buf, n);
     r.len = (long long)n;
+    free(buf);
     return r;
   }
 }
 
-/* Non-blocking stdin read for the LSP stdio loop.
+/* Non-blocking stdin read for the stdio loops.
    Returns Result<String, String>:
      ok=1, val=<chunk> when data is available.
-     ok=0, val="" when the poll timed out, EOF was reached, or read() failed.
-   v3.0.0: cap-gated. */
+     ok=1, val="" on poll timeout (no data yet; keep polling).
+     ok=0 (Err) on EOF, read() failure, or allocation failure.
+   v3.0.0: cap-gated.
+   v3.0.1: timeout and EOF no longer share ok=0. The LSP loop used to
+     break on every idle poll; now only EOF breaks it. */
 OoResS oo_read_stdin_chunk(long long cap, long long timeout_ms) {
   struct pollfd pfd;
   oo_cap_require_fsread(cap, "read_stdin_chunk");
@@ -59,12 +66,20 @@ OoResS oo_read_stdin_chunk(long long cap, long long timeout_ms) {
   int rc = poll(&pfd, 1, (int)timeout_ms);
   if (rc <= 0) {
     OoStr empty = oo_str_lit("");
+    OoResS r = { .ok = 1, .val = empty };
+    return r;
+  }
+  if (pfd.revents & (POLLERR | POLLNVAL)) {
+    OoStr empty = oo_str_lit("");
     OoResS r = { .ok = 0, .val = empty };
     return r;
   }
-  if (!(pfd.revents & POLLIN)) {
+  /* POLLIN and/or POLLHUP: attempt the read. A closed writer with
+   * buffered bytes still reports POLLHUP, so only a short read proves
+   * EOF. A pure timeout never reaches here (rc <= 0 above). */
+  if (!(pfd.revents & (POLLIN | POLLHUP))) {
     OoStr empty = oo_str_lit("");
-    OoResS r = { .ok = 0, .val = empty };
+    OoResS r = { .ok = 1, .val = empty };
     return r;
   }
   char *buf = (char *)malloc(4096);
@@ -80,9 +95,13 @@ OoResS oo_read_stdin_chunk(long long cap, long long timeout_ms) {
     OoResS r = { .ok = 0, .val = empty };
     return r;
   }
+  /* Wrap into a real refcounted OoStr: a raw malloc buffer has no
+   * OoStrHeader, so retain/release on it smashes malloc metadata. */
   OoStr chunk;
-  chunk.data = buf;
+  chunk.data = oo_str_alloc_payload((size_t)got);
+  memcpy(chunk.data, buf, (size_t)got);
   chunk.len = (long long)got;
+  free(buf);
   OoResS r = { .ok = 1, .val = chunk };
   return r;
 }

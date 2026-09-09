@@ -253,7 +253,8 @@ CHALLENGERS := tests_challenger_contract tests_challenger_sys tests_challenger_w
 	tests_challenger_cap_threat tests_challenger_differential_cap \
 	tests_challenger_actor_race tests_fuzz_smoke \
 	tests_challenger_proc_mem_leak tests_challenger_sandbox_containment \
-	tests_challenger_env_pwd tests_wal_append_sync tests_ffi_call
+	tests_challenger_env_pwd tests_wal_append_sync tests_ffi_call \
+	tests_stdin_owned_str
 
 $(TEST_DIR):
 	@mkdir -p $@
