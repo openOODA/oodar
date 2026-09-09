@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <sys/stat.h>
+#include <errno.h>
 #include "../oodar.h"
 
 static int fails = 0;
@@ -43,6 +45,11 @@ int main(void) {
   setenv("OODA_NO_JAIL", "1", 1);
   CHECK(run_cap0(), "cap=0 must fail closed");
   long long cap = oo_cap_grant_fs();
+  /* Fresh runners (CI) have no /tmp/ooda_write; create it (EEXIST is fine). */
+  if (mkdir("/tmp/ooda_write", 0700) != 0 && errno != EEXIST) {
+    fprintf(stderr, "FAIL\twal_append_sync\tmkdir parent\n");
+    return 1;
+  }
   char path[256];
   snprintf(path, sizeof path, "/tmp/ooda_write/wal_sync_%d.log", (int)getpid());
   OoStr p = { path, (long long)strlen(path) };
