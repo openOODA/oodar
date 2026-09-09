@@ -53,6 +53,7 @@ double oo_pow(double base, double expn);
 OoResS oo_read_file(long long cap, OoStr path);
 OoResS oo_read_file_pc(OoPathCap pc, OoStr path);
 OoResV oo_write_file(long long cap, OoStr path, OoStr content);
+OoResV oo_file_append_sync(long long cap, OoStr path, OoStr content);
 int oo_path_exists(long long cap, OoStr path);
 int oo_path_exists_pc(OoPathCap pc, OoStr path);
 long long oo_file_size(long long cap, OoStr path);

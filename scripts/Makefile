@@ -346,7 +346,7 @@ CHALLENGERS := tests_challenger_contract tests_challenger_sys tests_challenger_w
 	tests_challenger_cap_threat tests_challenger_differential_cap \
 	tests_challenger_actor_race tests_fuzz_smoke \
 	tests_challenger_proc_mem_leak tests_challenger_sandbox_containment \
-	tests_challenger_env_pwd
+	tests_challenger_env_pwd tests_wal_append_sync
 
 $(TEST_DIR):
 	@mkdir -p $@
@@ -372,4 +372,6 @@ test: lint $(addprefix $(TEST_DIR)/,$(CHALLENGERS))
 	@$(TEST_DIR)/tests_challenger_proc_mem_leak
 	@$(TEST_DIR)/tests_challenger_sandbox_containment
 	@$(TEST_DIR)/tests_challenger_env_pwd
+	@$(TEST_DIR)/tests_wal_append_sync
+	@$(TEST_DIR)/tests_wal_append_sync
 	@echo "TEST OK"

@@ -9,10 +9,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
 /* internal helpers (defined in fs_lowlevel.c) */
 int to_cpath(OoStr p, char *c, int max);
 int fs_read_confined(const char *cpath);
 int writedir_open_trunc(const char *path);
+int writedir_open_append(const char *path);
 int fs_open_ro_nofollow(const char *path);
 int path_under_writedir(const char *path, const char *dir);
 int oo_is_policy_path(const char *p);
@@ -51,6 +54,35 @@ FILE *f = fdopen(fd, "wb"); if (!f) { close(fd); return r; }
 size_t want = content.data ? (size_t)content.len : 0;
 int bad = (want && fwrite(content.data, 1, want, f) != want) || ferror(f);
 if (fclose(f) != 0) bad = 1;
+if (!bad) { r.ok = 1; r.err = oo_str_lit(""); }
+return r;
+}
+/* WAL durability primitive: O_APPEND write of the full buffer, then fsync
+ * before return. Ok means bytes are on stable storage; a later SIGKILL
+ * cannot lose them. Partial writes and torn tails are the recoverer's job
+ * to refuse (checksums), never this function's to hide: any short write,
+ * fsync error, or close error fails closed. */
+OoResV oo_file_append_sync(long long cap, OoStr path, OoStr content) {
+oo_cap_require_fswrite(cap, "file_append_sync"); OoResV r={0, oo_str_lit("file_append_sync failed")};
+char cpath[PATH_MAX];
+if (!to_cpath(path, cpath, PATH_MAX)) return r;
+if (!fs_jail_disabled()) {
+const char *dir = oo_process_policy_getenv("OODA_FS_WRITEDIR");
+if (!dir || !dir[0] || !path_under_writedir(cpath, dir)) {
+r.err = oo_str_lit("file_append_sync denied: path not under OODA_FS_WRITEDIR"); return r; } }
+if (content.len < 0) return r;
+if (oo_is_policy_path(cpath) && !oo_policy_write_on()) {
+r.err = oo_str_lit("file_append_sync denied: policy path"); return r; }
+int fd = writedir_open_append(cpath); if (fd < 0) return r;
+size_t want = content.data ? (size_t)content.len : 0;
+size_t off = 0; int bad = 0;
+while (off < want) {
+ssize_t n = write(fd, content.data + off, want - off);
+if (n < 0) { if (errno == EINTR) continue; bad = 1; break; }
+if (n == 0) { bad = 1; break; }
+off += (size_t)n; }
+if (!bad && fsync(fd) != 0) bad = 1;
+if (close(fd) != 0) bad = 1;
 if (!bad) { r.ok = 1; r.err = oo_str_lit(""); }
 return r;
 }
