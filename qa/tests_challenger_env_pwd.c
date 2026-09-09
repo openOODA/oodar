@@ -62,7 +62,7 @@ static void child_filter_body(void) {
   if (getenv("EVIL_E_DROP") != NULL) bad++;
   if (getenv("HOME") != NULL) bad++;
   const char *path = getenv("PATH");
-  if (!path || strcmp(path, "/usr/bin:/bin") != 0) bad++;
+  if (!path || strcmp(path, "/usr/local/bin:/usr/bin:/bin") != 0) bad++;
   _exit(bad ? 1 : 0);
 }
 
