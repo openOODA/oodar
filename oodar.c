@@ -48,6 +48,7 @@
 #include "net/fetch.c"
 #include "app/xlang/ffi_sec.c"
 #include "app/xlang/ffi.c"
+#include "app/xlang/ffi_call.c"
 #include "sec/crypto/hash.c"
 #include "fs/os/netfloor.c"
 #include "fs/os/netfloor_tcp.c"

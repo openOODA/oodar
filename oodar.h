@@ -97,6 +97,7 @@ OoResS oo_open(long long cap, OoStr key, OoStr nonce, OoStr ct, OoStr tag, OoStr
 OoResS oo_dlopen(long long cap, OoStr path);
 OoResS oo_dlsym(long long cap, OoStr handle, OoStr name);
 OoResS oo_dlclose(long long cap, OoStr handle);
+OoResS oo_ffi_call(long long cap, OoStr sym, OoStr rspec, OoStr aspec, OoStr argv);
 OoStr oo_host_ast_dump(long long cap, OoStr path);
 OoStr oo_host_check(long long cap, OoStr path);
 OoStr oo_host_token_dump(long long cap, OoStr path);

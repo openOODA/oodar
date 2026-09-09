@@ -121,6 +121,7 @@ UMBRELLA_SRCS := \
 	net/fetch.c \
 	app/xlang/ffi_sec.c \
 	app/xlang/ffi.c \
+	app/xlang/ffi_call.c \
 	sec/crypto/hash.c \
 	fs/os/netfloor.c \
 	fs/os/netfloor_tcp.c \
@@ -346,7 +347,7 @@ CHALLENGERS := tests_challenger_contract tests_challenger_sys tests_challenger_w
 	tests_challenger_cap_threat tests_challenger_differential_cap \
 	tests_challenger_actor_race tests_fuzz_smoke \
 	tests_challenger_proc_mem_leak tests_challenger_sandbox_containment \
-	tests_challenger_env_pwd tests_wal_append_sync
+	tests_challenger_env_pwd tests_wal_append_sync tests_ffi_call
 
 $(TEST_DIR):
 	@mkdir -p $@
@@ -374,4 +375,6 @@ test: lint $(addprefix $(TEST_DIR)/,$(CHALLENGERS))
 	@$(TEST_DIR)/tests_challenger_env_pwd
 	@$(TEST_DIR)/tests_wal_append_sync
 	@$(TEST_DIR)/tests_wal_append_sync
+	@$(TEST_DIR)/tests_ffi_call
+	@$(TEST_DIR)/tests_ffi_call
 	@echo "TEST OK"
