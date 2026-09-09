@@ -57,8 +57,56 @@ jobs:
           path: dist/
           if-no-files-found: error
 
+  blackbox-gate:
+    needs: [verify]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout oodar
+        uses: actions/checkout@v4
+        with:
+          path: oodar
+      - name: install openOODA toolchain
+        run: |
+          set -euo pipefail
+          curl -fsSL https://openooda.org/install.sh | bash
+          echo "$HOME/.openooda/bin" >> "$GITHUB_PATH"
+      - name: blackbox double-run on qa/ probes (RULES §1.10)
+        working-directory: ${{ github.workspace }}/oodar
+        env:
+          OODA_FS_READDIR: ${{ github.workspace }}
+          OODA_FS_WRITEDIR: ${{ github.workspace }}
+          OODA_NO_JAIL: '1'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          count=0
+          for f in qa/*.oo; do
+            test -f "$f" || continue
+            count=$((count + 1))
+            base=$(basename "$f" .oo)
+            ~/.openooda/bin/blackbox trace "$f" > "/tmp/${base}.trace1" 2>&1 || {
+              echo "[blackbox-gate FAIL] trace non-zero exit on $f"
+              exit 1
+            }
+            ~/.openooda/bin/blackbox trace "$f" > "/tmp/${base}.trace2" 2>&1 || {
+              echo "[blackbox-gate FAIL] second trace non-zero exit on $f"
+              exit 1
+            }
+            if ! diff -q "/tmp/${base}.trace1" "/tmp/${base}.trace2" >/dev/null; then
+              echo "[blackbox-gate FAIL] non-deterministic trace on $f (double-run law violation, RULES §1.10)"
+              diff "/tmp/${base}.trace1" "/tmp/${base}.trace2" | head -20
+              exit 1
+            fi
+          done
+          if [ "$count" -eq 0 ]; then
+            echo "[blackbox-gate SKIP] no qa/*.oo in this repo"
+            exit 0
+          fi
+          echo "[blackbox-gate OK] $count probes deterministic across double-run"
+
   auto-release:
-    needs: [verify, build]
+    needs: [verify, build, blackbox-gate]
     uses: openOODA/openOODA/.github/workflows/auto-release.yml@main
     with:
       artifact_pattern: 'release-assets-*'
