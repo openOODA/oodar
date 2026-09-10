@@ -11,7 +11,9 @@
 #if defined(__linux__)
 #include <linux/filter.h>
 #include <linux/seccomp.h>
+#include <linux/audit.h>
 #include <fcntl.h>
+#include "../seccomp_audit_arch.h"
 #endif
 
 #ifndef OODAR_CAP_NET
@@ -85,6 +87,16 @@ static int capf_install(uint32_t net_act, uint32_t proc_act, uint32_t clone3_act
   int rc;
 #define F_STMT(c, k) do { f[n++] = (struct sock_filter)BPF_STMT((c), (k)); } while (0)
 #define F_JUMP(c, k, jt, jf) do { f[n++] = (struct sock_filter)BPF_JUMP((c), (k), (jt), (jf)); } while (0)
+#ifndef OO_AUDIT_ARCH
+  (void)net_act; (void)proc_act; (void)clone3_act; (void)fsw_ok;
+  return -1; /* no AUDIT_ARCH for this build arch — a filter that cannot
+              * assert arch is bypassable via compat ABIs; refuse. */
+#endif
+#ifdef OO_AUDIT_ARCH
+  F_STMT(BPF_LD | BPF_W | BPF_ABS, (uint32_t)offsetof(struct seccomp_data, arch));
+  F_JUMP(BPF_JMP | BPF_JEQ | BPF_K, OO_AUDIT_ARCH, 1, 0);
+  F_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS);
+#endif
   F_STMT(BPF_LD | BPF_W | BPF_ABS, (uint32_t)offsetof(struct seccomp_data, nr));
 #ifdef __NR_socket
   F_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_socket, 0, 1);

@@ -129,13 +129,28 @@ void sand_update_status_from_config(const oo_sandbox_config_t *config, oo_sandbo
 #ifndef SECCOMP_RET_ERRNO
 #define SECCOMP_RET_ERRNO 0x00050000U
 #endif
+#ifndef SECCOMP_RET_KILL_PROCESS
+#define SECCOMP_RET_KILL_PROCESS 0x80000000U
+#endif
+
+#include "../../seccomp_audit_arch.h"
 
 /* Build and install a seccomp BPF filter that gates network, fork,
  * and exec syscalls based on the per-axis actions passed in. This
  * is the legacy apply path (oo_sandbox_apply) that pre-dates the
  * cap-based oodar_cap_apply_seccomp_filter used by the matrix path. */
 int sand_install_seccomp(uint32_t net_act, uint32_t proc_act, uint32_t clone3_act) {
+#ifndef OO_AUDIT_ARCH
+  (void)net_act; (void)proc_act; (void)clone3_act;
+  return -1; /* no AUDIT_ARCH for this build arch — a filter that cannot
+              * assert arch is bypassable via compat ABIs; refuse. */
+#endif
   struct sock_filter f[] = {
+#ifdef OO_AUDIT_ARCH
+    BPF_STMT(BPF_LD | BPF_W | BPF_ABS, (uint32_t)offsetof(struct seccomp_data, arch)),
+    BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, OO_AUDIT_ARCH, 1, 0),
+    BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
+#endif
     BPF_STMT(BPF_LD | BPF_W | BPF_ABS, (uint32_t)offsetof(struct seccomp_data, nr)),
 #ifdef __NR_socket
     BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_socket, 0, 1),

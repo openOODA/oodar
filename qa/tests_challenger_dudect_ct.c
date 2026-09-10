@@ -1,11 +1,15 @@
 /* qa/tests_challenger_dudect_ct.c — Tier-5 constant-time dudect probe.
  *
  * v3.4.2 round-6 audit fix: this test now exercises REAL cap-protected
- * crypto code (crypto_hmac_sha256_internal + oo_cg_sign), not the
- * hand-written xor_mix_branchless proxy that was in the v2.2.0+ version.
- * The CRITICAL finding from the round-6 qa test files audit: a passing
- * dudect on a hand-written mixer gave ZERO attestation about the real
- * SHA-256/AES-GCM/oo_cg_sign code path. Now the real code is tested.
+ * crypto code (crypto_hmac_sha256_internal + crypto_aes_gcm_seal_internal),
+ * not the hand-written xor_mix_branchless proxy that was in the v2.2.0+
+ * version. The CRITICAL finding from the round-6 qa test files audit: a
+ * passing dudect on a hand-written mixer gave ZERO attestation about the
+ * real SHA-256/AES-GCM code paths. Now the real code is tested.
+ * (Round-7's "cg_sign self-vs-self |t|=22 — vacuous" note is stale: the
+ * GCM probe compares two distinct equal-length plaintexts, and the
+ * branchy negative control proves the Welch comparison discriminates —
+ * verified live 2026-09-11: HMAC |t|=34, GCM |t|=628, branchy |t|=104886.)
  * Framework pattern (ns CLOCK_MONOTONIC, CPU pinning, |t| < 4.5) is
  * preserved from qa/dudect_c_native.c. */
 #ifndef _GNU_SOURCE

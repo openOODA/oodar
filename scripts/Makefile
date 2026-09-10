@@ -48,6 +48,7 @@
 # `cd .. && pwd` only resolved correctly when make ran inside scripts/,
 # while BUILD_DIR/LIB_DIR were bare relatives that only resolved
 # correctly from the repo root — so no single CWD ever made both right.
+THIS_MAKEFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
 ifeq ($(origin REPO_ROOT),undefined)
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/..)
 endif
@@ -57,7 +58,11 @@ endif
 # ---------------------------------------------------------------------------
 CC ?= gcc
 AR ?= ar
-ARFLAGS ?= rcsD
+# Plain `=`, not `?=`: GNU make ships a built-in ARFLAGS=rv, which counts
+# as "defined" — `?=` never fired and every archive ran `ar -rv` (real
+# mtimes in the index header → non-deterministic .a, caught by `repro`).
+# Determinism is a stated invariant, so the flag is not negotiable.
+ARFLAGS = rcsD
 # CFLAGS includes -DOODAR_CRYPTO_INTERNAL so sec/cap/cap.c can call
 # crypto_secure_wipe (declared in sec/crypto/crypto_internal.h, which
 # oodar.h includes when OODAR_CRYPTO_INTERNAL is defined). The umbrella
@@ -100,7 +105,7 @@ UMBRELLA_SRCS := $(shell sed -n 's/^#include "\([^"]*\.c\)".*/\1/p' $(REPO_ROOT)
 UMBRELLA_OBJS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(UMBRELLA_SRCS))
 
 # Phony targets
-.PHONY: all clean install check perfile lint lint-anchors lint-file-size lint-cap-table adversarial test
+.PHONY: all clean install check perfile lint lint-anchors lint-file-size lint-cap-table adversarial test repro
 
 # ---------------------------------------------------------------------------
 # Default: build liboodar.a from the umbrella TU (single .o).
@@ -292,3 +297,21 @@ test: lint $(addprefix $(TEST_DIR)/,$(CHALLENGERS))
 	@$(TEST_DIR)/tests_ffi_call
 	@$(TEST_DIR)/tests_ffi_call
 	@echo "TEST OK"
+
+# repro: bit-identical build gate — "the artifact is what the source says".
+# Rebuilds liboodar.a twice from clean and compares SHA-256; any drift is a
+# hard failure. `ar rcsD` is deterministic; sources carry no __DATE__/
+# __TIME__. Scope note: this proves in-place reproducibility (same checkout
+# dir → same DW_AT_comp_dir). Cross-location reproducibility would need
+# -ffile-prefix-map and is a separate question.
+repro:
+	@set -e; \
+	$(MAKE) --no-print-directory -f $(THIS_MAKEFILE) clean >/dev/null; \
+	$(MAKE) --no-print-directory -f $(THIS_MAKEFILE) >/dev/null; \
+	h1=$$(sha256sum "$(LIB)" | cut -d' ' -f1); \
+	$(MAKE) --no-print-directory -f $(THIS_MAKEFILE) clean >/dev/null; \
+	$(MAKE) --no-print-directory -f $(THIS_MAKEFILE) >/dev/null; \
+	h2=$$(sha256sum "$(LIB)" | cut -d' ' -f1); \
+	echo "REPRO 1: $$h1"; echo "REPRO 2: $$h2"; \
+	if [ "$$h1" = "$$h2" ]; then echo "REPRO OK: liboodar.a bit-identical across clean rebuilds"; \
+	else echo "REPRO FAIL: liboodar.a differs between clean rebuilds"; exit 1; fi

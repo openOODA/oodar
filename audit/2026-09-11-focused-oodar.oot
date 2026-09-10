@@ -79,3 +79,28 @@ CWD. Verified: clean+rebuild from repo root, no overrides.
   / zero-ambient-authority wording; no "audit closed" claim yet.
 - mldsa_internal.c (627) and mlkem_internal.c (472) exceed 256 —
   documented lint exceptions; mlkem's claimed length is stale.
+
+# ## Second pass (same day): moonshot-gap fixes
+
+// F3 (MAJOR): `make repro` gate added — liboodar.a now proven
+//    bit-identical across clean rebuilds (sha256 compared, exit 1 on
+//    drift). The gate immediately caught that it did NOT hold: GNU
+//    make's built-in ARFLAGS=rv counts as "defined", so `ARFLAGS ?=
+//    rcsD` never applied — every shipped .a carried real member mtimes.
+//    ARFLAGS is now `= rcsD` (invariant, not a default). REPRO OK.
+// F4 (MAJOR, security): both seccomp filters (cap.c capf_install +
+//    sandbox_config.c sand_install_seccomp) matched native __NR_* only,
+//    with no seccomp_data.arch check — a compat-ABI syscall (int 0x80 /
+//    x32) bypassed every rule. Both now assert arch first (shared
+//    sec/seccomp_audit_arch.h); unknown build arch → refuse to install
+//    → apply reports unavailable → fail closed. Verified: full
+//    make test green including proc_mem_leak + sandbox_containment
+//    (the matrix apply path installs the asserted filter).
+// F5 (stale claim corrected): round-7 flagged the cg_sign dudect as
+//    vacuous. The current file is honest — ran it live: real
+//    hmac_sha256 |t|=34 and aes_gcm_seal |t|=628 (distinct equal-length
+//    input classes, constant-time), branchy negative control |t|=104886
+//    (the Welch comparison discriminates — a vacuous probe cannot).
+//    Fixed only the stale header comment naming oo_cg_sign.
+//    NOTE: the probe is NOT in `make test` (benchmark weight) — that is
+//    by design; it remains a manual gate.
