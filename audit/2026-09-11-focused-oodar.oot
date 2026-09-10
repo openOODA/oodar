@@ -1,0 +1,81 @@
+# FOCUSED — oodar substrate audit (v4.0.24, HEAD 228e747+fix)
+File: oodar/audit/2026-09-11-focused-oodar.oot
+
+Scope: oodar only. Method: hostile re-verification on this host —
+rebuilt liboodar.a from current source (the shipped .a was Sep 9),
+ran `make test` (3 lints + 17 challengers, contract/wal/ffi
+double-run), read the confinement + cap core by hand.
+
+# Verdict
+
+The substrate holds. `make test` green on rebuilt source: all 3
+structural lints, 67 cap=0 mutator refusals, cap_escape 0/4,
+cap_threat 0/4, pathcap, differential_cap, sandbox_containment
+(live Landlock deny on /etc/passwd), proc_mem gate, env_pwd,
+fuzz 200 iters. Cap tokens are 64-bit getentropy per process,
+pthread_once, explicit_bzero'd at exit, aborts with no fallback.
+sys_exec_wait is fork+execvp (no shell), argv per-element dup,
+child env scrubbed to OODA_/OO_/PWD with a fixed PATH. fs
+confinement canonicalizes via realpath on both sides, refuses "/"
+segments, uses dirfd-pinned openat with O_NOFOLLOW on the leaf.
+landlock_restrict.c calls the real __NR_landlock_* syscalls under
+PR_SET_NO_NEW_PRIVS.
+
+# Findings fixed in this pass
+
+F1 (MAJOR, hardening): the runtime shipped with zero stack
+canaries. `nm lib/liboodar.a` showed no __stack_chk references and
+a fresh compile confirmed it — this host's gcc defaults
+-fstack-protector OFF and the Makefile never requested it. Every
+fs-boundary function copies untrusted OoStr bytes into PATH_MAX
+stack buffers (fs_lowlevel.c to_cpath callers). Fixed:
+CFLAGS += -fstack-protector-strong (explicit, not toolchain luck).
+Rebuilt: build/oodar.o now carries __stack_chk. Suite re-green.
+
+F2 (MINOR): scripts/Makefile had no working CWD. REPO_ROOT
+defaulted to `cd ..` (right only from scripts/), while
+BUILD_DIR/LIB_DIR were bare relatives (right only from repo root).
+Result: `make -f scripts/Makefile` from the repo root resolved
+REPO_ROOT to the polyrepo root and failed; `make clean` from
+scripts/ deleted scripts/build (nothing) and left build/oodar.o
+in place — a silent clean no-op, observed live (Sep 9 object
+archived into a "fresh" lib). Fixed: both anchored on
+$(lastword $(MAKEFILE_LIST)) — every target now works from any
+CWD. Verified: clean+rebuild from repo root, no overrides.
+
+# Corrections to prior claims
+
+- std audit addendum M6 said the oo_fs_mkdir deny-vs-EEXIST
+  ordering "needs oodar to EEXIST-tolerate before the boundary
+  check". Wrong: that ordering would mint an existence oracle —
+  oo_fs_mkdir(fw, "/etc") returning Ok iff /etc is a dir leaks
+  out-of-bounds path existence, while existence probing is
+  deliberately FsReadCap+read-confine gated. Deny-first is the
+  correct fail-closed order; fs_mkdir_p's absolute-path failure is
+  intended confinement, not a runtime bug. Working convention
+  stands: workspace-relative or in-root paths only.
+
+# Hardening notes (not defects)
+
+- oo_cap_self_token(i) returns any of the 26 cap tokens by index at
+  C linkage (caps.c:182) — diagnostic surface for the differential
+  test. Unreachable from .oo (no extern syntax; FfiCap is the only
+  native-call lane and it is its own trust boundary), but a static
+  + qa-only wrapper would close the C-ABI export for free.
+- OODA_NO_JAIL=1 disables all fs confinement (fs_lowlevel.c:104)
+  and survives oo_child_filter_env (OODA_ prefix is kept), so
+  sys_exec children inherit the disabled jail. Deliberate debug
+  hatch, but worth a comment noting the propagation is intended.
+- oo_process_policy_getenv allowlists OODA_/OO_/OODACODEX/PWD and
+  oo_env_get is EnvCap-gated — but there is no oo_env_set anywhere
+  in the surface, so confined .oo code cannot set OODA_NO_JAIL
+  itself. Verified: grep finds no setenv/putenv outside the fixed
+  PATH write in the child filter.
+
+# Carried open items (from audit/todo.oot)
+
+- Wave-7 items ship only with a Floor bump (by design).
+- Wave-9 stop conditions: release notes still lack the fail-closed
+  / zero-ambient-authority wording; no "audit closed" claim yet.
+- mldsa_internal.c (627) and mlkem_internal.c (472) exceed 256 —
+  documented lint exceptions; mlkem's claimed length is stale.

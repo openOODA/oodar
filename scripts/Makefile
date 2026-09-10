@@ -44,8 +44,12 @@
 # We resolve to an absolute path early so the rules below can find the
 # .c files regardless of make's CWD.
 # ---------------------------------------------------------------------------
+# Anchor on this Makefile's own location, not the caller's CWD: the old
+# `cd .. && pwd` only resolved correctly when make ran inside scripts/,
+# while BUILD_DIR/LIB_DIR were bare relatives that only resolved
+# correctly from the repo root — so no single CWD ever made both right.
 ifeq ($(origin REPO_ROOT),undefined)
-REPO_ROOT := $(shell cd .. && pwd)
+REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/..)
 endif
 
 # ---------------------------------------------------------------------------
@@ -60,15 +64,18 @@ ARFLAGS ?= rcsD
 # build relies on the include chain; the per-file build needs the flag.
 # -include oodar.h forces oodar.h into every TU so .c files that don't
 # #include oodar.h themselves still see the type defs (e.g., OoStr).
-CFLAGS ?= -O2 -g -std=c11 -fPIC -D_GNU_SOURCE -DOODAR_CRYPTO_INTERNAL -include oodar.h
+# -fstack-protector-strong is explicit: the confinement code copies
+# untrusted OoStr bytes into PATH_MAX stack buffers, and toolchain
+# defaults vary (this host's gcc ships with the protector disabled).
+CFLAGS ?= -O2 -g -std=c11 -fPIC -fstack-protector-strong -D_GNU_SOURCE -DOODAR_CRYPTO_INTERNAL -include oodar.h
 DESTDIR ?= /usr/local
 LIBDIR ?= lib
 
 # ---------------------------------------------------------------------------
 # Output paths
 # ---------------------------------------------------------------------------
-BUILD_DIR := build
-LIB_DIR := lib
+BUILD_DIR := $(REPO_ROOT)/build
+LIB_DIR := $(REPO_ROOT)/lib
 LIB := $(LIB_DIR)/liboodar.a
 PERFILE_LIB := $(LIB_DIR)/liboodar_perfile.a
 
