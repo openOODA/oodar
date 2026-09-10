@@ -56,7 +56,10 @@ endif
 # ---------------------------------------------------------------------------
 # Toolchain configuration
 # ---------------------------------------------------------------------------
-CC ?= gcc
+# `=`, not `?=`: GNU make ships a built-in CC=cc — `?=` never fired and
+# builds ran cc (a gcc symlink on this host, but not the stated intent).
+# Command-line `make CC=clang` still overrides a file assignment.
+CC = gcc
 AR ?= ar
 # Plain `=`, not `?=`: GNU make ships a built-in ARFLAGS=rv, which counts
 # as "defined" — `?=` never fired and every archive ran `ar -rv` (real

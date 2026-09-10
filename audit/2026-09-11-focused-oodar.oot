@@ -104,3 +104,17 @@ CWD. Verified: clean+rebuild from repo root, no overrides.
 //    Fixed only the stale header comment naming oo_cg_sign.
 //    NOTE: the probe is NOT in `make test` (benchmark weight) — that is
 //    by design; it remains a manual gate.
+
+# ## Third pass: `?=` dead-default sweep (polyrepo)
+
+// The ARFLAGS=rv shadow was a class, not a fluke: `?=` never fires for
+//   variables with GNU make built-in defaults (ARFLAGS, CC, CXX, LD…).
+//   Polyrepo sweep: only two Makefiles exist — this one and
+//   install/apt/Makefile (7-line dpkg wrapper, no flag vars). No other
+//   repo carries the pattern. Same-file fix applied: `CC ?= gcc` was
+//   equally dead (builds ran `cc` — a gcc symlink here, so bit-identical
+//   verified: cc.o == gcc.o — cosmetic on this host, wrong elsewhere).
+//   CC is now `= gcc`; command-line `make CC=clang` still overrides.
+//   Effective vars verified via make -pn: CC=gcc, ARFLAGS=rcsD.
+//   repro re-run: 245c41eb… identical ×2 (hash moved vs earlier only
+//   because the F4 refactor changed the source, as it should).
