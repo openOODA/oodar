@@ -243,6 +243,7 @@ long long oo_rollback(long long cap);
 
 OoResS oo_cap_rpc_send(long long cap, OoStr payload);
 OoResS oo_cap_rpc_recv(long long cap, OoStr sealed);
+#include "sec/cap/cap_ocap_bridge.h"
 OoStr oo_read_stdin(long long cap);
 OoResS oo_read_stdin_chunk(long long cap, long long timeout_ms);
 OoStr oo_file_stamp(long long cap, OoStr path);

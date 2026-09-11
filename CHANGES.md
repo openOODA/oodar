@@ -1,5 +1,60 @@
 # Changelog
 
+## v4.3.0 — Bridge (2026-09-11 std/sec/capability → oodar OCap bridge, Phase 1)
+
+Per the 2026-09-11 NORTHSTAR-aligned refactor: the 20 NORTHSTAR language
+tokens (NORTHSTAR §1.4) are now reachable from oodar's C substrate as a
+memory-safe rights check. The bridge is additive — existing
+`oo_cap_require_*` callers don't change.
+
+### Phase 1 — Bridge infrastructure + one diagnostic path (DONE)
+
+New module `oodar/sec/cap/cap_ocap_bridge.{c,h}` (135 + 30 lines).
+Exposes two new C ABI symbols:
+- `oo_cap_check_with_ocap(cap, required_rights)` — returns 1 iff the cap
+  is a real substrate token AND its OCap rights mask is a superset of
+  `required_rights`. Returns 0 on cap=0, forge, or rights mismatch.
+- `oo_cap_ocap_rights_at(which)` — diagnostic accessor for the 26-entry
+  substrate→language mapping table.
+
+New probe `qa/tests_challenger_ocap_bridge.c` (142 lines, 4 hostile
+probes: cap=0, forge, real-token rights, subset rule). Wired into
+`CHALLENGERS` in `scripts/Makefile` and runs on `make test`.
+
+### Build pipeline
+
+`scripts/Makefile` `emit-std-ocap` target: runs `oodac check` then
+`oodac emit-c` on `std/sec/capability/ocap_to_oodar.oo`, strips lines
+1-247 (umbrella already has the runtime decls), prepends a static-inline
+shim for `oo_retain_S`/`oo_release_S`, and writes the result to
+`sec/cap/cap_bridge_emitted.c` (gitignored, build artifact only).
+Umbrella TU `oodar.c` includes the emitted C + the bridge C.
+
+### Bug fix: `make repro` recipe
+
+The `repro` recipe was calling bare `make` between clean rebuilds. After
+the `emit-std-ocap` target was added earlier in the file, that became the
+default goal — so the lib never rebuilt and sha256sum saw a missing
+file. Fixed by explicitly passing `all`. Real REPRO OK now produces
+sha256 `de3909e220c05cde2b1ddd9dedb468763b7cd274979042bc50b9f96ffee94c77`.
+
+### Lint + REPRO
+
+- 3/3 structural lints PASS (`make -C oodar/scripts lint`).
+- Probe passes double-run, exit 0: 4/4 (cap=0, forge, real-tokens,
+  subset rule).
+- REPRO OK at sha256 `de3909e2...`. 3-way distribution sync confirmed:
+  `oodar/scripts/lib/liboodar.a` ==
+  `~/.openooda/lib/liboodar.a` == `openOODA/dist/liboodar.a`.
+
+### Deferred
+
+- Phase 2 (route one existing `oo_cap_require_*` gate through both
+  paths + require agreement) and Phase 3 (route the remaining 19
+  gates) follow in the same session.
+- Phase 4 (Floor break v5.0.0) waits on muse's oodac → LLVM IR
+  migration.
+
 ## v4.2.0 — Thrust (2026-09-11 memory-safety hardening, additive)
 
 Per the 2026-09-11 memory-safety plan (6 phases). Phase 1-3 + Phase 4

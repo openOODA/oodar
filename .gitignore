@@ -9,6 +9,8 @@ scripts/build/
 scripts/lib/
 build/
 lib/
+# oodac emit-c output (regenerated per build from std/ source)
+sec/cap/cap_bridge_emitted.c
 # Zig build outputs (sec/cap/zig/, future zig/ subdirs)
 zig-out/
 .zig-cache/
