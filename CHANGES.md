@@ -396,7 +396,7 @@ probes:
 | 1. Bridge infrastructure + 4 hostile probes | DONE (v4.3.0) |
 | 2. Dual-check on `oo_cap_require_fs` | DONE (v4.4.0) |
 | 3. Dual-check on all 22 gates | DONE (v4.5.0, this commit) |
-| 4. Floor break v5.0.0 (bitmask path deprecated) | DEFERRED — muse owns oodac → LLVM IR migration |
+| 4. MAJOR break v5.0.0 (bitmask path deprecated) | DEFERRED — muse owns oodac → LLVM IR migration |
 
 All 22 gates are now defended in depth. The bitmask path remains
 the source of truth (the 26 substrate caps in `g_tok_*`); the OCap
@@ -506,7 +506,7 @@ sha256 `de3909e220c05cde2b1ddd9dedb468763b7cd274979042bc50b9f96ffee94c77`.
 - Phase 2 (route one existing `oo_cap_require_*` gate through both
   paths + require agreement) and Phase 3 (route the remaining 19
   gates) follow in the same session.
-- Phase 4 (Floor break v5.0.0) waits on muse's oodac → LLVM IR
+- Phase 4 (MAJOR break v5.0.0) waits on muse's oodac → LLVM IR
   migration.
 
 ## v4.2.0 — Thrust (2026-09-11 memory-safety hardening, additive)

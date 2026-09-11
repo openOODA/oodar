@@ -26,19 +26,15 @@ jobs:
           latest=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)
           [ -z "$latest" ] && latest="v0.1.24"
           ver=${latest#v}
-          # oodar/VERSION is a multi-line config file with `oodar=...` and
-          # `release_tag=...` fields (per RULES.oot §1.21 the file carries
-          # the runtime ABI contract, not just the version). Extract the
-          # oodar= field specifically.
+          # oodar/VERSION is a config file with `oodar=MAJOR.MINOR.PATCH`
+          # (per RULES.oot §1.21, single number per repo — semver).
           cur=$(grep -E '^oodar=' VERSION 2>/dev/null | head -n 1 | cut -d= -f2 | tr -d '\r\n ' || echo "")
           echo "latest tag: $latest -> ver $ver, current oodar= field: $cur"
           if [ "$ver" = "$cur" ]; then
             echo "VERSION already $ver — nothing to do"
             exit 0
           fi
-          # Update both `oodar=` and `release_tag=` to keep them in sync.
           sed -i "s/^oodar=.*/oodar=$ver/" VERSION
-          sed -i "s/^release_tag=.*/release_tag=$ver/" VERSION
           git config user.name "openOODA Auto-Release"
           git config user.email "ops@openooda.org"
           git add VERSION
