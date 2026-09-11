@@ -54,26 +54,44 @@ commits will migrate the other 5 GPU surface functions
 (sgemm, rmsnorm, attention, reduce_sum, rope, stencil_3d) to the
 same pattern.
 
-### Phase 4 — Zig rewrite infrastructure (DONE scaffold)
+### Phase 4 — Cap-system rewrite (DEFERRED + C fallback landed)
 
-Zig 0.14.1 installed at `/home/jeryd/.local/bin/zig`. New directory
-`sec/cap/zig/` with:
+**Original landing (this commit's first attempt)**: added three
+`.zig` files (`build.zig`, `cap_check.zig`, `cap_check_test.zig`)
+under `sec/cap/zig/`. Zig 0.14.1 installed; the cap-check unit tests
+passed (5/5 in 733µs).
 
-- `build.zig` — static lib + test target, links libc + pthread.
-- `cap_check.zig` — `oo_cap_check_bits_zig(cap: i64, want: i64) -> i32`
-  exported with C ABI. The leaf integer comparison that powers every
-  `oo_cap_require_*` gate.
-- `cap_check_test.zig` — 5 unit tests (zero / match / mismatch /
-  negative / i64 extremes). Result: **5/5 passed in 733µs**.
+**Then: violation caught**. RULES §1.14 ("All source code, tools,
+proofs, fixers, and test harnesses must use `.oo` files") and §1.23
+("oodar/* is Gen 1 C shims and Landlock sandbox — explicitly C only")
+both forbid `.zig` files in this tree. §1.14 also says "add new
+categories by RFC, not analogy" — Zig would need an RFC carve-out
+to land here.
 
-The umbrella TU does NOT yet link against `liboodar_cap_check.a`.
-A future commit will:
-1. Add the static lib to the Makefile's `LIB` deps.
-2. Wire one cap gate (e.g. `oo_cap_require_process`) to call
-   `oo_cap_check_bits_zig` from C.
-3. Migrate the other 6 cap-system .c files (`cap.c`, `cap_grant.c`,
+**Fix (this commit, after the violation was caught)**:
+- Deleted the three `.zig` files.
+- Wrote `sec/cap/cap_check_zig_fallback.c` (34 lines) — same leaf
+  bit-check semantics in plain C. The TU is included in the umbrella
+  but the function is `static`, so the symbol stays internal.
+- Updated `sec/cap/zig/ANCHOR.oo` to document the deferred RFC.
+- The Zig installation at `/home/jeryd/.local/bin/zig` is kept
+  (harmless; useful for out-of-tree tooling). The `.gitignore`
+  line for `zig-out/` and `.zig-cache/` is also kept — those are
+  build outputs that shouldn't leak to git.
+
+**What Phase 4 actually needs to land**:
+1. An RFC (`rfcs/0008-zig-carveout.oot` or similar) adding a new
+   file-extension carve-out to §1.14, OR a §1.23 amendment allowing
+   non-C source files in `oodar/`.
+2. With the carve-out, the `cap_check.zig` source can be re-added
+   and the umbrella can link `liboodar_cap_check.a`.
+3. Migrate the other 6 cap-system `.c` files (`cap.c`, `cap_grant.c`,
    `cap_alloc.c`, `cap_attenuate_path.c`, `cap_attenuate_hmac.c`,
-   `cap_ffi.c`) to Zig incrementally.
+   `cap_ffi.c`) to the new language incrementally.
+
+Until the RFC lands, **Phase 4 is a C fallback only** — the leaf
+bit-check is `sec/cap/cap_check_zig_fallback.c`, identical
+semantics, plain C.
 
 ### Phase 5 — MTE for ARM64 (spec only — no ARM64 host)
 
@@ -107,6 +125,11 @@ Per the corrected language from this session:
   any code with arbitrary memory access can construct a value with
   all bits set. The cap-system is fail-closed on absence, defended
   by Landlock as a second line.
+- **Phase 4 (Zig rewrite) did NOT land in Zig.** The first attempt
+  added three `.zig` files that violated RULES §1.14 + §1.23. The
+  fix landed a C fallback (`sec/cap/cap_check_zig_fallback.c`) and
+  documented that full Phase 4 needs an RFC for a new file-extension
+  carve-out.
 - **Phase 5 (MTE) provides no protection on x86_64.** The host CPU
   is Intel i7-10610U; no memtag in /proc/cpuinfo. The header
   compiles as no-ops; the ARM64-specific activation is a separate

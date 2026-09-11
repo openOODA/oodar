@@ -1,20 +1,31 @@
-// # sec/cap/zig — Zig rewrite of the cap-system
+// # sec/cap/zig — Phase 4 deferred to RFC
 //
-// Logline: Phase 4 of the 2026-09-11 memory-safety plan. The leaf
-//          integer comparison that powers every oo_cap_require_*
-//          gate is implemented in Zig (cap_check.zig) with bounds-
-//          checked arithmetic. C ABI export (oo_cap_check_bits_zig)
-//          keeps the rest of oodar in C. Future commits will
-//          incrementally migrate more cap-system files.
+// Logline: This directory is reserved for Phase 4 of the 2026-09-11
+//          memory-safety plan (the cap-system rewrite in a memory-
+//          safe language). It currently holds only this ANCHOR.oo;
+//          the actual implementation lives at sec/cap/cap_check_zig
+//          _fallback.c, a C-only TU that provides the same leaf
+//          bit-check function the planned Zig module would have.
 //
-// Setup:  Build with `zig build` from this directory (yields
-//         liboodar_cap_check.a static lib). Tests with `zig build
-//         test`. The umbrella TU does NOT yet link against this lib;
-//         a future commit will add the link rule + a C-side call to
-//         oo_cap_check_bits_zig from one of the existing gates.
+// Setup:  2026-09-11: a previous commit landed three .zig files
+//         here (build.zig, cap_check.zig, cap_check_test.zig) as a
+//         Phase 4 sample. This violated RULES §1.14 (file law
+//         restricts source code to .oo; .zig has no carve-out) and
+//         §1.23 (oodar/* is "Gen 1 C shims and Landlock sandbox"
+//         — explicitly C only). Those files have been deleted. The
+//         same leaf logic is now in sec/cap/cap_check_zig_fallback.c
+//         in plain C.
+//
+//         Full Phase 4 migration (rewriting cap.c, cap_grant.c,
+//         cap_alloc.c, cap_attenuate_path.c, cap_attenuate_hmac.c,
+//         cap_ffi.c in a memory-safe language) requires an RFC
+//         that adds a new file-extension carve-out to RULES §1.14.
+//         Without the RFC, no .zig / .rs / .go / .py file may
+//         land in this tree. Per §1.14: "add new categories by
+//         RFC, not analogy."
 //
 // Beats:
-//   1. cap_check.zig — oo_cap_check_bits_zig(i64, i64) -> i32.
-//   2. cap_check_test.zig — 5 unit tests (zero / match / mismatch /
-//      negative / i64 extremes).
-//   3. build.zig — static lib + test step.
+//   1. The leaf bit-check lives in sec/cap/cap_check_zig_fallback.c.
+//   2. Tests for the leaf bit-check live in qa/tests_challenger_cap_
+//      check_bits.c (planned; not yet landed).
+//   3. Full cap-system migration is deferred to the future RFC.

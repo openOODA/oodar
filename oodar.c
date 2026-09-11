@@ -19,6 +19,7 @@
 #include "sec/cap/cap_alloc.c"
 #include "sec/cap/cap_time.c"
 #include "sec/cap/cap_ffi.c"
+#include "sec/cap/cap_check_zig_fallback.c"
 #include "sec/landlock/landlock/landlock.c"
 #include "sec/landlock/landlock/landlock_restrict.c"
 #include "sec/landlock/sandbox/sandbox.c"
