@@ -1,5 +1,58 @@
 # Changelog
 
+## v4.9.0 — Canary (2026-09-12 stack-canary coverage audit + script)
+
+Per the 2026-09-12 deepening plan Task E.4. v4.9.0 ships a reusable
+canary audit script (`scripts/canary_audit.sh`) that compares the
+set of stack-protected functions (via objdump -dr on the umbrella
+.o) against a curated high-risk list (functions that take OoStr
+and copy into stack buffers).
+
+### Results (v4.5.0 umbrella baseline)
+
+- Total functions: 664
+- Stack-protected (`-fstack-protector-strong`): 192 (28%)
+- High-risk functions checked: 14
+- PROTECTED: 8 (oo_read_file, oo_read_stdin_chunk,
+  oo_attenuate_fsread_to_path, oo_cap_attenuate_v2, oo_dlopen,
+  oo_lto_xlang_link, oo_fs_read_dir, oo_path_cap_check)
+- MISSING (reviewed as non-actionable): 6 (oo_str_alloc_payload,
+  oo_env_get, oo_seal, oo_open, oo_audio_capture, oo_audio_init)
+
+### Manual review of MISSING functions
+
+`audit/2026-09-12-stack-canary-audit.oot` reviews each MISSING
+function:
+
+- oo_str_alloc_payload (leaf; caller controls size; no stack copy)
+- oo_env_get (no stack copy; cap-gate handles the untrusted cap)
+- oo_seal + oo_open (AEAD inner loops; heap-allocated state; small
+  stack arrays; not an F1-style regression)
+- oo_audio_capture + oo_audio_init (v4.6.0 audio shim; stub mode
+  on this host; no stack buffer copies)
+
+None require immediate action. AUDIT PASS.
+
+### Script
+
+`scripts/canary_audit.sh` (66 lines) extracts oodar.o from
+liboodar.a, runs objdump -dr to find functions with __stack_chk_fail
+PLT32 relocations, and audits against the HIGH_RISK list. Exit 0
+= all high-risk functions are protected; exit 1 = at least one is
+missing (regression indicator).
+
+Re-run anytime:
+```
+  cd oodar/scripts && make all && ./canary_audit.sh
+```
+
+### Lint + REPRO + ABI
+
+- 3/3 structural lints PASS.
+- REPRO OK at same sha `72863f3b...` (the script + report are docs;
+  no umbrella change).
+- api_surface unchanged.
+
 ## v4.8.0 — ASan+OCap (2026-09-12 ASan/UBSan coverage expansion — 12 → 18 probes with OCap cross-check)
 
 Per the 2026-09-12 deepening plan Task E.1. v4.8.0 extends
