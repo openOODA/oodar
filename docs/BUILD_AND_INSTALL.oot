@@ -1,8 +1,8 @@
 // # oodar/docs/BUILD_AND_INSTALL.oot — Canonical Build, Per-File Compile, Polyrepo
 //
-// Logline: oodar's build is intentionally trivial — the canonical command is `gcc oodar.c` from the repo root, the per-file compile is `gcc -c tactical/sub/file.c` for any of the 48 .c files in the umbrella, and the polyrepo convention places oodar/ as a sibling of cli/, lsp/, vscode/, and the other consumer packages; the lib artifact (liboodar.a) is a parallel build path for consumers who want to link the .o files individually.
+// Logline: oodar's build is intentionally trivial — the canonical command is `gcc oodar.c` from the repo root, the per-file compile is `gcc -c tactical/sub/file.c` for any of the 111 .c files in the umbrella, and the polyrepo convention places oodar/ as a sibling of cli/, lsp/, vscode/, and the other consumer packages; the lib artifact (liboodar.a) is a parallel build path for consumers who want to link the .o files individually.
 //
-// Setup: This file documents the build, install, and consume flows for oodar v2.1.0+. It is the authoritative reference for the canonical umbrella build, the per-file compile, the polyrepo layout, and the liboodar.a static library artifact (see scripts/Makefile).
+// Setup: This file documents the build, install, and consume flows for oodar v4.5.0. It is the authoritative reference for the canonical umbrella build, the per-file compile, the polyrepo layout, and the liboodar.a static library artifact (see scripts/Makefile).
 //
 // Beats:
 //   1. The canonical umbrella build.
@@ -23,7 +23,11 @@
 // directives. oodar.c is a "build manifest" file — it has no logic
 // of its own, only #include statements.
 //
-// The 48 .c files included by oodar.c are (in order, per oodar.c:13-60):
+// The 111 .c files included by oodar.c are listed in dependency order
+// at oodar.c:13-260. They are not enumerated here — see the umbrella
+// source for the current order. The historical v2.1.0 file list (48
+// files) is preserved in git history at commits prior to the v2.3.0
+// file-split + the subsequent version bumps (v3.0.0 - v4.5.0).
 //
 //   sec/cap/caps.c
 //   sec/landlock/landlock.c
@@ -91,7 +95,7 @@
 
 # === Beat 2: The per-file compile ===
 
-// Each of the 48 .c files in the umbrella can be compiled
+// Each of the 111 .c files in the umbrella can be compiled
 // individually with `gcc -c`. This is the per-file compile path,
 // used when a consumer wants to inspect a single TU, run a sanitizer
 // on it, or link a subset of the runtime.
@@ -170,8 +174,8 @@
 //
 //   cd scripts && make
 //
-// (or `make -C scripts`). The Makefile compiles each of the 48
-// .c files in the umbrella to .o, then archives them with
+// (or `make -C scripts`). The Makefile compiles the umbrella
+// to a single .o via `gcc -c oodar.c`, then archives it with
 // `ar rcs liboodar.a <sorted .o files>`. The lib is emitted to
 // scripts/lib/liboodar.a (or a similar known location; see
 // scripts/Makefile for the exact path).
@@ -206,7 +210,7 @@
 //
 // All three paths produce a binary with the same set of oo_*
 // symbols. The choice is a build-system preference, not an ABI
-// preference. v2.1.0+ keeps all three paths ABI-compatible —
+// preference. v4.5.0+ keeps all three paths ABI-compatible —
 // switching between them does NOT change the binary's runtime
 // behavior.
 //

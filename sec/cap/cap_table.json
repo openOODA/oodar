@@ -1,6 +1,6 @@
 {
   "_comment": "The canonical cap bit-table for oodar. The lsp verifier (lsp/methods/lsp_definition.oo) and oodac (oodac/emit/c) read this file to know the cap bit positions, names, and which caps are implemented (vs. future-state reserved). The C-level truth is sec/cap/caps.h; this JSON is the structural truth; the regeneration script is scripts/gen_cap_table.py.",
-  "_version": "3.4.2",
+  "_version": "4.5.0",
   "_generated_from": "sec/cap/caps.h",
   "cap_count": 26,
   "cap_count_implemented": 20,

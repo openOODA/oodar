@@ -1,5 +1,14 @@
 // # oodar Security Substrate Audit TLDR (SUPERSEDED by audit/round7.oot)
 //
+// ── HISTORICAL SNAPSHOT (v2.1.0) ──
+// This was the v2.1.0 substrate audit TLDR. Superseded first by
+// audit/round7.oot (v3.4.2) and now by audit/2026-09-11-focused-oodar.oot
+// (v4.0.24). For the current oodar state, see docs/SECURITY_MODEL.oot.
+// The 3 first-principles fixes + 3 residuals documented here are
+// historical; the current residuals are tracked in CHANGES.md and the
+// round7 + 2026-09-11 follow-ups. This file is preserved as a
+// historical record; do not edit.
+//
 // Logline: 8-Dimensional Red Team audit of the oodar security substrate (Landlock FS sandbox, capability-gated POSIX shims, dudect constant-time probes, live-RAM proc_mem reader). Documents the 3 in-scope first-principles fixes applied, the 3 residual structural concerns, and the 256-line-cap violation inventory for the C source tree at v2.1.0.
 //
 // Setup: This is a project documentation file (openOODA/oodar/) at the strategic governance plane. The audit covers 5 critical C source files (sec/landlock/landlock.c, sec/landlock/sandbox.c, sec/cap/caps.c, qa/dudect_c_native.c, sec/landlock/proc_mem.c) plus a survey of the 48 umbrella .c files included by oodar.c across the 6-subdir layout (sec/ fs/ net/ hw/ app/ core/).

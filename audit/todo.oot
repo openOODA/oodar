@@ -1,5 +1,13 @@
 # TODO — oodar v3.4.2 round-7 execution list
 File: oodar/audit/todo.oot
+#
+# ── HISTORICAL SNAPSHOT (v3.4.2 → v4.0.0 → v4.1.0) ──
+# This was the execution list for the round-7 audit. Waves 1-7 landed
+# in v4.0.0 (Floor) and v4.1.0 (Thrust). All listed items are closed
+# and verified in CHANGES.md. The api_surface=100 claim at line 230 is
+# historical — current api_surface is 110 (see VERSION). For the current
+# oodar state, see docs/SECURITY_MODEL.oot + docs/TESTING.oot.
+# This file is preserved as a historical record; do not edit.
 
 Executed 2026-09-04 in oodar v4.0.0 Floor. Waves 1-7 landed.
 Hostile tests: qa/tests_challenger_wave1.c, wave3.c, extended contract (67),

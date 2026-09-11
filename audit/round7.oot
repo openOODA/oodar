@@ -1,5 +1,18 @@
 # ROUND7 — oodar 8D substrate audit (v3.4.2)
 File: oodar/audit/round7.oot
+#
+# ── HISTORICAL SNAPSHOT (v3.4.2, 2026-09-04) ──
+# This audit captured the oodar substrate state at v3.4.2. Subsequent
+# versions (v3.4.4, v4.0.0, v4.1.0, v4.2.0, v4.3.0, v4.4.0, v4.5.0)
+# have landed: 14 CRITICAL/HIGH items below are now closed (verified
+# in CHANGES.md). For the current oodar state, see:
+#   - docs/SECURITY_MODEL.oot (current cap model)
+#   - docs/CAPABILITIES_TABLE.oot (current cap inventory)
+#   - docs/TESTING.oot (current challenger matrix — 19 probes, all 8D)
+#   - audit/2026-09-11-focused-oodar.oot (next focused audit)
+# This file is preserved as a historical record; do not edit the
+# "next (priority order)" items at the bottom — they're tracked, not
+# actionable.
 
 Scope: /home/jeryd/Projects/openOODA/oodar only. Tag v3.4.2, HEAD 630d943.
 Method: 8D Red Team (practices/8d-red-team.oot). Negative trust.

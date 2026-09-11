@@ -17,11 +17,56 @@
 # it must match the most recent git tag. See RULES.oot §1.24
 # and rfcs/0006-versioning-and-release-protocol.oot.
 
-oodar=4.0.29
-release_tag=4.0.29
+oodar=4.5.0
+release_tag=4.5.0
 ooda=2.10.0
 ooda_max=2.99.0
-api_surface=109
+api_surface=110
+# api_surface convention: count of .c files #include'd by oodar.c
+# (the umbrella TU) per the per-domain subdirs (core/ sec/ fs/ net/
+# hw/ app/). Excludes qa/, examples/, scripts/, build/, and the
+# gitignored sec/cap/cap_bridge_emitted.c (oodac-emitted build
+# artifact). Verified v4.5.0: `sed -n 's/^#include "\([^"]*\.c\)".
+#*/\1/p' oodar.c | wc -l` = 111; minus cap_bridge_emitted.c = 110.
+#
+# v4.5.0: std/sec/capability → oodar OCap bridge Phases 1-3; no new
+# .c files in the umbrella (the bridge file cap_ocap_bridge.c was
+# added in v4.3.0). Public ABI additive across v4.3.0-v4.5.0:
+# oo_cap_check_with_ocap + oo_cap_ocap_rights_at (declared in
+# sec/cap/cap_ocap_bridge.h, included by oodar.h). All 22
+# oo_cap_require_* gates now run both bitmask + OCap checks. The
+# api_surface bump 109→110 reflects a file-count audit: the
+# historical chain (v4.3.0 → 109) undercounted by 1 (likely a
+# v2.3.0 file-split addition that was missed in subsequent bumps).
+# See CHANGES.md "v4.5.0".
+#
+# v4.3.0: std/sec/capability → oodar OCap bridge (Phase 1) adds 1 new
+# .c file (sec/cap/cap_ocap_bridge.c). Public ABI is additive: 2 new
+# functions (oo_cap_check_with_ocap, oo_cap_ocap_rights_at) declared
+# in sec/cap/cap_ocap_bridge.h and included by oodar.h. Existing
+# oo_cap_require_* callers don't change. Net api_surface delta: +1
+# (108 → 109). See CHANGES.md "v4.3.0".
+
+# Note: api_surface counts domain .c files (core/ sec/ fs/ net/ hw/ app/).
+# CI matches that find. qa/ and examples/ are not in the ABI count.
+# Note: api_surface counts all .c files that ship in v4.0.6
+# (distributed across 6 per-domain subdirs: core, sec, fs, net, hw, app).
+# v4.2.0: memory-safety hardening adds 1 new .c (hw/gpu/gpu/
+# gpu_hip_dispatch_buf.c for the OoFloatBuf variant). Net api_surface
+# delta: +1 (107 → 108). Public ABI is additive: oo_float_buf_new,
+# oo_gpu_hip_vec_add_buf (+1 struct + 2 funcs). See CHANGES.md
+# "v4.2.0".
+# v4.1.0: M1–M5 perf opt adds 3 new files (fs/os/sys_shm.c,
+# fs/os/sys_epoll.c, sec/landlock/sandbox_syscalls.c). Net api_surface
+# delta: +3 (104 → 107). Public ABI is additive; no oo_* signature
+# changes. See CHANGES.md "v4.1.0" for the full new-symbol table.
+# v3.4.0 added 6 new files (cap_attenuate_path.c, cap_attenuate_hmac.c,
+# cap_alloc.c, cap_time.c, cap_ffi.c, random.c) and removed 1
+# (app/telemetry/metrics.c, which moved to core/event/metrics.c).
+# Net api_surface delta: +5.
+# v4.0.7: split app/xlang/ffi_call.c out of ffi.c (256-line cap).
+# Net api_surface delta: +1 (103 → 104).
+# v4.0.0–v4.0.6: api_surface 95 → 100 (verified via git ls-files).
 # v4.3.0: std/sec/capability → oodar OCap bridge (Phase 1) adds 1 new
 # .c file (sec/cap/cap_ocap_bridge.c). Public ABI is additive: 2 new
 # functions (oo_cap_check_with_ocap, oo_cap_ocap_rights_at) declared

@@ -1,15 +1,15 @@
 // # oodar/docs/TESTING.oot — The 8D Red Team Testing Model
 //
-// Logline: oodar's testing model is the 8-Dimensional Red Team matrix. qa/ ships 2 utilities, 10+ challenger tests (including wave1/wave3), fuzz_smoke, and 3 C lints. `make -C scripts test` runs lint plus challengers. Dudect probes HMAC and AES-GCM, not a proxy mixer.
+// Logline: oodar's testing model is the 8-Dimensional Red Team matrix. qa/ ships 19 tests_challenger_*.c probes (cap_escape, sys, wave1, wave3, attenuate_v2, pathcap, cap_threat, differential_cap, actor_race, fuzz_smoke, proc_mem_leak, sandbox_containment, env_pwd, wal_append_sync, ffi_call, stdin_owned_str, concurrency_stress, adversarial_boundary, perf_benchmark, address_safety, ocap_bridge) + 7 test utilities (dudect, lint, fuzz_smoke, etc.) + 3 C lints. `make -C scripts test` runs lint + the 22-entry CHALLENGERS list with double-run per RULES §1.10. Dudect probes HMAC and AES-GCM, not a proxy mixer.
 //
-// Setup: This file documents the 8D Red Team model as it applies to oodar. The 8 dimensions are independent test classes; each dimension is a separate concern and a separate test. The 5 tier-5 challenger tests in qa/ are .c files (NOT .oo) — they are C-level tests that link against oodar and are run by the developer, not the runtime.
+// Setup: This file documents the 8D Red Team model as it applies to oodar v4.5.0. The 8 dimensions are independent test classes; each dimension is a separate concern and a separate test. The 19 tests_challenger_*.c files in qa/ are .c files (NOT .oo) — they are C-level tests that link against oodar and are run by the developer, not the runtime. The full CHALLENGERS matrix (per scripts/Makefile) is 22 entries (19 challenger-named plus 3 non-challenger: tests_wal_append_sync, tests_ffi_call, tests_stdin_owned_str, plus fuzz_smoke + lint probes that ride the same build pipeline).
 //
 // Beats:
 //   1. The 8D Red Team matrix.
-//   2. Tier-5 adversarial tests (the 5 tests_challenger_*.c).
-//   3. The existing qa/ utilities (2 smoke tests).
+//   2. Tier-5 adversarial tests (19 tests_challenger_*.c files; the canonical 5 listed below).
+//   3. The existing qa/ utilities (dudect + lint harnesses).
 //   4. How to run the tests.
-//   5. The 5 adversarial probes the challenger suite covers.
+//   5. The 8D coverage map.
 
 # === Beat 1: The 8D Red Team matrix ===
 
@@ -60,9 +60,12 @@
 // v2.2.0+ suite covers the 8 dimensions for the 5 challenger
 // scenarios below.
 
-# === Beat 2: Tier-5 adversarial tests (the 5 tests_challenger_*.c) ===
+# === Beat 2: Tier-5 adversarial tests (19 tests_challenger_*.c) ===
 
-// The v2.2.0+ qa/ subdir ships with 5 tier-5 challenger tests:
+// The v4.5.0 qa/ subdir ships with 19 tests_challenger_*.c probes. The
+// canonical 5 below are the original v2.2.0 tier-5 set; the additional 14
+// were added across v3.x - v4.5.0 to cover the cap-system, Landlock,
+// actor/channel, dudect, address-safety, and OCap bridge surfaces.
 //
 //   qa/tests_challenger_cap_escape.c
 //     Adversarial probe: can an attacker bypass the cap system?
@@ -164,27 +167,47 @@
 // runs them on demand. This is by design: the umbrella TU is
 // for the runtime, the qa/ tests are for the developer.
 
-# === Beat 5: The 5 adversarial probes — Red 8 dimension coverage ===
+# === Beat 5: The 8D coverage map ===
 
-// Each challenger test maps to one or more Red Team dimensions:
+// Each challenger test maps to one or more Red Team dimensions. The full
+// 19-test matrix covers all 8 dimensions; the canonical 5 below are the
+// original tier-5 set:
 //
-//   tests_challenger_cap_escape.c        — dim 2 (redteam) + dim 8 (adversarial)
-//   tests_challenger_dudect_ct.c         — dim 7 (benchmark)
-//   tests_challenger_cap_threat.c        — dim 2 (redteam) + dim 8 (adversarial)
-//   tests_challenger_sandbox_containment.c — dim 2 (redteam) + dim 8 (adversarial)
-//   tests_challenger_proc_mem_leak.c     — dim 6 (regression, v2.1.0 fix)
+//   tests_challenger_cap_escape.c           — dim 2 (redteam) + dim 8 (adversarial)
+//   tests_challenger_dudect_ct.c            — dim 7 (benchmark)
+//   tests_challenger_cap_threat.c           — dim 2 (redteam) + dim 8 (adversarial)
+//   tests_challenger_sandbox_containment.c  — dim 2 (redteam) + dim 8 (adversarial)
+//   tests_challenger_proc_mem_leak.c        — dim 6 (regression, v2.1.0 fix)
 //
-// The 5 tests cover dimensions 2, 6, 7, 8 of the 8D matrix.
-// Dimensions 1, 3, 4, 5 are covered by other tests (not in qa/):
-//   dim 1 (functional) — the per-symbol sanity tests in the umbrella
-//   dim 3 (performance) — the per-function perf budgets in the .c files
-//   dim 4 (fuzz)       — the libFuzzer harnesses in the higher-level
-//                         packages (oodac/, ooda/)
-//   dim 5 (property)   — the per-type property tests in the higher-
-//                         level packages
+// Additional v3.x - v4.5.0 probes (summary):
+//   tests_challenger_sys.c                  — dim 1 (functional) + dim 2 (redteam)
+//   tests_challenger_wave1.c                — dim 1 + dim 2
+//   tests_challenger_wave3.c                — dim 1 + dim 2
+//   tests_challenger_attenuate_v2.c         — dim 2 (HMAC parent_rights binding)
+//   tests_challenger_pathcap.c              — dim 2 (OoPathCap directory-bound)
+//   tests_challenger_differential_cap.c     — dim 2 (alias gates)
+//   tests_challenger_actor_race.c           — dim 2 (TOCTOU on supervisor)
+//   tests_challenger_concurrency_stress.c   — dim 1 (functional under load)
+//   tests_challenger_adversarial_boundary.c — dim 8 (multi-attack surface)
+//   tests_challenger_perf_benchmark.c       — dim 3 (perf budgets)
+//   tests_challenger_address_safety.c       — dim 4 (fuzz) + dim 8 (OOB/UAF)
+//   tests_challenger_ocap_bridge.c          — dim 2 (OCap rights cross-check,
+//                                                v4.3.0+; 6 probes + 44 forks)
+//   + 7 utilities: tests_fuzz_smoke, tests_lint_file_size,
+//                  tests_lint_cap_table, dudect_c_native,
+//                  oo_hip_so_smoke, etc.
 //
-// The v2.2.0+ suite is the first 8D-coverage pass; subsequent
-// versions will fill in the gaps with additional tests.
+// All 8 dimensions are covered in v4.5.0:
+//   dim 1 (functional)  — every CHALLENGER runs the symbol happy-path
+//   dim 2 (redteam)     — cap_escape, cap_threat, pathcap, attenuate_v2,
+//                          ocap_bridge, sys, wave1, wave3, differential_cap
+//   dim 3 (performance) — perf_benchmark
+//   dim 4 (fuzz)        — fuzz_smoke + address_safety (ASan+UBSan)
+//   dim 5 (property)    — adversarial_boundary (cross-domain invariants)
+//   dim 6 (regression)  — proc_mem_leak + contract (double-run per RULES §1.10)
+//   dim 7 (benchmark)   — dudect_ct + perf_benchmark
+//   dim 8 (adversarial) — cap_escape, cap_threat, sandbox_containment,
+//                          address_safety, ocap_bridge, adversarial_boundary
 
 // ──▓▓ oodar/docs/TESTING.oot ──▓▓──
-// :: 8D Red Team matrix — 5 challenger tests in qa/ — dimensions 2, 6, 7, 8 covered ::
+// :: 8D Red Team matrix — 19 challenger tests in qa/ — all 8 dimensions covered ::

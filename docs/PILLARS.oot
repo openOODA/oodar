@@ -1,13 +1,13 @@
 // # oodar/docs/PILLARS.oot — How oodar Maps to the 10 NORTHSTAR Pillars
 //
-// Logline: oodar is the v2.1.0+ reference implementation of the openOODA Gen 1 host substrate, and it lands 5 of the 10 NORTHSTAR Pillars (3, 4, 5, 7, 9) in the C backend today; the remaining 5 Pillars (1, 2, 6, 8, 10) are explicitly future-state and tracked under the polyrepo convention.
+// Logline: oodar is the v4.5.0 reference implementation of the openOODA Gen 1 host substrate, and it lands 5 of the 10 NORTHSTAR Pillars (3, 4, 5, 7, 9) in the C backend today; the remaining 5 Pillars (1, 2, 6, 8, 10) are explicitly future-state and tracked under the polyrepo convention.
 //
-// Setup: This file documents the 10-pillar mapping for oodar as it stands in v2.1.0. The 10 Pillars are defined in openOODA/NORTHSTAR.oot §1.4. Pillar 6 (multi-agent swarm) is a future-state because the runtime supports actor/thread primitives but not the swarm scheduler. Pillar 4 (academy 4-element headers) is met in principle: oodar is the C-language backend, and the academy headers (intent, contract, evidence, scope) are a documentation convention that is enforced in the higher-level packages (oodac/, ooda/) rather than the C source files themselves.
+// Setup: This file documents the 10-pillar mapping for oodar as it stands in v4.5.0. The 10 Pillars are defined in openOODA/NORTHSTAR.oot §1.4. Pillar 6 (multi-agent swarm) is a future-state because the runtime supports actor/thread primitives but not the swarm scheduler. Pillar 4 (academy 4-element headers) is met in principle: oodar is the C-language backend, and the academy headers (intent, contract, evidence, scope) are a documentation convention that is enforced in the higher-level packages (oodac/, ooda/) rather than the C source files themselves.
 //
 // Beats:
-//   1. Pillar 3 (8D Red Team) — wired into qa/.
+//   1. Pillar 3 (8D Red Team) — wired into qa/ (19 challenger probes, all 8 dimensions).
 //   2. Pillar 4 (academy 4-element headers) — met in principle.
-//   3. Pillar 5 (OCap) — the cap token system.
+//   3. Pillar 5 (OCap) — the cap token system + the std OCap bridge (v4.3.0+).
 //   4. Pillar 6 (multi-agent swarm) — future-state.
 //   5. Pillar 7 (compiler backends) — oodar backs the C99 backend.
 //   6. Pillar 9 (Gen 1 substrate isolation) — Landlock + seccomp-bpf.
@@ -15,19 +15,26 @@
 # === Beat 1: Pillar 3 — 8D Red Team (wired) ===
 
 // Pillar 3 is the 8-Dimensional Red Team adversarial testing model.
-// oodar wires Pillar 3 via qa/. The qa/ subdir ships with 2 test
-// utilities (dudect_c_native.c, oo_hip_so_smoke.c) and the 5 new
-// tier-5 tests_challenger_*.c files added in v2.2.0:
+// oodar wires Pillar 3 via qa/. The qa/ subdir ships 19
+// tests_challenger_*.c probes (the canonical 5 below are the v2.2.0
+// tier-5 set; the additional 14 were added across v3.x - v4.5.0 to
+// cover cap-system, Landlock, actor, address-safety, OCap bridge):
 //
-//   - qa/tests_challenger_cap_escape.c         (cap system bypass attempt)
-//   - qa/tests_challenger_dudect_ct.c          (constant-time dudect probe)
-//   - qa/tests_challenger_cap_threat.c         (cap threat containment)
-//   - qa/tests_challenger_sandbox_containment.c (Landlock containment)
-//   - qa/tests_challenger_proc_mem_leak.c      (proc_mem Landlock gate)
+//   - qa/tests_challenger_cap_escape.c            (cap system bypass attempt)
+//   - qa/tests_challenger_dudect_ct.c             (constant-time dudect probe)
+//   - qa/tests_challenger_cap_threat.c            (cap threat containment)
+//   - qa/tests_challenger_sandbox_containment.c   (Landlock containment)
+//   - qa/tests_challenger_proc_mem_leak.c         (proc_mem Landlock gate)
+//   - + 14 more (sys, wave1, wave3, attenuate_v2, pathcap,
+//                differential_cap, actor_race, concurrency_stress,
+//                adversarial_boundary, perf_benchmark, address_safety,
+//                ocap_bridge, fuzz_smoke, env_pwd)
 //
 // Each test is a stand-alone .c file with `int main(void)`. The tests
-// are NOT in the umbrella TU; they are run by the developer, not the
-// runtime. See docs/TESTING.oot for the 8D matrix mapping.
+// are NOT in the umbrella TU; they are run by the developer via
+// `make -C scripts test` (which runs the 22-entry CHALLENGERS matrix
+// with double-run per RULES §1.10). See docs/TESTING.oot for the 8D
+// dimension coverage map (all 8 dimensions covered as of v4.5.0).
 
 # === Beat 2: Pillar 4 — Academy 4-element headers (met in principle) ===
 
@@ -55,15 +62,20 @@
 
 # === Beat 3: Pillar 5 — OCap (wired) ===
 
-// Pillar 5 is unforgeable, kernel-derived, attenuable capability
-// tokens. oodar implements Pillar 5 in sec/cap/. The full token
-// inventory (25 tokens: 14 NORTHSTAR core + 11 future-state) is
-// documented in docs/SECURITY_MODEL.oot. The cap flow (grant →
-// require → attenuate → seal → enter → release) and the 4 hard
-// rules (unforgeability, attenuation safety, fail-closed, no
-// ambient authority) are documented in the same file. Cross-
-// reference: sec/cap/ANCHOR.oo, sec/cap/caps.h, sec/cap/caps.c,
-// sec/cap/cap.c.
+// Pillar 5 is 64-bit, getentropy-derived capability tokens that are
+// fail-closed on absence and defended by Landlock as a second line.
+// oodar implements Pillar 5 in sec/cap/. The full token inventory
+// (26 active caps: 20 NORTHSTAR language tokens per NORTHSTAR §1.4
+// + 6 hardware-only future-state) is documented in
+// docs/SECURITY_MODEL.oot. The cap flow (grant → require → attenuate
+// → seal → enter → release) and the 4 hard rules (fail-closed on
+// absence, attenuation safety, Landlock-second-line, no ambient
+// authority) are documented in the same file. The bridge from the
+// 20 NORTHSTAR language tokens to the 26 substrate caps landed in
+// v4.3.0 (oodar/sec/cap/cap_ocap_bridge.c + std/sec/capability/
+// ocap_to_oodar.oo); v4.5.0 routes all 22 oo_cap_require_* gates
+// through both paths. Cross-reference: sec/cap/ANCHOR.oo,
+// sec/cap/caps.h, sec/cap/caps.c, sec/cap/cap.c.
 
 # === Beat 4: Pillar 6 — Multi-agent swarm (future-state) ===
 
@@ -95,9 +107,11 @@
 //     are called by the oodac frontend to lower to C99 and compile
 //     via the host C compiler.
 //
-// The 8 oo_cap_grant_<hardware> tokens (Audio, Camera, Usb, Hid,
-// Window, Frame, Bind, CompilerRead) are the wire-up points for
-// future hardware backend support.
+// The 6 hardware-only substrate caps (Audio, Camera, Usb, Hid,
+// Window, Frame) are the wire-up points for future hardware backend
+// support. They are granted + required today (so the cap system is
+// ready) but have no real consumer in the runtime yet; the bridge
+// (cap_ocap_bridge.c) maps them to FsReadCap as a placeholder.
 
 # === Beat 6: Pillar 9 — Gen 1 substrate isolation (wired) ===
 
@@ -131,16 +145,16 @@
 
 //   Pillar 1 — universal OODA loop               : future-state
 //   Pillar 2 — 4D evidence format                : future-state
-//   Pillar 3 — 8D Red Team                       : WIRED (qa/)
+//   Pillar 3 — 8D Red Team                       : WIRED (qa/, 19 challengers)
 //   Pillar 4 — academy 4-element headers         : MET IN PRINCIPLE
-//   Pillar 5 — OCap                              : WIRED (sec/cap/)
+//   Pillar 5 — OCap                              : WIRED (sec/cap/ + OCap bridge v4.3.0+)
 //   Pillar 6 — multi-agent swarm                 : future-state
 //   Pillar 7 — compiler backends                 : WIRED (oodar backs C99)
 //   Pillar 8 — polyrepo + governance             : future-state
 //   Pillar 9 — Gen 1 substrate isolation         : WIRED (sec/landlock/, cap.c)
 //  Pillar 10 — academy learning loop             : future-state
 //
-// 5 of 10 Pillars are wired in v2.1.0+ (3, 5, 7, 9 + 4 met-in-
+// 5 of 10 Pillars are wired in v4.5.0 (3, 5, 7, 9 + 4 met-in-
 // principle). The remaining 5 Pillars are tracked as future-state
 // under the polyrepo convention; they will land in their own
 // packages (NOT in oodar/ — oodar is the substrate, not the

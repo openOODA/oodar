@@ -1,106 +1,107 @@
 // # oodar/docs/SECURITY_MODEL.oot — The Capability Token Security Model
 //
-// Logline: oodar's security model is built on unforgeable, getentropy-derived capability tokens (26 tokens: Metrics at 0x800 is the v3.0.0 Floor reuse of the old AUDIT bit). Bind is a core token. Rule 2 HMAC binds parent_hmac||parent_rights||child_rights. v1 attenuate returns empty. 64-bit user-space tokens remain residual (Wave 7).
+// Logline: oodar's security model is built on 64-bit, getentropy-derived capability tokens that are fail-closed on absence and defended by Landlock as a second line. 26 active substrate caps (sec/cap/caps.h: bit positions 1-29) covering the 20 NORTHSTAR language tokens (NORTHSTAR §1.4, FsReadCap..CompilerReadCap) plus 6 hardware-only future-state caps (Audio, Camera, Usb, Hid, Window, Frame). The Metrics cap at bit 0x800 (2048u) is the v3.0.0 Floor reuse of the old AUDIT bit. Bind is a core token. Rule 2 HMAC binds parent_hmac||parent_rights||child_rights. v1 attenuate returns empty. 64-bit user-space tokens remain residual (Wave 7).
 //
-// Setup: This file documents the OCap substrate as it stands in v2.1.0+. It is the authoritative reference for the cap flow (grant → require → attenuate → seal → enter → release) and the 4 cap rules. The implementation lives in sec/cap/. See sec/cap/ANCHOR.oo for the file-level inventory.
+// Setup: This file documents the OCap substrate as it stands in v4.5.0. It is the authoritative reference for the cap flow (grant → require → attenuate → seal → enter → release) and the 4 cap rules. The implementation lives in sec/cap/. See sec/cap/ANCHOR.oo for the file-level inventory. The bridge from the 20 NORTHSTAR language tokens to the 26 substrate caps is in oodar/sec/cap/cap_ocap_bridge.c (added in v4.3.0).
 //
 // Beats:
-//   1. The 25 capability tokens: 14 NORTHSTAR core + 11 future-state.
-//   2. The 30 cap bits and the 5 reserved/dead bits.
+//   1. The 26 capability tokens: 20 NORTHSTAR language + 6 hardware-only future-state.
+//   2. The 29 cap bits used and the 5 reserved/dead bits.
 //   3. The 6-step cap flow.
 //   4. The 4 hard rules.
 //   5. The cap threat model and Red 8 first-principles defense.
 
-# === Beat 1: The 25 capability tokens ===
+# === Beat 1: The 26 capability tokens (20 NORTHSTAR language + 6 hardware-only future-state) ===
 
-// NORTHSTAR core (14) — granted and required in production code today:
-//   1.  FsRead     (cap: OODAR_CAP_FSREAD,    bit 4)   — read-only filesystem
-//   2.  FsWrite    (cap: OODAR_CAP_FSWRITE,   bit 3)   — write filesystem
-//   3.  Net        (cap: OODAR_CAP_NET,       bit 1)   — DNS, generic net access
-//   4.  Tcp        (cap: OODAR_CAP_TCP,       bit 17)  — TCP connect
-//   5.  Udp        (cap: OODAR_CAP_UDP,       bit 18)  — UDP send/recv
-//   6.  Bind       (cap: OODAR_CAP_BIND,      bit 19)  — bind/listen sockets
-//   7.  Sys        (cap: OODAR_CAP_SYS,       bit 5)   — env_get, sys_exec
-//   8.  Process    (cap: OODAR_CAP_PROCESS,   bit 2)   — fork/execve
-//   9.  Env        (cap: OODAR_CAP_ENV,       bit 28)  — getenv-style access
-//  10.  Time       (cap: OODAR_CAP_TIME,      bit 7)   — wall-clock + monotonic
-//  11.  Rand       (cap: OODAR_CAP_RAND,      bit 8)   — getentropy pass-through
-//  12.  Alloc      (cap: OODAR_CAP_ALLOC,     bit 9)   — heap allocation
-//  13.  Thread     (cap: OODAR_CAP_THREAD,    bit 26)  — pthread spawn/join
-//  14.  Gpu        (cap: OODAR_CAP_GPU,       bit 27)  — HIP/ROCm launch
-//  15.  Ffi        (cap: OODAR_CAP_FFI,       bit 11)  — host_build/dlopen
-//  16.  Sign       (cap: OODAR_CAP_SIGN,      bit 12)  — cap-rpc signed path
-//  17.  CompilerRead(cap: OODAR_CAP_COMPILER_READ, bit 29) — host token/AST dump
+// NORTHSTAR language tokens (20) — the canonical surface from NORTHSTAR §1.4.
+// Each token maps to one of the 26 substrate caps below; the mapping table
+// lives in oodar/sec/cap/cap_ocap_bridge.c (added v4.3.0). All 20 are
+// granted + required + have a real consumer in production code today:
 //
-// 14 cap tokens are also documented in the ANCHOR.oo logline as "14 NORTHSTAR
-// core". The 3 extras (Ffi, Sign, CompilerRead) are NORTHSTAR-class core
-// tokens in v2.1.0 (they have a grant + require + at least one consumer).
-// 14 + 3 = 17 core tokens. The remaining 8 future-state tokens are
-// granted-only and have no require consumer yet; they are reserved for
-// hardware/device paths that have not been wired up in the C backend.
+//   1.  FsReadCap        (substrate: OODAR_CAP_FSREAD,       bit 3)   — read-only filesystem
+//   2.  FsWriteCap       (substrate: OODAR_CAP_FSWRITE,      bit 2)   — write filesystem
+//   3.  NetCap           (substrate: OODAR_CAP_NET,          bit 0)   — DNS, generic net access
+//   4.  TcpCap           (substrate: OODAR_CAP_TCP,          bit 17)  — TCP connect
+//   5.  UdpCap           (substrate: OODAR_CAP_UDP,          bit 18)  — UDP send/recv
+//   6.  SysCap           (substrate: OODAR_CAP_SYS,          bit 4)   — env_get, sys_exec
+//   7.  ProcessCap       (substrate: OODAR_CAP_PROCESS,      bit 1)   — fork/execve
+//   8.  EnvCap           (substrate: OODAR_CAP_ENV,          bit 28)  — getenv-style access
+//   9.  TimeCap          (substrate: OODAR_CAP_TIME,         bit 6)   — wall-clock + monotonic
+//  10.  RandCap          (substrate: OODAR_CAP_RAND,         bit 7)   — getentropy pass-through
+//  11.  AllocCap         (substrate: OODAR_CAP_ALLOC,        bit 8)   — heap allocation
+//  12.  ThreadCap        (substrate: OODAR_CAP_THREAD,       bit 26)  — pthread spawn/join
+//  13.  GpuCap           (substrate: OODAR_CAP_GPU,          bit 27)  — HIP/ROCm launch
+//  14.  FfiCap           (substrate: OODAR_CAP_FFI,          bit 10)  — host_build/dlopen
+//  15.  FsCap            (substrate: OODAR_CAP_FS,           bit 5)   — umbrella fs (full authority)
+//  16.  ArenaCap         (substrate: OODAR_CAP_ARENA,        bit 9)   — arena allocation
+//  17.  MetricsCap       (substrate: OODAR_CAP_METRICS,      bit 11)  — counters
+//  18.  SignCap          (substrate: OODAR_CAP_SIGN,         bit 12)  — cap-rpc signed path
+//  19.  BindCap          (substrate: OODAR_CAP_BIND,         bit 19)  — bind/listen sockets
+//  20.  CompilerReadCap  (substrate: OODAR_CAP_COMPILER_READ, bit 29) — host token/AST dump
 //
-// Future-state (8) — declared in caps.h and granted, but no real consumer
-// yet. Future-state caps are wire-up targets; the bit positions are
-// reserved:
-//  18.  Fs         (cap: OODAR_CAP_FS,        bit 6)   — umbrella fs (legacy)
-//  19.  Arena      (cap: OODAR_CAP_ARENA,     bit 10)  — arena allocation
-//  20.  Audio      (cap: OODAR_CAP_AUDIO,     bit 20)  — hw audio
-//  21.  Camera     (cap: OODAR_CAP_CAMERA,    bit 21)  — hw camera
-//  22.  Usb        (cap: OODAR_CAP_USB,       bit 22)  — hw USB
-//  23.  Hid        (cap: OODAR_CAP_HID,       bit 23)  — hw HID
-//  24.  Window     (cap: OODAR_CAP_WINDOW,    bit 24)  — hw display window
-//  25.  Frame      (cap: OODAR_CAP_FRAME,     bit 25)  — hw display frame
+// Hardware-only future-state (6) — declared in caps.h and granted, but no
+// NORTHSTAR language token yet. The bridge (cap_ocap_bridge.c) maps these
+// to FsReadCap for now. Future-state caps are wire-up targets; the bit
+// positions are reserved for hardware/device paths that have not been
+// wired up in the C backend:
 //
-// The v2.1.0 25-token count is the "14 NORTHSTAR core + 11 future-state"
-// tally from sec/cap/ANCHOR.oo. The 3 extras (Ffi, Sign, CompilerRead)
-// are the v2.1.0 core additions; the 8 future-state are the unsubscribed
-// hardware/legacy reserved bits.
+//  21.  Audio      (substrate: OODAR_CAP_AUDIO,     bit 20)  — hw audio
+//  22.  Camera     (substrate: OODAR_CAP_CAMERA,    bit 21)  — hw camera
+//  23.  Usb        (substrate: OODAR_CAP_USB,       bit 22)  — hw USB
+//  24.  Hid        (substrate: OODAR_CAP_HID,       bit 23)  — hw HID
+//  25.  Window     (substrate: OODAR_CAP_WINDOW,    bit 24)  — hw display window
+//  26.  Frame      (substrate: OODAR_CAP_FRAME,     bit 25)  — hw display frame
+//
+// Per NORTHSTAR §1.4 (line 157): "There is no 14-token map." The 20 language
+// tokens above are the canonical surface. The 26 substrate caps below are
+// the underlying bit positions in sec/cap/caps.h.
 
-# === Beat 2: The 30 cap bits and the 5 reserved/dead bits ===
+# === Beat 2: The 26 active bit positions + 4 reserved/dead bits ===
 
-// sec/cap/caps.h:6-30 defines 30 cap bit positions:
+// sec/cap/caps.h defines 26 active caps on bit positions 0-12 and 17-29:
 //
-//   bit  0:  unused
-//   bit  1:  OODAR_CAP_NET          (core)
-//   bit  2:  OODAR_CAP_PROCESS      (core)
-//   bit  3:  OODAR_CAP_FSWRITE      (core)
-//   bit  4:  OODAR_CAP_FSREAD       (core)
-//   bit  5:  OODAR_CAP_SYS          (core)
-//   bit  6:  OODAR_CAP_FS           (future-state, legacy umbrella)
-//   bit  7:  OODAR_CAP_TIME         (core)
-//   bit  8:  OODAR_CAP_RAND         (core)
-//   bit  9:  OODAR_CAP_ALLOC        (core)
-//   bit 10:  OODAR_CAP_ARENA        (future-state)
-//   bit 11:  OODAR_CAP_FFI          (core)
-//   bit 12:  OODAR_CAP_SIGN         (core)
-//   bit 13:  RESERVED (was OODAR_CAP_AUDIT  — removed v2.1.0)
-//   bit 14:  RESERVED (was OODAR_CAP_HITL   — removed v2.1.0)
-//   bit 15:  RESERVED (was OODAR_CAP_SYNC   — removed v2.1.0)
-//   bit 16:  RESERVED (was OODAR_CAP_MEM    — removed v2.1.0)
-//   bit 17:  OODAR_CAP_TCP          (core)
-//   bit 18:  OODAR_CAP_UDP          (core)
-//   bit 19:  OODAR_CAP_BIND         (future-state)
-//   bit 20:  OODAR_CAP_AUDIO        (future-state)
-//   bit 21:  OODAR_CAP_CAMERA       (future-state)
-//   bit 22:  OODAR_CAP_USB          (future-state)
-//   bit 23:  OODAR_CAP_HID          (future-state)
-//   bit 24:  OODAR_CAP_WINDOW       (future-state)
-//   bit 25:  OODAR_CAP_FRAME        (future-state)
-//   bit 26:  OODAR_CAP_THREAD       (core)
-//   bit 27:  OODAR_CAP_GPU          (core)
-//   bit 28:  OODAR_CAP_ENV          (core)
-//   bit 29:  OODAR_CAP_COMPILER_READ (future-state)
+//   bit  0:  OODAR_CAP_NET           (NORTHSTAR: NetCap)
+//   bit  1:  OODAR_CAP_PROCESS       (NORTHSTAR: ProcessCap)
+//   bit  2:  OODAR_CAP_FSWRITE       (NORTHSTAR: FsWriteCap)
+//   bit  3:  OODAR_CAP_FSREAD        (NORTHSTAR: FsReadCap)
+//   bit  4:  OODAR_CAP_SYS            (NORTHSTAR: SysCap)
+//   bit  5:  OODAR_CAP_FS             (NORTHSTAR: FsCap)
+//   bit  6:  OODAR_CAP_TIME           (NORTHSTAR: TimeCap)
+//   bit  7:  OODAR_CAP_RAND           (NORTHSTAR: RandCap)
+//   bit  8:  OODAR_CAP_ALLOC          (NORTHSTAR: AllocCap)
+//   bit  9:  OODAR_CAP_ARENA          (NORTHSTAR: ArenaCap)
+//   bit 10:  OODAR_CAP_FFI            (NORTHSTAR: FfiCap)
+//   bit 11:  OODAR_CAP_METRICS        (NORTHSTAR: MetricsCap; was AUDIT 0x800 pre-v3.0.0)
+//   bit 12:  OODAR_CAP_SIGN           (NORTHSTAR: SignCap)
+//   bit 13:  RESERVED (was OODAR_CAP_HITL   — removed v2.1.0)
+//   bit 14:  RESERVED (was OODAR_CAP_SYNC   — removed v2.1.0)
+//   bit 15:  RESERVED (was OODAR_CAP_MEM    — removed v2.1.0)
+//   bit 16:  RESERVED (was OODAR_CAP_HTTP   — removed v2.1.0)
+//   bit 17:  OODAR_CAP_TCP            (NORTHSTAR: TcpCap)
+//   bit 18:  OODAR_CAP_UDP            (NORTHSTAR: UdpCap)
+//   bit 19:  OODAR_CAP_BIND           (NORTHSTAR: BindCap)
+//   bit 20:  OODAR_CAP_AUDIO          (future-state, no NORTHSTAR token yet)
+//   bit 21:  OODAR_CAP_CAMERA         (future-state, no NORTHSTAR token yet)
+//   bit 22:  OODAR_CAP_USB            (future-state, no NORTHSTAR token yet)
+//   bit 23:  OODAR_CAP_HID            (future-state, no NORTHSTAR token yet)
+//   bit 24:  OODAR_CAP_WINDOW         (future-state, no NORTHSTAR token yet)
+//   bit 25:  OODAR_CAP_FRAME          (future-state, no NORTHSTAR token yet)
+//   bit 26:  OODAR_CAP_THREAD         (NORTHSTAR: ThreadCap)
+//   bit 27:  OODAR_CAP_GPU            (NORTHSTAR: GpuCap)
+//   bit 28:  OODAR_CAP_ENV            (NORTHSTAR: EnvCap)
+//   bit 29:  OODAR_CAP_COMPILER_READ  (NORTHSTAR: CompilerReadCap)
 //
-// 5 bits are reserved/dead: 0x800 (AUDIT), 0x2000 (HITL), 0x4000 (SYNC),
-// 0x8000 (MEM), 0x10000 (HTTP). These were declared in v2.0.0 but were
-// either defined-but-never-granted or granted-but-never-required. v2.1.0
-// deleted them; the bit positions are reserved forever to avoid collision
-// with anything that may have been packed into the gaps.
+// 4 bits are reserved/dead: HITL (bit 13), SYNC (bit 14), MEM (bit 15),
+// HTTP (bit 16). These were declared in v2.0.0 but were either defined-
+// but-never-granted or granted-but-never-required. v2.1.0 deleted them;
+// the bit positions are reserved forever to avoid collision with anything
+// that may have been packed into the gaps. (AUDIT at bit 11 was deleted
+// in v2.1.0 then re-introduced as METRICS in v3.0.0 — bit 11 is reused,
+// not reserved.)
 //
-// The 5 reserved bits are part of the 30 cap-bit mask. The 25 active
-// tokens correspond to 25 distinct bit positions. The 5 reserved bits
-// MUST NOT be re-used; any future cap MUST pick a new bit position to
-// avoid ABI confusion.
+// 26 active tokens occupy 26 distinct bit positions (0-12 + 17-29). The
+// 4 reserved bits (13-16) MUST NOT be re-used; any future cap MUST pick
+// a new bit position to avoid ABI confusion.
 
 # === Beat 3: The 6-step cap flow ===
 

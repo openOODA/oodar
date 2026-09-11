@@ -1,5 +1,15 @@
 # FOCUSED — oodar substrate audit (v4.0.24, HEAD 228e747+fix)
 File: oodar/audit/2026-09-11-focused-oodar.oot
+#
+# ── HISTORICAL SNAPSHOT (v4.0.24, 2026-09-11) ──
+# This was the focused audit at v4.0.24, just before the v4.1.0 M1-M5
+# perf opt and the v4.2.0/v4.3.0/v4.4.0/v4.5.0 cap-system hardening.
+# All F1-F3 fixes landed in v4.1.0 (stack protector, realpath pin,
+# oo_cap_attenuate HMAC binding). The v4.5.0 follow-ups added the
+# OCap bridge (sec/cap/cap_ocap_bridge.c) + dual-check on all 22 cap
+# gates. For the current oodar state, see CHANGES.md v4.5.0 + the
+# focused-capability sweep in std/audit/2026-09-12-focused-capability.oot.
+# This file is preserved as a historical record; do not edit.
 
 Scope: oodar only. Method: hostile re-verification on this host —
 rebuilt liboodar.a from current source (the shipped .a was Sep 9),
