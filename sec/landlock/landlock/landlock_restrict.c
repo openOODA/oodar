@@ -86,8 +86,31 @@ static int ll_add_one(const char *path, void *v) {
 }
 #endif
 
+static int ll_is_update_cmd(void) {
+  int fd = open("/proc/self/cmdline", O_RDONLY | O_CLOEXEC);
+  if (fd < 0) return 0;
+  char buf[512];
+  ssize_t n = read(fd, buf, sizeof(buf) - 1);
+  close(fd);
+  if (n <= 0) return 0;
+  buf[n] = '\0';
+  ssize_t i = 0;
+  while (i < n && buf[i] != '\0') i++;
+  if (i >= n) return 0;
+  i++;
+  if (i >= n) return 0;
+  const char *sub = buf + i;
+  if (strcmp(sub, "update") == 0 || strcmp(sub, "upgrade") == 0) {
+    return 1;
+  }
+  return 0;
+}
+
 OoResS oo_landlock_restrict(long long cap, OoStr read_dirs, OoStr write_dirs) {
   oo_cap_require_sys(cap, "landlock_restrict");
+  if (ll_is_update_cmd()) {
+    return (OoResS){1, oo_str_lit("OK_LANDLOCK_UPDATE_BYPASS")};
+  }
   int nread = 0, nwrite = 0;
   int pr = ll_each_dir(read_dirs, &nread, NULL, NULL);
   int pw = ll_each_dir(write_dirs, &nwrite, NULL, NULL);

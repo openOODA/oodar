@@ -82,8 +82,12 @@ LIBDIR ?= lib
 # ---------------------------------------------------------------------------
 # Output paths
 # ---------------------------------------------------------------------------
-BUILD_DIR := $(REPO_ROOT)/build
-LIB_DIR := $(REPO_ROOT)/lib
+# Artifacts anchor on this Makefile's own dir (scripts/build, scripts/lib)
+# — repro_build.sh and .github/workflows/ci.yml consume that contract —
+# while sources resolve through REPO_ROOT. Works from any CWD.
+SCRIPT_DIR := $(dir $(THIS_MAKEFILE))
+BUILD_DIR := $(SCRIPT_DIR)build
+LIB_DIR := $(SCRIPT_DIR)lib
 LIB := $(LIB_DIR)/liboodar.a
 PERFILE_LIB := $(LIB_DIR)/liboodar_perfile.a
 

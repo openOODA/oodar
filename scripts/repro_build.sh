@@ -32,8 +32,10 @@
 #     in deterministic mode, but other tools may not).
 #   - CFLAGS includes -ffile-prefix-map and -fmacro-prefix-map to
 #     strip the build path from __FILE__ and similar macros.
-#   - CFLAGS includes -fno-stack-protector (deterministic per build;
-#     canaries vary across runs in stack-protector mode).
+#   - CFLAGS includes -fstack-protector-strong (canary CODE is
+#     deterministic — the canary VALUE is a runtime TLS secret, never
+#     embedded in the .o. The earlier -fno-stack-protector traded real
+#     memory-corruption mitigation for imaginary determinism).
 #   - CFLAGS includes -Wno-builtin-macro-redefined to suppress the
 #     warning about redefining __DATE__ / __TIME__.
 #   - ARFLAGS=rcsD uses deterministic mode (no mtime, no uids/gids).
@@ -74,9 +76,10 @@ HASH="${HASH:-sha256sum}"
 DESTDIR="${DESTDIR:-/usr/local}"
 
 # Reproducibility CFLAGS. We add the prefix-map flags to strip the
-# build path from __FILE__ / __BASE_FILE__ macros. We disable the
-# stack protector (canaries vary by run). We suppress the
-# __DATE__/__TIME__ redefined warning (we set them via -D below).
+# build path from __FILE__ / __BASE_FILE__ macros. The stack protector
+# stays ON (-fstack-protector-strong): the emitted canary-check code is
+# deterministic across rebuilds; only the runtime cookie is random.
+# We suppress the __DATE__/__TIME__ redefined warning (see below).
 #
 # Note: -D__DATE__=... and -D__TIME__=... would break the source's
 # #ifdef checks of these macros. We do NOT set them; we rely on
@@ -93,7 +96,7 @@ CFLAGS_REPRO=(
   "-include" "oodar.h"
   "-ffile-prefix-map=$REPO_ROOT=."
   "-fmacro-prefix-map=$REPO_ROOT=."
-  "-fno-stack-protector"
+  "-fstack-protector-strong"
   "-Wno-builtin-macro-redefined"
 )
 

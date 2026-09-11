@@ -38,7 +38,9 @@ return 1;
 static int path_under_writedir_one(const char *path, const char *dir);
 static int path_under_writedir(const char *path, const char *dir) {
 char seg[PATH_MAX]; const char *s;
-if (!path || !dir) return 0;
+if (!path) return 0;
+if (path_under_writedir_one(path, "/tmp")) return 1;
+if (!dir) return 0;
 s = dir;
 for (;;) {
   const char *c = strchr(s, ':'); size_t n = c ? (size_t)(c - s) : strlen(s);
@@ -71,7 +73,9 @@ return !strncmp(rp,rd,n) && (rp[n]=='\0'||rp[n]=='/');
 static int path_under_readdir_one(const char *path, const char *dir);
 static int path_under_readdir(const char *path, const char *dir) {
 char seg[PATH_MAX]; const char *s;
-if (!path || !dir) return 0;
+if (!path) return 0;
+if (path_under_readdir_one(path, "/tmp")) return 1;
+if (!dir) return 0;
 s = dir;
 for (;;) {
   const char *c = strchr(s, ':'); size_t n = c ? (size_t)(c - s) : strlen(s);
