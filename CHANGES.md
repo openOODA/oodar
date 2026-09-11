@@ -1,5 +1,71 @@
 # Changelog
 
+## v4.10.0 — SMT (2026-09-12 Phase 6 SMT spec portability — QF_BV encoding + structural probe)
+
+Per the 2026-09-12 deepening plan Task B. v4.10.0 ships the SMT-LIB 2
+encoding of the 4 cap-system properties (P1-P4 from
+`sec/cap/formal_spec.oot`) in a portable QF_BV fragment + a structural
+roundtrip probe that validates the encoding is machine-readable.
+
+### Scope split
+
+**In scope (this release):**
+- The SMT-LIB 2 spec itself (`sec/cap/formal_spec.smt2`).
+- A structural probe that asserts the spec parses + has the expected
+  4 properties + 4 (check-sat) calls + QF_BV logic setting.
+
+**Out of scope (deferred to a future session with a prover-equipped host):**
+- Running the actual proof. This host has no SMT prover installed
+  (`which z3 cvc5 yices` → all empty). The spec is portable to any
+  QF_BV prover; run instructions are documented in the file header.
+
+### What changed
+
+- `sec/cap/formal_spec.smt2` (132 lines) — QF_BV encoding:
+  - Type alias `Cap := (_ BitVec 64)`.
+  - Constants: `ZERO`, `g_tok_fs`, `g_tok_sys`, `g_tok_env` (3
+    representative tokens; the proof shape is identical for all 26).
+  - P1 (fail-closed on absence): NEGATED property is `g_tok_X = ZERO`
+    for each X. check-sat → unsat (no real token can be zero).
+  - P2 (token uniqueness): NEGATED property is `g_tok_fs = g_tok_sys
+    = g_tok_env`. check-sat → unsat (cannot be all-equal).
+  - P3 (attenuation monotonicity): modeled as `bvand(parent, request)`;
+    NEGATED is `(bvand(attenuated, bvnot request)) != 0`. check-sat
+    → unsat (no such bit exists).
+  - P4 (grant monotonicity): modeled as `parent` (no transformation);
+    NEGATED is `(bvand(granted, bvnot parent)) != 0`. check-sat →
+    unsat.
+
+- `qa/tests_smt_spec_roundtrip.c` (113 lines) — structural probe:
+  asserts QF_BV logic + 64-bit Cap type + ≥4 (check-sat) calls +
+  the 4 negated-property patterns + plan reference + run
+  instructions.
+
+- `scripts/Makefile` — probe wired into CHALLENGERS + double-run rule.
+
+### Lint + REPRO + ABI
+
+- 3/3 structural lints PASS.
+- REPRO OK at same sha `72863f3b...` (smt2 + probe are docs + qa/,
+  no umbrella change).
+- api_surface unchanged.
+
+### How to run the proof
+
+On a host with Z3 / CVC5 / Yices installed:
+```
+  z3 -smt2 < sec/cap/formal_spec.smt2           # expect 4 × unsat
+  cvc5 --lang=smt2 -i sec/cap/formal_spec.smt2
+  yices-smt2 sec/cap/formal_spec.smt2
+```
+
+### Scope discipline
+
+Per the plan: "The encoding + the structural probe (no host
+install). The proof itself waits for a host that has Z3 or CVC5."
+This release ships exactly that. Installing a prover is a host
+decision, not a project decision — deferred.
+
 ## v4.9.0 — Canary (2026-09-12 stack-canary coverage audit + script)
 
 Per the 2026-09-12 deepening plan Task E.4. v4.9.0 ships a reusable
