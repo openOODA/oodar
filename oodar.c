@@ -64,6 +64,7 @@
 #include "hw/gpu/gpu/gpu_launch.c"
 #include "hw/gpu/gpu/gpu_hip_dlopen.c"
 #include "hw/gpu/gpu/gpu_hip_dispatch.c"
+#include "hw/gpu/gpu/gpu_hip_dispatch_buf.c"
 #include "hw/gpu/gpu/gpu_hip.c"
 #include "app/actor/actor_thread.c"
 #include "app/actor/actor_channel.c"

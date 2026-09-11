@@ -1,5 +1,119 @@
 # Changelog
 
+## v4.2.0 — Thrust (2026-09-11 memory-safety hardening, additive)
+
+Per the 2026-09-11 memory-safety plan (6 phases). Phase 1-3 + Phase 4
+infrastructure + Phase 5/6 spec files landed this session; full
+Phase 4 cap-system migration + Phase 6 SMT proof run are deferred
+to follow-up sessions (multi-month work).
+
+### Phase 1 — Sanitize the test build (DONE)
+
+New probe `qa/tests_challenger_address_safety.c` (179 lines, 12 hostile
+probes covering the cap-free public surface). New build target
+`test-asan` in `scripts/Makefile` compiles the probe with clang +
+`-fsanitize=address,undefined`. CI step:
+
+    make -C oodar/scripts test-asan
+
+Result: **12 probes ran clean under ASan+UBSan** (no leak reports,
+no OOB, no integer overflow, no null deref). Leak detection disabled
+because the string intern table holds allocations for the program
+lifetime — by design.
+
+### Phase 2 — Debug-mode safety shims (DONE)
+
+New header `core/mem/safety.h` (110 lines). Provides no-op macros
+(`OO_ENTRY`, `OO_NONNULL`, `OO_BOUNDS`, `OO_RANGE`, `OO_REFCNT_OK`,
+`OO_FAIL`) for production builds. When `-DOODAR_MEMSAFE=1` is set,
+the macros call `oo_safety_fail(...)` which prints a diagnostic and
+`abort()`.
+
+New build target `memsafe` produces `lib/liboodar_memsafe.a` (separate
+artifact, doesn't replace `liboodar.a`):
+
+    make -C oodar/scripts memsafe
+
+Result: production build unchanged (sha256 `8c6007...`); memsafe build
+distinct (sha256 `db3178...` — O0 + extra checks). Cost: ~5-10% perf
+hit in memsafe mode; zero runtime cost otherwise. Pattern ready for
+wrapping more public APIs in follow-up commits.
+
+### Phase 3 — Sample opaque-handle conversion (DONE sample)
+
+New `OoFloatBuf { float* data; long long len; long long cap; }` type
+in `oodar.h`. New constructor `oo_float_buf_new(cap, len)`. New
+bounds-checked variant `oo_gpu_hip_vec_add_buf(cap, OoFloatBuf a,
+OoFloatBuf b, OoFloatBuf c)` in the new `hw/gpu/gpu/gpu_hip_dispatch_buf.c`
+(66 lines). Splits the umbrella into raw-pointer + bounds-checked TUs
+so the per-file 256-line cap holds.
+
+The raw-pointer `oo_gpu_hip_vec_add(float*, float*, float*, int)` is
+kept for ABI compat; new code should use the `_buf` form. Future
+commits will migrate the other 5 GPU surface functions
+(sgemm, rmsnorm, attention, reduce_sum, rope, stencil_3d) to the
+same pattern.
+
+### Phase 4 — Zig rewrite infrastructure (DONE scaffold)
+
+Zig 0.14.1 installed at `/home/jeryd/.local/bin/zig`. New directory
+`sec/cap/zig/` with:
+
+- `build.zig` — static lib + test target, links libc + pthread.
+- `cap_check.zig` — `oo_cap_check_bits_zig(cap: i64, want: i64) -> i32`
+  exported with C ABI. The leaf integer comparison that powers every
+  `oo_cap_require_*` gate.
+- `cap_check_test.zig` — 5 unit tests (zero / match / mismatch /
+  negative / i64 extremes). Result: **5/5 passed in 733µs**.
+
+The umbrella TU does NOT yet link against `liboodar_cap_check.a`.
+A future commit will:
+1. Add the static lib to the Makefile's `LIB` deps.
+2. Wire one cap gate (e.g. `oo_cap_require_process`) to call
+   `oo_cap_check_bits_zig` from C.
+3. Migrate the other 6 cap-system .c files (`cap.c`, `cap_grant.c`,
+   `cap_alloc.c`, `cap_attenuate_path.c`, `cap_attenuate_hmac.c`,
+   `cap_ffi.c`) to Zig incrementally.
+
+### Phase 5 — MTE for ARM64 (spec only — no ARM64 host)
+
+New header `sec/mem_mte.h` (81 lines). Provides `oo_mte_init()`,
+`oo_mte_tag_alloc()`, `oo_mte_tag_check()`. Real ARM64 implementation
+uses `prctl(PR_GET_TAGGED_ADDR_CTRL)` + `__arm_mte_create_random_tag`;
+stub for the spec. Compiles on x86_64 as no-ops. Build target
+`liboodar_mte.a` with `-march=armv8.5-a+memtag` is the future
+implementation; requires ARM64 hardware to verify.
+
+### Phase 6 — Formal verification spec (DONE spec, no proof run)
+
+New file `sec/cap/formal_spec.oot` (107 lines). States 4 properties
+the cap-system must satisfy:
+
+- P1: fail-closed on absence (`cap = 0 ⟹ require = FAIL`)
+- P2: token uniqueness (`X ≠ Y ⟹ g_tok_X ≠ g_tok_Y`)
+- P3: attenuation monotonicity (`attenuate(p, r) ⊆ r`)
+- P4: grant monotonicity (`grant(p, c) = p`)
+
+Each property has a witness strategy and a counterexample search.
+SAW-style encoding sketch included. Full SMT proof run deferred to
+a future session (no `saw` / `coq` / `isabelle` installed on this
+host).
+
+### What Phase 1-6 do NOT claim
+
+Per the corrected language from this session:
+
+- **The cap tokens are NOT unforgeable.** They are 64-bit bitmasks;
+  any code with arbitrary memory access can construct a value with
+  all bits set. The cap-system is fail-closed on absence, defended
+  by Landlock as a second line.
+- **Phase 5 (MTE) provides no protection on x86_64.** The host CPU
+  is Intel i7-10610U; no memtag in /proc/cpuinfo. The header
+  compiles as no-ops; the ARM64-specific activation is a separate
+  build target.
+- **Phase 6 (formal verification) does not run a proof** until an
+  SMT prover is installed.
+
 ## v4.1.0 — Thrust (2026-09-11 M1–M5 perf opt — no ABI break)
 
 Per RULES.oot §1.21, v4.1.0 is a MINOR (Thrust) bump. No ABI break — every

@@ -30,6 +30,14 @@ OoResS oo_gpu_hip_vec_add(long long cap, float *a, float *b, float *c, int n) {
   return r;
 }
 
+/* Phase 3 sample: OoFloatBuf-typed variant. Bounds metadata travels
+ * with the handle; the launcher refuses OOB before reaching the
+ * kernel. Same fail-closed posture as the cap gate. */
+/* OoFloatBuf variants moved to gpu_hip_dispatch_buf.c (Phase 3 split:
+ * raw-pointer API and bounds-checked API live in different TUs so
+ * the umbrella stays under the 256-line cap per file). The umbrella
+ * includes both files. */
+
 OoResS oo_gpu_hip_sgemm(long long cap, const float *a, const float *b, float *c, int m, int n, int k) {
   OoResS r;
   oo_cap_require_gpu(cap, "gpu_hip_sgemm");

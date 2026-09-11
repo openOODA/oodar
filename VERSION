@@ -17,15 +17,23 @@
 # it must match the most recent git tag. See RULES.oot §1.24
 # and rfcs/0006-versioning-and-release-protocol.oot.
 
-oodar=4.0.27
-release_tag=4.0.27
+oodar=4.2.0
+release_tag=4.2.0
 ooda=2.10.0
 ooda_max=2.99.0
-api_surface=107
+api_surface=108
 # Note: api_surface counts domain .c files (core/ sec/ fs/ net/ hw/ app/).
 # CI matches that find. qa/ and examples/ are not in the ABI count.
 # Note: api_surface counts all .c files that ship in v4.0.6
 # (distributed across 6 per-domain subdirs: core, sec, fs, net, hw, app).
+# v4.2.0: memory-safety hardening adds 1 new .c (hw/gpu/gpu/
+# gpu_hip_dispatch_buf.c for the OoFloatBuf variant; the Zig source
+# lives at sec/cap/zig/cap_check.zig and produces a separate
+# liboodar_cap_check.a, NOT counted in api_surface because it's
+# outside the per-domain umbrella). Net api_surface delta: +1
+# (107 → 108). Public ABI is additive: oo_float_buf_new,
+# oo_gpu_hip_vec_add_buf (+1 struct + 2 funcs). See CHANGES.md
+# "v4.2.0".
 # v4.1.0: M1–M5 perf opt adds 3 new files (fs/os/sys_shm.c,
 # fs/os/sys_epoll.c, sec/landlock/sandbox_syscalls.c). Net api_surface
 # delta: +3 (104 → 107). Public ABI is additive; no oo_* signature

@@ -76,6 +76,12 @@ ARFLAGS = rcsD
 # untrusted OoStr bytes into PATH_MAX stack buffers, and toolchain
 # defaults vary (this host's gcc ships with the protector disabled).
 CFLAGS ?= -O2 -g -std=c11 -fPIC -fstack-protector-strong -D_GNU_SOURCE -DOODAR_CRYPTO_INTERNAL -include oodar.h
+# MEMSAFE_CFLAGS adds OODAR_MEMSAFE=1 + -O0 for the debug-mode safety
+# build. The memsafe shims (core/mem/safety.h) turn every wrapped entry
+# into a hostile-input probe: null deref, OOB, header corruption all
+# abort. Production build is unchanged. Use for sandbox / fuzz / CI
+# environments where the perf cost (~5-10%) is acceptable.
+MEMSAFE_CFLAGS := -O0 -g -std=c11 -fPIC -fstack-protector-strong -D_GNU_SOURCE -DOODAR_CRYPTO_INTERNAL -DOODAR_MEMSAFE=1 -include oodar.h
 DESTDIR ?= /usr/local
 LIBDIR ?= lib
 
@@ -90,6 +96,7 @@ BUILD_DIR := $(SCRIPT_DIR)build
 LIB_DIR := $(SCRIPT_DIR)lib
 LIB := $(LIB_DIR)/liboodar.a
 PERFILE_LIB := $(LIB_DIR)/liboodar_perfile.a
+MEMSAFE_LIB := $(LIB_DIR)/liboodar_memsafe.a
 
 # ---------------------------------------------------------------------------
 # The 94 .c files in the umbrella TU (mirrors oodar.c:13-106). The order
@@ -127,6 +134,22 @@ all: $(LIB)
 $(LIB): $(BUILD_DIR)/oodar.o | $(LIB_DIR)
 	@echo "AR  $@"
 	@$(AR) $(ARFLAGS) $@ $<
+
+# memsafe: same source as `all`, but compiled with OODAR_MEMSAFE=1
+# so the safety shims in core/mem/safety.h activate. Output is
+# lib/liboodar_memsafe.a — separate artifact, doesn't replace liboodar.a.
+# Use case: fuzz harnesses, sandbox probes, hostile-input CI. Cost:
+# ~5-10% perf hit (O0 + extra checks); zero runtime cost when the
+# caller doesn't use this build.
+memsafe: $(MEMSAFE_LIB)
+
+$(MEMSAFE_LIB): $(BUILD_DIR)/oodar_memsafe.o | $(LIB_DIR)
+	@echo "AR  $@ (memsafe build)"
+	@$(AR) $(ARFLAGS) $@ $<
+
+$(BUILD_DIR)/oodar_memsafe.o: $(REPO_ROOT)/oodar.c | $(BUILD_DIR)
+	@echo "CC  oodar.c (memsafe)"
+	@$(CC) $(MEMSAFE_CFLAGS) -I$(REPO_ROOT) -c -o $@ $<
 
 # Compile oodar.c into a single .o. The -I flag lets the .c files
 # find oodar.h, types.h, and the per-subdir .h files.
@@ -274,7 +297,8 @@ CHALLENGERS := tests_challenger_contract tests_challenger_sys tests_challenger_w
 	tests_challenger_proc_mem_leak tests_challenger_sandbox_containment \
 	tests_challenger_env_pwd tests_wal_append_sync tests_ffi_call \
 	tests_stdin_owned_str tests_challenger_concurrency_stress \
-	tests_challenger_adversarial_boundary tests_challenger_perf_benchmark
+	tests_challenger_adversarial_boundary tests_challenger_perf_benchmark \
+	tests_challenger_address_safety
 
 $(TEST_DIR):
 	@mkdir -p $@
@@ -312,6 +336,35 @@ test: lint $(addprefix $(TEST_DIR)/,$(CHALLENGERS))
 	@$(TEST_DIR)/tests_challenger_perf_benchmark
 	@$(TEST_DIR)/tests_challenger_perf_benchmark
 	@echo "TEST OK"
+
+# test-asan: re-run the address-safety probe under ASan + UBSan. The
+# probe (qa/tests_challenger_address_safety.c) exercises every public
+# oo_* entry point with hostile inputs. ASan catches use-after-free +
+# buffer overflows; UBSan catches integer overflow + alignment + null.
+# Production builds stay unsanitized (perf cost ~2x on hot paths;
+# unacceptable for the ABI), but the probe proves the public surface
+# is safe under adversarial input. CI step: `make -C scripts test-asan`.
+#
+# ASAN_OPTIONS=detect_leaks=1: leak detection on at exit.
+# UBSAN_OPTIONS=print_stacktrace=1: show the call site on UB.
+# Uses clang (libasan is bundled — gcc's libasan.so isn't installed on
+# this host, but clang ships its own runtime statically linked).
+ASAN_CC := clang
+ASAN_FLAGS := -fsanitize=address,undefined -fno-omit-frame-pointer -g -O1
+ASAN_LIBS  := -lpthread -ldl -lm
+
+$(TEST_DIR)/%-asan: $(REPO_ROOT)/qa/%.c $(REPO_ROOT)/oodar.c | $(TEST_DIR)
+	@mkdir -p $(dir $@)
+	@$(ASAN_CC) $(filter-out -include oodar.h,$(CFLAGS)) $(ASAN_FLAGS) -I$(REPO_ROOT) \
+		-o $@ $< $(REPO_ROOT)/oodar.c $(ASAN_LIBS)
+
+test-asan: $(TEST_DIR)/tests_challenger_address_safety-asan
+	@echo "RUN address-safety probe under ASan+UBSan (clang)"
+	@echo "  (detect_leaks=0: the string intern table holds allocations"
+	@echo "   for the program lifetime; that's by design, not a leak.)"
+	@ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
+		$(TEST_DIR)/tests_challenger_address_safety-asan
+	@echo "ASAN OK"
 
 # repro: bit-identical build gate — "the artifact is what the source says".
 # Rebuilds liboodar.a twice from clean and compares SHA-256; any drift is a

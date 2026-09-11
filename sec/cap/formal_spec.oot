@@ -1,0 +1,107 @@
+// # 2026-09-11 Formal Spec — oodar cap-system
+//
+// Logline: Formal specification of the cap-system semantics, ready
+//          to be fed into a future SMT run (SAW / Coq / Isabelle).
+//          Phase 6 of the 2026-09-11 memory-safety plan. The cap-
+//          system is the trust boundary; correctness here is the
+//          foundation for the rest of the security claims.
+//
+// Setup:  Authored 2026-09-11 by Mavis. Phase 6 cannot be functionally
+//         verified on this host (no SMT prover installed: no saw,
+//         no coq, no isabelle). This file is the spec; the proof
+//         runs in a future session when the prover is available.
+//         Target: prove the four properties below hold for all
+//         `oo_cap_require_*` + `oo_cap_attenuate_v2` invocations.
+//
+// Beats:
+//   1. Per-property statement (machine-readable for SMT).
+//   2. Per-property witness + counterexample strategy.
+//   3. SMT encoding sketch (SAW-style).
+//   4. Out-of-scope (what Phase 6 doesn't claim).
+
+// ## 1. Per-property statement
+
+// Notation: all caps are i64 bitmasks. The valid cap set is a set of
+// 26 tokens (g_tok_process, g_tok_sys, ..., g_tok_user). Each
+// oo_cap_require_X(cap) returns 0 (fail) if cap == 0 OR cap != g_tok_X.
+// The four properties below are the security invariants.
+
+// Property 1 (P1) — Fail-closed on absence:
+//   ∀ cap. (cap = 0) ⟹ oo_cap_require_X(cap) = FAIL
+//   "A zero cap never grants authority."
+
+// Property 2 (P2) — Token uniqueness:
+//   ∀ X, Y. (X ≠ Y) ⟹ g_tok_X ≠ g_tok_Y
+//   "Two different capability tokens are distinct bit values."
+
+// Property 3 (P3) — Attenuation monotonicity:
+//   ∀ parent, request. oo_cap_attenuate(parent, request) ⊆ request
+//   "Attenuating a cap by `request` never produces a cap that has
+//    bits `request` doesn't."
+//   Formally: ∀ bit. (attenuate(parent, request) AND bit) ⟹
+//                              (request AND bit)
+
+// Property 4 (P4) — Grant monotonicity:
+//   ∀ parent, child. oo_cap_grant(parent, child) = parent
+//   "Granting a child cap from a parent cap returns the parent
+//    value (no privilege escalation via grant)."
+
+// ## 2. Per-property witness + counterexample strategy
+
+// P1 — Witness: cap=0 + call oo_cap_require_process(0, "X") →
+//       blackbox_trap_cap → exit(1). Already tested by
+//       tests_challenger_contract.c (56 cap=0 mutators, all exit).
+//       SMT witness: trivial — any concrete cap=0 input satisfies.
+//
+// P1 — Counterexample: would be code that, with cap=0, returns OK.
+//       None exists in the current tree (verified by contract probe).
+//       SMT encoding: ∀ cap. cap = 0 ⟹ ¬requires_OK(cap, X).
+//
+// P2 — Witness: g_tok_process = 0x1 (from cap_table.json), g_tok_sys
+//       = 0x2, etc. 26 distinct tokens. SMT proves by inspection;
+//       counterexample would be a duplicate token (none exists).
+//
+// P3 — Witness: oo_cap_attenuate_hmac.c uses bitmask subset check:
+//       ∀ bit. (parent AND request AND bit) ⟹ (new AND bit). The new
+//       cap is parent AND request, so the subset relation holds by
+//       definition. SMT proves trivially; counterexample would be
+//       code that uses OR or XOR instead of AND (none exists in
+//       cap_attenuate_*.c — verified by code reading).
+//
+// P4 — Witness: oo_cap_grant.c returns parent unchanged (per the
+//       current implementation: oo_cap_grant_X returns g_tok_X for
+//       the corresponding parent cap). SMT proves trivially;
+//       counterexample would be grant code that derives child from
+//       parent via OR (which would escalate — none exists).
+
+// ## 3. SMT encoding sketch (SAW-style)
+
+// The four properties translate to SAW terms as:
+//
+//   P1: prove forall cap. cap == 0 ==> requires_X(cap) == false
+//   P2: prove forall i, j. i != j ==> tokens[i] != tokens[j]
+//   P3: prove forall p, r. (attenuate(p, r) & r) == attenuate(p, r)
+//   P4: prove forall p, c. grant(p, c) == p
+//
+// The full SAW script lives in oodar/sec/cap/formal_spec.saw (to be
+// authored in a future session when the prover is installed). Until
+// then, the .oot file above is the authoritative spec — the proof
+// targets what this file claims.
+
+// ## 4. Out-of-scope
+
+// Phase 6 doesn't claim:
+//   - That `g_tok_X` are unforgeable (they are NOT — any uint64
+//     with the right bit passes). The cap-system is fail-closed on
+//     absence, defended by Landlock (a separate concern).
+//   - That attenuation preserves the parent's cap-type (e.g.,
+//     attenuating a PathCap to a ReadFs sub-perm). This is handled
+//     by the per-token attenuation logic in cap_attenuate_path.c,
+//     cap_attenuate_hmac.c, etc. — out of scope for this spec.
+//   - That the cap-system prevents TOCTOU attacks between the cap
+//     check and the gated operation. The current implementation
+//     has a known TOCTOU window (per the 2026-09-11 security
+//     sweep). Phase 6 doesn't claim anything here.
+
+// ──▓▓ openOODA cap-system formal spec 2026-09-11 ──▓▓──
+// :: 4 properties; spec ready for future SMT run ::

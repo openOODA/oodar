@@ -159,6 +159,18 @@ void oo_meta_decoy_touch(void);
 OoResS oo_verify_human(long long env, long long fs, OoStr msg);
 int oo_gpu_hip_available(void);
 OoResS oo_gpu_hip_vec_add(long long cap, float *a, float *b, float *c, int n);
+/* Phase 3 sample: bounds-checked buffer type for the GPU surface.
+ * `oo_gpu_hip_vec_add_buf` is the OoFloatBuf-typed variant; the raw-pointer
+ * `oo_gpu_hip_vec_add` is kept for ABI compat. New code should use the
+ * `_buf` form — the bounds metadata travels with the handle so the GPU
+ * dispatcher can refuse OOB before launching the kernel. */
+typedef struct OoFloatBuf {
+  float *data;
+  long long len;
+  long long cap;
+} OoFloatBuf;
+OoFloatBuf oo_float_buf_new(long long cap, long long len);
+OoResS oo_gpu_hip_vec_add_buf(long long cap, OoFloatBuf a, OoFloatBuf b, OoFloatBuf c);
 OoResS oo_gpu_hip_try_launch(long long cap, OoStr shader);
 OoResS oo_fetch(long long cap, OoStr url);
 

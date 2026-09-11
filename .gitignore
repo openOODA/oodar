@@ -9,6 +9,9 @@ scripts/build/
 scripts/lib/
 build/
 lib/
+# Zig build outputs (sec/cap/zig/, future zig/ subdirs)
+zig-out/
+.zig-cache/
 
 # ==========================================
 # Local test artifacts
