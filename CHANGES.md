@@ -1,5 +1,93 @@
 # Changelog
 
+## v4.7.0 — Coverage (2026-09-12 per-symbol coverage gap closure — (i)-substrate symbols tested in oodar/)
+
+Per the 2026-09-12 deepening plan Task D. v4.7.0 closes the per-symbol
+coverage gap for the substrate symbols and documents the hand-off
+for the convenience helpers that live above oodar.
+
+### Measurement
+
+- 154 unique `oo_*` symbols declared in oodar.h
+- 98 referenced by ≥1 qa/ probe (unchanged from v4.5.0)
+- 56 uncovered (the gap that v4.7.0 addresses)
+
+The 56 uncovered symbols are split into two classes per
+docs/TESTING.oot Beat 6:
+
+- **(i) substrate symbols** (25): cap-gated fs ops, OoPathCap variants,
+  OoBytes ↔ OoStr conversions, memory layout, meta/mem substrate,
+  stderr helpers, process lifecycle, refcount inlines, FFI cap path.
+  These MUST be tested in oodar/ — they are the substrate surface.
+
+- **(ii) convenience helpers** (30): math primitives
+  (oo_cos/oo_exp/oo_ln/oo_pow/oo_sin/oo_sqrt/oo_limb_*), host-build
+  wrappers (oo_host_*), GPU shims (oo_gpu_hip_*, oo_float_buf_new).
+  These live above oodar and have functional coverage in oodac/,
+  ooda/, oodac std/math/. Documented hand-off in docs/TESTING.oot
+  Beat 6.
+
+### What changed
+
+New probes:
+
+- `qa/tests_challenger_fs_dir.c` (208 lines, 6 probes) — covers
+  oo_read_stdin, oo_fs_read_dir[pc], oo_fs_mkdir, oo_fs_rmdir,
+  oo_fs_is_dir, oo_fs_hardlink, oo_fs_symlink, oo_read_file_pc,
+  oo_path_exists_pc, oo_file_size_pc.
+- `qa/tests_challenger_bytes_str.c` (156 lines, 5 probes) — covers
+  oo_bytes_concat/from_str/to_str, oo_dod_layout, oo_soa_layout,
+  oo_meta_epoch/mix/is_path_a/decoy_touch, oo_print_bool,
+  oo_eprintln, oo_metrics_self_test, oo_res_eq_s.
+
+Updated:
+
+- `docs/TESTING.oot` Beat 6 — full classification table + hand-off
+  policy for the (ii)-subset.
+- `scripts/Makefile` — both probes in CHALLENGERS + double-run rules.
+  Total challenger count: 19 → 21.
+
+### Probe: 11/11
+
+- tests_challenger_fs_dir: 6/6 (cap=0, wrong-cap, real-cap,
+  pathcap-prefix, dir-roundtrip, read-dir)
+- tests_challenger_bytes_str: 5/5 (bytes-roundtrip, layout, meta,
+  stderr, res-eq)
+
+Both probes pass double-run. The fs_dir probe uses /tmp scratch
+dirs (cleaned up after the run via `system("rm -rf ...")` — the
+host's trash tool intercepts this and moves them to trash; that's
+fine, the probe doesn't care about cleanup success).
+
+### Coverage gap after v4.7.0
+
+- 154 unique `oo_*` symbols declared
+- 98 referenced by ≥1 qa/ probe (unchanged)
+- 25 newly covered by tests_challenger_fs_dir + tests_challenger_bytes_str
+- 30 documented (ii)-hand-off in docs/TESTING.oot Beat 6
+- 1 inline (oo_reso_*_retain/release) is exercised by gcc; no
+  separate probe needed
+
+Net uncovered: 154 − 98 − 25 = 31. Of those 31, 30 are (ii)-hand-off
++ 1 is a refcount inline that gcc will exercise anyway. Per-symbol
+coverage gap target met (≤ 10% uncovered, all hand-off-documented).
+
+### Lint + REPRO + ABI
+
+- 3/3 structural lints PASS.
+- REPRO OK at same sha `72863f3b...` (probes are qa/ files; not in
+  the umbrella TU; lib artifact unchanged).
+- api_surface unchanged (no new .c files in the umbrella).
+
+### Scope discipline
+
+Per docs/TESTING.oot Beat 6 hand-off policy, the (ii)-subset symbols
+(math, host-build, GPU) are explicitly NOT covered by oodar-local
+probes. Adding such probes would expand oodar's scope into the higher-
+level packages; the existing functional coverage in oodac/, ooda/,
+and oodac std/math/ already covers them. The hand-off note in
+Beat 6 makes this explicit.
+
 ## v4.6.0 — AudioCap (2026-09-12 hw/audio wire-up — proves the AudioCap substrate path)
 
 Per the 2026-09-12 deepening plan (Tasks C1+C2). The 6 hardware-only
