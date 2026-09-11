@@ -1,0 +1,25 @@
+// # hw/audio/ANCHOR.oo — Audio HAL Stub (v4.6.0)
+//
+// Logline: Hardware stub for the AudioCap substrate token. Provides
+//          OoAudioBuf type + oo_audio_init/capture/release entry
+//          points, all cap-gated via oo_cap_require_audio. On this
+//          host (no ALSA lib installed), the stub returns
+//          OoResS{ok=0, val="audio_capture: no device"} — proving the
+//          cap path works without requiring real hardware. Opt-in
+//          `-DUSE_ALSA` enables the real ALSA backend (requires
+//          alsa-lib-devel on the host).
+//
+// Setup:  Pure structural file. The 1 file in this tactical subdir
+//         (hw/audio/oo_audio_capture.c) is included by the umbrella
+//         oodar.c. The audio.h header is included by oodar.h so
+//         external consumers see the type + the 3 entry points. The
+//         pattern follows hw/gpu/ANCHOR.oo (HIP shim + OoGpuDevice
+//         type) — hardware HALs are part of the substrate role per
+//         NORTHSTAR §1.2.
+//
+// Beats:
+//   1. OoAudioBuf type — hw/audio/audio.h
+//   2. Lifecycle (init/capture/release) — hw/audio/oo_audio_capture.c
+//   3. Cap-gating — every entry point runs oo_cap_require_audio,
+//                    which is dual-checked (bitmask + OCap bridge,
+//                    v4.5.0).

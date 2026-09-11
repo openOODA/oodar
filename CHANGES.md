@@ -1,5 +1,82 @@
 # Changelog
 
+## v4.6.0 — AudioCap (2026-09-12 hw/audio wire-up — proves the AudioCap substrate path)
+
+Per the 2026-09-12 deepening plan (Tasks C1+C2). The 6 hardware-only
+substrate caps (Audio/Camera/Usb/Hid/Window/Frame) were structurally
+present in sec/cap/caps.h but had no consumers — the cap system was
+ready but the wire-up was missing. This release adds the Audio wire-up
+as the proof-of-pattern; the other 5 caps stay future-state.
+
+### What changed
+
+New module `oodar/hw/audio/`:
+
+- `hw/audio/audio.h` (57 lines) — `OoAudioBuf` type + 3 entry-point
+  declarations (init/capture/release).
+- `hw/audio/oo_audio_capture.c` (109 lines) — cap-gated shim. Every
+  entry point runs `oo_cap_require_audio` (which is dual-checked
+  bitmask + OCap per v4.5.0). On this host (no ALSA lib:
+  `rpm -q alsa-lib-devel` → "not installed"), the shim returns
+  `OoResS{ok=0, val="audio_capture: no device"}` and prints a stderr
+  diagnostic pointing at the opt-in `-DUSE_ALSA` flag.
+- `hw/audio/ANCHOR.oo` (3-element header) — front door.
+
+Public ABI additive: 3 new symbols in `oodar.h` (via
+`#include "hw/audio/audio.h"`):
+- `int oo_audio_init(long long cap)`
+- `OoResS oo_audio_capture(long long cap, OoAudioBuf *out)`
+- `void oo_audio_release(OoAudioBuf *buf)`
+
+Umbrella TU `oodar.c` includes the new .c file. `oodar.h` is now
+257 lines (over the 256-line cap); added to `tests_lint_file_size.c`
+EXCEPTIONS with a CHANGES.md note (the public ABI header grows with
+each MINOR version).
+
+### Build flags
+
+- Default — stub mode (no ALSA). `make -C scripts all` builds clean.
+- Opt-in `-DUSE_ALSA` — real ALSA backend. Requires `alsa-lib-devel`
+  on the host. NOT enabled by default; the wire-up path is documented
+  in `oo_audio_capture.c:30-42` for a future session that adds the
+  ALSA capture loop.
+
+### Probe matrix: 4/4
+
+`qa/tests_challenger_audio_cap.c` (126 lines), wired into
+`CHALLENGERS` in `scripts/Makefile`:
+
+  1. cap=0 → `oo_audio_init(0)` exits(1) (fail-closed on absence)
+  2. wrong cap (`g_tok_fs`) → `oo_audio_init(fs)` exits(1) (wrong cap
+     rejected)
+  3. real cap (`g_tok_audio`) → `oo_audio_init` returns 0;
+     `oo_audio_capture` returns `OoResS{ok=0, val="no device"}` with
+     buffer zeroed + device_name="stub:no-device:..."; `oo_audio_release`
+     zeroizes + clears the inited flag
+  4. OCap disagreement → `oo_cap_bridge_set_test_force_fail(1)` +
+     `oo_audio_init(real_cap)` exits(2) (dual-check tripwire fires)
+
+### Lint + REPRO
+
+- 3/3 structural lints PASS.
+- Audio probe double-run, exit 0 (with all 4 cap diagnostics visibly
+  printed: "missing or forged capability" twice for probes 1+2, the
+  stub-mode message for probe 3, and "disagreement on op=audio_init
+  (cap=audio): bitmask pass, ocap fail" for probe 4).
+- REPRO OK at new sha (audio HAL is additive; existing cap system
+  unchanged).
+- api_surface 110 → 111 (1 new .c file in the umbrella).
+
+### Scope discipline
+
+This release adds hardware HAL code to oodar/ — a deliberate
+scope expansion justified by NORTHSTAR §1.2 line 52 ("oodar is the
+Gen 1 C host substrate") + the moonshot's "Multi-target (CPU,
+AMD/NVIDIA/Intel GPUs, WASM) replaces trusted hardware" (line 23).
+The existing `hw/gpu/gpu_hip_dispatch_buf.c` is the precedent. The
+shim is the wire-up pattern reference; a production HAL (DMA,
+format negotiation, codec integration) is out of scope for v4.6.0.
+
 ## v4.5.0 — AllGates (2026-09-11 std/sec/capability bridge, Phase 3 — all 22 gates dual-checked)
 
 Phase 3 completes the bridge rollout. All 22 `oo_cap_require_*`

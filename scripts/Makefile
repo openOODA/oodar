@@ -338,7 +338,8 @@ CHALLENGERS := tests_challenger_contract tests_challenger_sys tests_challenger_w
 	tests_stdin_owned_str tests_challenger_concurrency_stress \
 	tests_challenger_adversarial_boundary tests_challenger_perf_benchmark \
 	tests_challenger_address_safety \
-	tests_challenger_ocap_bridge
+	tests_challenger_ocap_bridge \
+	tests_challenger_audio_cap
 
 $(TEST_DIR):
 	@mkdir -p $@
@@ -377,6 +378,8 @@ test: lint $(addprefix $(TEST_DIR)/,$(CHALLENGERS))
 	@$(TEST_DIR)/tests_challenger_perf_benchmark
 	@$(TEST_DIR)/tests_challenger_ocap_bridge
 	@$(TEST_DIR)/tests_challenger_ocap_bridge
+	@$(TEST_DIR)/tests_challenger_audio_cap
+	@$(TEST_DIR)/tests_challenger_audio_cap
 	@echo "TEST OK"
 
 # test-asan: re-run the address-safety probe under ASan + UBSan. The

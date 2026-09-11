@@ -252,5 +252,6 @@ long long oo_lto_xlang_link(long long cap, OoStr a, OoStr b);
 #include "fs/os/sys_shm.h"
 #include "fs/os/sys_epoll.h"
 #include "sec/landlock/sandbox_syscalls.h"
+#include "hw/audio/audio.h"
 
 #endif

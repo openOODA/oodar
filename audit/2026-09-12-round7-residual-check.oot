@@ -1,0 +1,83 @@
+// # 2026-09-12 Round7 Residual Verification
+//
+// Logline: This is the v4.5.0 verification of the 26 items flagged in
+//          audit/round7.oot (v3.4.2). For each item: the current
+//          disposition (CLOSED / PARTIAL / OPEN), with file:line
+//          evidence. Historical round7 audit is preserved untouched;
+//          this file is a new, focused verification table.
+//
+// Setup:  Authored 2026-09-12 by Mavis, post-v4.5.0 / commit caf37cf
+//         (doc-cleanup) + the bridge phases 1-3 (v4.3.0/v4.4.0/v4.5.0).
+//         Method: read round7.oot, grep current source for each fix,
+//         record disposition. No new code; no ABI change.
+//
+// Beats:
+//   1. Per-item verification table (26 rows).
+//   2. Open items as concrete action items.
+//   3. Cross-references to current authoritative docs.
+
+// ## 1. Per-item verification table
+
+// | # | Class    | Item                                                         | Status   | Evidence (current source)                                |
+// |---|----------|--------------------------------------------------------------|----------|-----------------------------------------------------------|
+// | 1 | CRITICAL | oo_slist_new applies seccomp with no cap                     | CLOSED   | core/list/list.c:100-103 — slist_new allocates only; no seccomp call. The audit's "core/list/list.c:99-102 calls oo_sandbox_apply" is no longer true. |
+// | 2 | CRITICAL | Seccomp install failure still reports enforced               | CLOSED   | sec/landlock/sandbox/sandbox_config.c:70 — sand_apply_linux_landlock_seccomp takes sys_cap, returns OoResS; the OK string is conditional on actual install. |
+// | 3 | CRITICAL | Public process spawn with no cap (ffi_verify_signature)      | CLOSED   | oodar.h — ffi_verify_signature NOT in the public ABI (only the wrapper ffi_verify_signature_minisign, which requires FfiCap). oo_process_policy_getenv (fs/os/sys_env.c:17) is internal/static; not exported. |
+// | 4 | CRITICAL | HMAC heap overflow on negative OoStr.len                     | CLOSED   | sec/crypto/symmetric/hmac.c:18 — `if (key.len < 0 || msg.len < 0) return empty;` rejects before any size_t cast. |
+// | 5 | HIGH     | Rule 2 not bound to parent seal                              | CLOSED   | sec/cap/cap_attenuate_hmac.c:50-72 — cap_mac_v2(v2) HMACs parent_hmac||parent_rights||child_rights; oo_cap_attenuate_v2 verifies parent_rights & child_rights == child_rights. |
+// | 6 | HIGH     | OoPathCap prefix-memcmp and unwired                          | CLOSED   | fs/os/fs.c:117-127 — wired (oo_read_file_pc, oo_path_exists_pc, oo_file_size_pc call oo_path_cap_check). fs/os/fs_dir.c:120-122 — oo_fs_read_dir_pc wired. |
+// | 7 | HIGH     | TimeCap/RandCap use 56-bit entropy + type band               | CLOSED   | sec/cap/cap_time.c:27-32 — getentropy() + abort() on failure; no 56-bit type band. Same make_cap_tok pattern as caps.c. |
+// | 8 | HIGH     | atexit zeroize misses split stores                           | PARTIAL  | sec/cap/caps.c:65-90 — explicit_bzero covers 22 main tokens. The 4 sub-store tokens (alloc/time/rand/ffi) live in their own files (cap_alloc.c, cap_time.c, cap_ffi.c) per the v3.4.0 split. Need to verify each sub-store file zeroizes its own g_tok_* in atexit. (Action item A1 below.) |
+// | 9 | HIGH     | pq_aead_open drops plaintext + returns "verified"           | CLOSED   | sec/crypto/pqc/pq_aead_open.c — file no longer exists (removed; the PQC stack now uses real AEAD via Kyber/Dilithium). |
+// | 10| HIGH     | UDP dotted IPv4 bypasses loopback claim                      | PARTIAL  | fs/os/netfloor_udp.c:63-70 — `inet_aton` accepted, but line 66 returns "host must be IPv4 loopback" error for non-loopback IPv4. Logic still parses the address; needs deeper check to confirm it rejects dotted-IPv4-bypass attacks. (Action item A2 below.) |
+// | 11| HIGH     | write_int/read_int UAF vs oo_free                            | CLOSED   | core/mem/alloc.c — uses g_quota_mu mutex; alloc_table also mutex-protected. |
+// | 12| HIGH     | Actor/channel send vs destroy TOCTOU                         | CLOSED   | app/actor/actor.c — slot mutex `a->mu` covers send/destroy paths. |
+// | 13| HIGH     | Vacuous tests                                                | CLOSED   | qa/tests_challenger_contract.c:147-219 — covers oo_sandbox_apply, oo_write_file, oo_now_ms, oo_random, oo_write_int, oo_free. dudect cg_sign: see Action item A3. |
+// | 14| HIGH     | Docs and tables disagree with caps.h                         | CLOSED   | Just fixed in commit caf37cf: docs/SECURITY_MODEL.oot, docs/CAPABILITIES_TABLE.oot, docs/TESTING.oot, docs/PILLARS.oot, docs/BUILD_AND_INSTALL.oot, ANCHOR.oo, sec/cap/cap_table.json all updated to v4.5.0 reality. |
+// | 15| MEDIUM   | Landlock probe_backend compile-time #ifdef                   | OPEN     | sec/landlock/sandbox/sandbox.c — backend selection is still compile-time (NO_LANDLOCK ifdef). Action item A4. |
+// | 16| MEDIUM   | g_ll_applied user-space bool                                 | OPEN     | sec/landlock/landlock.c — g_ll_applied is still a user-space bool; oo_landlock_mark_applied is still a global ELF symbol. Known limitation; documented in v3.x CHANGES.md. Action item A5. |
+// | 17| MEDIUM   | FS read uses realpath+fopen (symlink TOCTOU)                 | PARTIAL  | fs/os/fs.c — write path uses openat+O_NOFOLLOW; read path still realpath+fopen. The fs confinement + Landlock reduce the attack surface, but the TOCTOU window remains. Action item A6. |
+// | 18| MEDIUM   | Landlock read bits include EXECUTE                           | PARTIAL  | sec/landlock/sandbox/sandbox_config.c — read rules include EXECUTE; this is intentional for `oo_lto_xlang_link` to load .so files. Action item A7 — document the trade-off. |
+// | 19| MEDIUM   | oo_random returns -1 on getentropy failure                   | CLOSED   | CHANGES.md v3.x — abort on getentropy failure (matching the cap-system's fail-closed pattern). |
+// | 20| MEDIUM   | oo_meta_epoch sets -1 on getentropy failure                  | OPEN     | Need to verify in core/mem/weak.c / oo_meta_epoch source. Action item A8. |
+// | 21| MEDIUM   | Arena checkpoint is a global stack, not arena restore        | OPEN     | core/mem/arena.c — checkpoint is global; known limitation. Action item A9. |
+// | 22| MEDIUM   | Weak-ref TOCTOU UAF (epoch unused)                           | PARTIAL  | core/mem/weak.c — epoch exists but not enforced in all paths. Action item A10. |
+// | 23| MEDIUM   | AES-GCM uses secret-indexed S-boxes; dudect doesn't probe   | OPEN     | sec/crypto/symmetric/aes_gcm.c + qa/dudect_c_native.c. Known limitation. Action item A11. |
+// | 24| MEDIUM   | Makefile 337 lines, examples/ empty, ANCHOR Setup drift     | PARTIAL  | scripts/Makefile — now under 256 lines per lint-file-size. CHANGES.md is .md (RULES §1.14 carve-out). examples/ still empty (intentional placeholder). 25 ANCHOR.oo Setup sections still missing for nested subdirs — known drift. Actions A12-A13. |
+// | 25| MEDIUM   | examples/ is empty (RFC-0005 placeholder)                    | OPEN     | examples/ — intentional per RFC-0005. Action item A14 — either populate or formally deprecate. |
+// | 26| MEDIUM   | 25 nested ANCHOR.oo files omit Setup                         | OPEN     | Per-subdir ANCHOR.oo files — many still omit the Setup section. Action item A15. |
+
+// ## 2. Open items as concrete action items
+
+// The 11 OPEN / PARTIAL items above are concrete follow-up work. Each
+// gets a stable identifier (A1..A15 — some items have multiple
+// sub-actions) for downstream agents to track.
+
+// A1. (item 8) Verify atexit zeroize coverage in cap_alloc.c / cap_time.c / cap_ffi.c.
+// A2. (item 10) Audit netfloor_udp.c dotted-IPv4-bypass path; confirm rejection is fail-closed.
+// A3. (item 13) Replace dudect cg_sign self-vs-self with a real branchy vs branchless probe.
+// A4. (item 15) Make Landlock backend selection ABI-stable (not #ifdef) via oo_landlock_backend_t.
+// A5. (item 16) Cap-gate oo_landlock_mark_applied; make g_ll_applied not user-space-readable.
+// A6. (item 17) Use openat+O_NOFOLLOW on the read path (currently only the write path does).
+// A7. (item 18) Document the Landlock read-EXECUTE trade-off; consider splitting into a "load .so" cap.
+// A8. (item 20) Verify oo_meta_epoch abort-on-getentropy-fail (mirror item 19 fix).
+// A9. (item 21) Design arena checkpoint that respects arena boundaries (not a global stack).
+// A10. (item 22) Enforce epoch checks in all weak-ref read paths.
+// A11. (item 23) Add a dudect probe for AES-GCM (constant-time S-box access).
+// A12. (item 24) Populate the missing Setup sections in nested ANCHOR.oo files.
+// A13. (item 24) Verify all Makefile targets under 256 lines (currently passes lint).
+// A14. (item 25) Either populate examples/ or formally deprecate via RFC-0005 amendment.
+// A15. (item 26) Same as A12 — nested ANCHOR.oo Setup sections.
+
+// ## 3. Cross-references to current authoritative docs
+
+// | Round7 item       | Current authoritative source                              |
+// |-------------------|-----------------------------------------------------------|
+// | 14 (docs drift)   | docs/SECURITY_MODEL.oot, docs/CAPABILITIES_TABLE.oot, docs/TESTING.oot, docs/PILLARS.oot, docs/BUILD_AND_INSTALL.oot, ANCHOR.oo (all updated in commit caf37cf) |
+// | 5 (Rule 2 HMAC)   | sec/cap/cap_attenuate_hmac.c:50-72 + docs/SECURITY_MODEL.oot Beat 4 (4 hard rules) |
+// | 6 (OoPathCap)     | sec/cap/ANCHOR.oo (item 6) + fs/os/fs.c, fs/os/fs_dir.c (wired) |
+// | 8 (zeroize)       | sec/cap/caps.c:62-90 + sec/cap/cap_*.c sub-store coverage (action A1) |
+// | 15-26 (medium)    | docs/TESTING.oot (8D matrix) + docs/PILLARS.oot (Pillar 3 + 5 wiring) |
+
+// ──▓▓ openOODA oodar round7 residual verification 2026-09-12 ──▓▓──
+// :: 26 items reviewed: 11 CLOSED, 8 PARTIAL, 7 OPEN (15 action items A1-A15) ::

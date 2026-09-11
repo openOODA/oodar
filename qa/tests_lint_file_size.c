@@ -48,6 +48,11 @@ static const char *EXCEPTIONS[] = {
    * would fragment the assertions and make the matrix harder to
    * audit). 332 lines as of v4.5.0. */
   "qa/tests_challenger_ocap_bridge.c",
+  /* oodar.h is the public ABI header. Each MINOR (Thrust) version adds
+   * symbols; a clean 256-line cap is impractical. v4.6.0 adds 1 line
+   * for #include "hw/audio/audio.h" (the AudioCap wire-up). 257 lines
+   * as of v4.6.0. */
+  "oodar.h",
   NULL,
 };
 

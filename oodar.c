@@ -121,3 +121,4 @@
 #include "core/mem/align.c"
 #include "core/mem/weak.c"
 #include "core/blackbox/blackbox.c"
+#include "hw/audio/oo_audio_capture.c"
