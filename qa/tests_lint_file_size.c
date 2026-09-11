@@ -40,6 +40,14 @@ static const char *EXCEPTIONS[] = {
    * it manually would mean fighting the compiler. The source of truth
    * is the .oo file. */
   "sec/cap/cap_bridge_emitted.c",
+  /* qa/tests_challenger_ocap_bridge.c is the 6-probe Phase 1-3
+   * OCap-bridge matrix. Phase 3 added the table-driven probe 6 that
+   * cycles all 22 oo_cap_require_* gates (44 forks total — happy +
+   * disagreement per gate); the table alone is ~50 lines and the
+   * probe is a single coherent test (splitting it across files
+   * would fragment the assertions and make the matrix harder to
+   * audit). 332 lines as of v4.5.0. */
+  "qa/tests_challenger_ocap_bridge.c",
   NULL,
 };
 

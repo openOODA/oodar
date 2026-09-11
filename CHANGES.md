@@ -1,5 +1,69 @@
 # Changelog
 
+## v4.5.0 — AllGates (2026-09-11 std/sec/capability bridge, Phase 3 — all 22 gates dual-checked)
+
+Phase 3 completes the bridge rollout. All 22 `oo_cap_require_*`
+gates now run both the bitmask check AND the OCap rights check,
+funneled through a single `dual_check` helper. Disagreement between
+the two paths aborts with exit(2) + a loud diagnostic; bitmask-only
+failure keeps the v3.x exit(1) + `blackbox_trap_cap` behavior.
+
+### What changed
+
+`sec/cap/cap_require.c` refactored:
+- New `dual_check(got, want, alt, op, name, required_rights)` static
+  helper — bitmask check + `oo_cap_check_with_ocap` cross-check.
+- All 22 per-cap gates are now one-liners over `dual_check`.
+  Direct gates pass `alt=0`; alias gates (tcp/udp/bind accept
+  net, fsread/fswrite accept fs, process accepts sys) pass the
+  alternate substrate token.
+- `oo_cap_require` (the generic legacy form) stays bitmask-only
+  for callers that need raw cap arithmetic (blackbox framework,
+  internal diagnostics).
+- File shrunk from 112 → 88 lines despite adding the helper — the
+  pattern consolidation paid off.
+
+### Probe: 6/6
+
+`qa/tests_challenger_ocap_bridge.c` (332 lines; added to
+`tests_lint_file_size.c` EXCEPTIONS with a CHANGES.md note because
+the 22-entry table is a single coherent test matrix) now runs 6
+probes:
+  1. cap=0 fail-closed.
+  2. Forge attempts rejected.
+  3. Real tokens return documented rights.
+  4. Subset rule works.
+  5. Phase 2: dual-disagreement fires on `oo_cap_require_fs`.
+  6. Phase 3: dual-disagreement fires on all 22 gates (44 forks:
+     happy-path + forced-fail per gate). Each happy-path child
+     exits 0; each forced-fail child exits 2 with a `ERR cap-ocap`
+     diagnostic naming the gate that disagreed.
+
+### Lint + REPRO + ABI
+
+- 3/3 structural lints PASS.
+- Probe passes double-run, exit 0 (with 22 disagreement
+  diagnostics visibly printed, one per gate).
+- REPRO OK at sha256 `588695888967e95ff351df646d560560bf5f604a9aba1bb0f1d05b43ea4e5d79`.
+  3-way distribution sync confirmed.
+- Public ABI unchanged from v4.4.0; all gates keep their existing
+  signatures. api_surface 109 → 109.
+
+### Bridge completion status
+
+| Phase | Status |
+|-------|--------|
+| 1. Bridge infrastructure + 4 hostile probes | DONE (v4.3.0) |
+| 2. Dual-check on `oo_cap_require_fs` | DONE (v4.4.0) |
+| 3. Dual-check on all 22 gates | DONE (v4.5.0, this commit) |
+| 4. Floor break v5.0.0 (bitmask path deprecated) | DEFERRED — muse owns oodac → LLVM IR migration |
+
+All 22 gates are now defended in depth. The bitmask path remains
+the source of truth (the 26 substrate caps in `g_tok_*`); the OCap
+path is the tripwire that catches state corruption. When the LLVM
+IR migration lands, the bitmask path can be deprecated because
+the OCap path becomes the structural source of truth.
+
 ## v4.4.0 — Dual (2026-09-11 std/sec/capability bridge, Phase 2 — dual-check on fs gate)
 
 Phase 2 wires the existing `oo_cap_require_fs` through both the bitmask

@@ -176,6 +176,139 @@ static void probe_dual_check_disagreement(void) {
          "oo_cap_require_fs(real fs cap, ocap forced fail) should exit(2); child exited differently");
 }
 
+/* --- Probe 6: dual-check covers all 22 gates (Phase 3) ---
+ * Phase 3 routed every oo_cap_require_* gate through the dual_check
+ * helper. This probe exercises all 22 gates in two passes:
+ *
+ *   6a. Happy path: child calls oo_cap_require_<name>(real_cap)
+ *       with the OCap path clean. Must exit 0 for every gate.
+ *   6b. Disagreement: child forces OCap fail, calls the same gate.
+ *       Must exit 2 for every gate.
+ *
+ * The probe iterates over a table of (substrate_index, gate_fn,
+ * cap_name) triples. The substrate_index is the position in
+ * caps.c's g_tok_* ordering (see cap_ocap_bridge.c: SUBSTRATE_TO_LANGUAGE).
+ *
+ * For the 6 alias gates (tcp/udp/bind accept net, fsread/fswrite
+ * accept fs, process accepts sys), we test the PRIMARY substrate
+ * token — the alias token is already covered by its own gate in
+ * the table. */
+typedef void (*cap_require_fn)(long long, const char *);
+
+typedef struct {
+  const char *name;
+  int substrate_index;  /* matches SUBSTRATE_TO_LANGUAGE in cap_ocap_bridge.c */
+  cap_require_fn fn;
+} CapGate;
+
+static const CapGate ALL_GATES[22] = {
+  {"fs",              0,  NULL},  /* filled by extern decls below */
+  {"sys",             1,  NULL},
+  {"env",             2,  NULL},
+  {"net",             3,  NULL},
+  {"sign",            4,  NULL},
+  {"process",         5,  NULL},
+  {"tcp",             6,  NULL},
+  {"udp",             7,  NULL},
+  {"bind",            8,  NULL},
+  {"audio",           9,  NULL},
+  {"camera",          10, NULL},
+  {"usb",             11, NULL},
+  {"hid",             12, NULL},
+  {"window",          13, NULL},
+  {"frame",           14, NULL},
+  {"fsread",          15, NULL},
+  {"fswrite",         16, NULL},
+  {"arena",           17, NULL},
+  {"thread",          18, NULL},
+  {"gpu",             19, NULL},
+  {"compiler_read",   20, NULL},
+  {"metrics",         21, NULL},
+};
+
+static void probe_dual_check_all_gates(void) {
+  /* Function-pointer table — the per-gate extern declarations
+   * (set at probe init time below) populate the .fn field. */
+  extern void oo_cap_require_fs(long long, const char *);
+  extern void oo_cap_require_sys(long long, const char *);
+  extern void oo_cap_require_env(long long, const char *);
+  extern void oo_cap_require_net(long long, const char *);
+  extern void oo_cap_require_sign(long long, const char *);
+  extern void oo_cap_require_process(long long, const char *);
+  extern void oo_cap_require_tcp(long long, const char *);
+  extern void oo_cap_require_udp(long long, const char *);
+  extern void oo_cap_require_bind(long long, const char *);
+  extern void oo_cap_require_audio(long long, const char *);
+  extern void oo_cap_require_camera(long long, const char *);
+  extern void oo_cap_require_usb(long long, const char *);
+  extern void oo_cap_require_hid(long long, const char *);
+  extern void oo_cap_require_window(long long, const char *);
+  extern void oo_cap_require_frame(long long, const char *);
+  extern void oo_cap_require_fsread(long long, const char *);
+  extern void oo_cap_require_fswrite(long long, const char *);
+  extern void oo_cap_require_arena(long long, const char *);
+  extern void oo_cap_require_thread(long long, const char *);
+  extern void oo_cap_require_gpu(long long, const char *);
+  extern void oo_cap_require_compiler_read(long long, const char *);
+  extern void oo_cap_require_metrics(long long, const char *);
+
+  /* Populate the function pointers at probe time (the extern decls
+   * above are not constant expressions in C). */
+  CapGate gates[22];
+  for (int i = 0; i < 22; i++) gates[i] = ALL_GATES[i];
+  gates[0].fn  = oo_cap_require_fs;
+  gates[1].fn  = oo_cap_require_sys;
+  gates[2].fn  = oo_cap_require_env;
+  gates[3].fn  = oo_cap_require_net;
+  gates[4].fn  = oo_cap_require_sign;
+  gates[5].fn  = oo_cap_require_process;
+  gates[6].fn  = oo_cap_require_tcp;
+  gates[7].fn  = oo_cap_require_udp;
+  gates[8].fn  = oo_cap_require_bind;
+  gates[9].fn  = oo_cap_require_audio;
+  gates[10].fn = oo_cap_require_camera;
+  gates[11].fn = oo_cap_require_usb;
+  gates[12].fn = oo_cap_require_hid;
+  gates[13].fn = oo_cap_require_window;
+  gates[14].fn = oo_cap_require_frame;
+  gates[15].fn = oo_cap_require_fsread;
+  gates[16].fn = oo_cap_require_fswrite;
+  gates[17].fn = oo_cap_require_arena;
+  gates[18].fn = oo_cap_require_thread;
+  gates[19].fn = oo_cap_require_gpu;
+  gates[20].fn = oo_cap_require_compiler_read;
+  gates[21].fn = oo_cap_require_metrics;
+
+  /* Sub-test 6a: happy path across all 22 gates. */
+  for (int i = 0; i < 22; i++) {
+    pid_t pid = fork();
+    if (pid == 0) {
+      long long cap = oo_cap_self_token(gates[i].substrate_index);
+      gates[i].fn(cap, "test_all");
+      _exit(0);
+    }
+    int status = 0;
+    waitpid(pid, &status, 0);
+    ASSERT(WIFEXITED(status) && WEXITSTATUS(status) == 0,
+           "gate happy-path should succeed");
+  }
+
+  /* Sub-test 6b: forced disagreement across all 22 gates. */
+  for (int i = 0; i < 22; i++) {
+    pid_t pid = fork();
+    if (pid == 0) {
+      oo_cap_bridge_set_test_force_fail(1);
+      long long cap = oo_cap_self_token(gates[i].substrate_index);
+      gates[i].fn(cap, "test_all_disagree");
+      _exit(0);  /* must not reach here */
+    }
+    int status = 0;
+    waitpid(pid, &status, 0);
+    ASSERT(WIFEXITED(status) && WEXITSTATUS(status) == 2,
+           "gate forced-disagreement should exit(2)");
+  }
+}
+
 /* --- Driver --- */
 int main(int argc, char **argv) {
   (void)argc;
@@ -188,11 +321,12 @@ int main(int argc, char **argv) {
   probe_real_tokens();
   probe_subset_rule();
   probe_dual_check_disagreement();
+  probe_dual_check_all_gates();
 
   if (g_failures != 0) {
     fprintf(stderr, "FAIL ocap-bridge: %d failures\n", g_failures);
     return 1;
   }
-  fprintf(stderr, "OK ocap-bridge: 5 probes passed (cap=0, forge, real-tokens, subset, dual-disagree)\n");
+  fprintf(stderr, "OK ocap-bridge: 6 probes passed (cap=0, forge, real-tokens, subset, dual-disagree, all-gates)\n");
   return 0;
 }
