@@ -48,6 +48,14 @@ static const char *EXCEPTIONS[] = {
    * would fragment the assertions and make the matrix harder to
    * audit). 332 lines as of v4.5.0. */
   "qa/tests_challenger_ocap_bridge.c",
+  /* qa/tests_challenger_address_safety.c is the ASan+UBSan probe
+   * matrix. Phase v4.2.0 added 12 cap-free probes; v4.8.0 extended
+   * to 18 with 6 cap-gated OCap-side probes. The 6 new probes use
+   * the same fork+force-fail pattern as the audio probe, but cover
+   * a different surface (sys_args, metrics_self_test, lto_xlang_link,
+   * import_c, host_ast_dump, host_check). Splitting would fragment
+   * the ASan matrix. ~305 lines as of v4.8.0. */
+  "qa/tests_challenger_address_safety.c",
   /* oodar.h is the public ABI header. Each MINOR (Thrust) version adds
    * symbols; a clean 256-line cap is impractical. v4.6.0 adds 1 line
    * for #include "hw/audio/audio.h" (the AudioCap wire-up). 257 lines

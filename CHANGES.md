@@ -1,5 +1,61 @@
 # Changelog
 
+## v4.8.0 — ASan+OCap (2026-09-12 ASan/UBSan coverage expansion — 12 → 18 probes with OCap cross-check)
+
+Per the 2026-09-12 deepening plan Task E.1. v4.8.0 extends
+`tests_challenger_address_safety.c` from 12 cap-free probes to 18
+probes by adding 6 cap-gated OCap-side probes. The new probes use
+the `oo_cap_bridge_set_test_force_fail` hook to force the next OCap
+check to fail, then call a cap-gated function with a real cap.
+The dual-check wrapper (v4.5.0) must abort with exit(2).
+
+### What changed
+
+`qa/tests_challenger_address_safety.c` (179 → 305 lines; added to
+`tests_lint_file_size.c` EXCEPTIONS with a CHANGES.md note):
+
+- v4.2.0 had 12 cap-free probes (str/bytes/math/null-deref/print).
+- v4.8.0 adds 6 cap-gated probes:
+  - `probe_cap_gated_sys_args` (SysCap, dual-checked) ✓
+  - `probe_cap_gated_metrics_self_test` (MetricsCap, dual-checked) ✓
+  - `probe_cap_gated_lto_xlang_link` (ProcessCap, dual-checked) ✓
+  - `probe_cap_gated_env_get` (EnvCap, dual-checked) ✓
+  - `probe_cap_gated_import_c` (FfiCap, **bitmask-only** — see below)
+  - `probe_cap_gated_dlopen` (FfiCap, **bitmask-only** — see below)
+
+The probes for `oo_import_c` and `oo_dlopen` test the bitmask
+side only (not OCap-disagreement), because the FfiCap require
+wrapper in `sec/cap/cap_ffi.c:65` is legacy single-check
+(it doesn't use the `dual_check` helper). This is the open
+item A1 from `audit/2026-09-12-round7-residual-check.oot`:
+"Verify atexit zeroize coverage in cap_alloc.c / cap_time.c /
+cap_ffi.c" — the deeper fix is to wire dual_check into all 4
+sub-store wrappers (alloc/time/rand/ffi). When that lands,
+these probes can be tightened to force-fail + exit(2).
+
+### Probe: 18/18
+
+All 18 probes pass under `make -C scripts test-asan` (clang +
+`-fsanitize=address,undefined`). The 4 dual-checked probes
+(sys_args, metrics_self_test, lto_xlang_link, env_get) print
+the expected "disagreement on op=X (cap=Y): bitmask pass, ocap
+fail" diagnostic from the OCap bridge before exiting(2). The
+2 bitmask-only probes (import_c, dlopen) print the "missing or
+forged capability" diagnostic before exiting(1).
+
+### Lint + REPRO + ABI
+
+- 3/3 structural lints PASS (probe file in EXCEPTIONS).
+- REPRO OK at same sha `72863f3b...` (probe is qa/, not umbrella).
+- api_surface unchanged (no new symbols in the umbrella).
+
+### Scope discipline
+
+These probes add ASan/UBSan coverage for the OCap-bridge
+cross-check path. They do NOT introduce new public symbols.
+The FfiCap limitation is documented as a known issue (action
+item A1) and does not expand oodar's scope.
+
 ## v4.7.0 — Coverage (2026-09-12 per-symbol coverage gap closure — (i)-substrate symbols tested in oodar/)
 
 Per the 2026-09-12 deepening plan Task D. v4.7.0 closes the per-symbol

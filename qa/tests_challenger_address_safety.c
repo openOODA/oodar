@@ -143,6 +143,136 @@ static void probe_print_extremes(void) {
 
 /* --- Driver --- */
 
+/* --- Cap-gated OCap-side probes (v4.8.0, 6 new probes) ---
+ *
+ * Each of these probes tests the OCap-side path of a cap-gated entry
+ * point. The pattern: fork a child, set oo_cap_bridge_set_test_force_fail(1),
+ * call the cap-gated function with a real cap, expect exit(2) from
+ * the dual-check wrapper. If the OCap path is broken (no exit(2)),
+ * ASan would also catch any use-after-free / OOB / integer-overflow.
+ *
+ * These probes mirror tests_challenger_audio_cap.c probe 4 (the
+ * OCap-disagreement probe) but cover a different surface: the
+ * cap-gated data-plane ops that weren't in the audio probe. */
+
+#include "../sec/cap/cap_ocap_bridge.h"
+#include <sys/wait.h>
+#include <unistd.h>
+
+static void probe_cap_gated_sys_args(void) {
+  pid_t pid = fork();
+  if (pid == 0) {
+    oo_cap_bridge_set_test_force_fail(1);
+    long long sys = oo_cap_self_token(1);
+    OoSList r = oo_sys_args(sys);
+    (void)r;
+    _exit(0);  /* must not reach — OCap fail should abort(2) */
+  }
+  int status = 0;
+  waitpid(pid, &status, 0);
+  if (!(WIFEXITED(status) && WEXITSTATUS(status) == 2)) {
+    fprintf(stderr, "FAIL oo_sys_args(ocap forced fail) should exit(2)\n");
+    g_failures++;
+  }
+}
+
+static void probe_cap_gated_metrics_self_test(void) {
+  pid_t pid = fork();
+  if (pid == 0) {
+    oo_cap_bridge_set_test_force_fail(1);
+    long long m = oo_cap_self_token(21);  /* g_tok_metrics */
+    int rc = oo_metrics_self_test(m);
+    (void)rc;
+    _exit(0);
+  }
+  int status = 0;
+  waitpid(pid, &status, 0);
+  if (!(WIFEXITED(status) && WEXITSTATUS(status) == 2)) {
+    fprintf(stderr, "FAIL oo_metrics_self_test(ocap forced fail) should exit(2)\n");
+    g_failures++;
+  }
+}
+
+static void probe_cap_gated_lto_xlang_link(void) {
+  /* oo_lto_xlang_link is gated by oo_cap_require_process (ProcessCap,
+   * index 5), not FfiCap. The dual-check wrapper for ProcessCap IS
+   * wired (v4.5.0); this probe exercises it. */
+  pid_t pid = fork();
+  if (pid == 0) {
+    oo_cap_bridge_set_test_force_fail(1);
+    long long proc = oo_cap_self_token(5);  /* g_tok_process */
+    long long r = oo_lto_xlang_link(proc, oo_str_lit("/tmp/a.o"), oo_str_lit("/tmp/b.so"));
+    (void)r;
+    _exit(0);
+  }
+  int status = 0;
+  waitpid(pid, &status, 0);
+  if (!(WIFEXITED(status) && WEXITSTATUS(status) == 2)) {
+    fprintf(stderr, "FAIL oo_lto_xlang_link(ocap forced fail) should exit(2)\n");
+    g_failures++;
+  }
+}
+
+static void probe_cap_gated_import_c(void) {
+  /* oo_import_c is gated by oo_cap_require_ffi (FfiCap, index 25).
+   * The FfiCap wrapper in cap_ffi.c does NOT use dual_check (action
+   * item A1 in audit/2026-09-12-round7-residual-check.oot). When that
+   * fix lands, this probe will start exiting(2). For now, we test
+   * the bitmask side and verify it rejects a wrong cap. */
+  pid_t pid = fork();
+  if (pid == 0) {
+    /* Don't set force-fail — the FfiCap wrapper doesn't check OCap. */
+    long long wrong = oo_cap_self_token(0);  /* g_tok_fs, wrong for ffi */
+    long long r = oo_import_c(wrong, oo_str_lit("/tmp/header.h"));
+    (void)r;
+    _exit(0);
+  }
+  int status = 0;
+  waitpid(pid, &status, 0);
+  if (!(WIFEXITED(status) && WEXITSTATUS(status) == 1)) {
+    fprintf(stderr, "FAIL oo_import_c(wrong cap) should exit(1); see round7 action A1\n");
+    g_failures++;
+  }
+}
+
+static void probe_cap_gated_env_get(void) {
+  /* oo_env_get(cap, key) — EnvCap-gated quick read. Calls libc getenv
+   * after the dual-check. With force-fail, the wrapper must exit(2). */
+  pid_t pid = fork();
+  if (pid == 0) {
+    oo_cap_bridge_set_test_force_fail(1);
+    long long env = oo_cap_self_token(2);  /* g_tok_env */
+    OoResS r = oo_env_get(env, oo_str_lit("PATH"));
+    (void)r;
+    _exit(0);
+  }
+  int status = 0;
+  waitpid(pid, &status, 0);
+  if (!(WIFEXITED(status) && WEXITSTATUS(status) == 2)) {
+    fprintf(stderr, "FAIL oo_env_get(ocap forced fail) should exit(2)\n");
+    g_failures++;
+  }
+}
+
+static void probe_cap_gated_dlopen(void) {
+  /* oo_dlopen is gated by oo_cap_require_ffi (FfiCap, index 25).
+   * Same as oo_import_c: FfiCap wrapper doesn't dual-check (round7
+   * action A1). Test the bitmask side for now. */
+  pid_t pid = fork();
+  if (pid == 0) {
+    long long wrong = oo_cap_self_token(0);
+    OoResS r = oo_dlopen(wrong, oo_str_lit("/nonexistent.so"));
+    (void)r;
+    _exit(0);
+  }
+  int status = 0;
+  waitpid(pid, &status, 0);
+  if (!(WIFEXITED(status) && WEXITSTATUS(status) == 1)) {
+    fprintf(stderr, "FAIL oo_dlopen(wrong cap) should exit(1); see round7 action A1\n");
+    g_failures++;
+  }
+}
+
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
@@ -169,11 +299,19 @@ int main(int argc, char **argv) {
   /* Print family */
   probe_print_extremes();
 
+  /* Cap-gated OCap-side probes (v4.8.0) */
+  probe_cap_gated_sys_args();
+  probe_cap_gated_metrics_self_test();
+  probe_cap_gated_lto_xlang_link();
+  probe_cap_gated_import_c();
+  probe_cap_gated_env_get();
+  probe_cap_gated_dlopen();
+
   if (g_failures != 0) {
     fprintf(stderr, "FAIL address-safety: %d logical failures\n", g_failures);
     return 1;
   }
 
-  fprintf(stderr, "OK address-safety: 12 probes ran clean under ASan+UBSan\n");
+  fprintf(stderr, "OK address-safety: 18 probes ran clean under ASan+UBSan\n");
   return 0;
 }
