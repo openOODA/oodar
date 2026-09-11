@@ -70,6 +70,14 @@ static const char *const SUBSTRATE_TO_LANGUAGE[26] = {
 static long long g_ocap_rights[26];
 static pthread_once_t g_ocap_once = PTHREAD_ONCE_INIT;
 
+/* Phase 2 test-only hook: when > 0, the next oo_cap_check_with_ocap
+ * call returns 0 and clears the flag. Used by the challenger probe
+ * to force the dual-check wrapper to see OCap disagreement. The
+ * flag is volatile + simple int (not atomic) because it's only set
+ * by the test process before a forked child runs — no concurrent
+ * access in production. */
+static volatile int g_test_force_fail = 0;
+
 static void ocap_init_once(void) {
   /* For each substrate cap, look up the language token name, then
    * get the rights mask from the OCap record. If the lookup misses
@@ -114,6 +122,10 @@ static int find_substrate_index(long long cap) {
  * the existing oo_cap_require_* gates do the exit if needed. */
 int oo_cap_check_with_ocap(long long cap, long long required_rights) {
   OO_ENTRY();
+  if (g_test_force_fail) {
+    g_test_force_fail = 0;
+    return 0;
+  }
   if (cap == 0) return 0;
   pthread_once(&g_ocap_once, ocap_init_once);
   int idx = find_substrate_index(cap);
@@ -121,6 +133,10 @@ int oo_cap_check_with_ocap(long long cap, long long required_rights) {
   long long granted = g_ocap_rights[idx];
   /* Bitwise subset check: required bits must all be set in granted. */
   return (granted & required_rights) == required_rights;
+}
+
+void oo_cap_bridge_set_test_force_fail(int on) {
+  g_test_force_fail = on ? 1 : 0;
 }
 
 /* Diagnostic accessor for the challenger probe. Returns the rights

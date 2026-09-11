@@ -5,6 +5,7 @@
  * visible. */
 
 #include "../../core/blackbox/blackbox.h"
+#include "cap_ocap_bridge.h"
 
 int oo_cap_is_arena(long long got) { oo_caps_init(); return got == g_tok_arena; }
 
@@ -17,7 +18,32 @@ void oo_cap_require(long long got, long long want, const char *op) {
   }
 }
 
-void oo_cap_require_fs(long long got, const char *op) { oo_cap_require(got, g_tok_fs, op ? op : "fs"); }
+/* Phase 2 of the std/sec/capability bridge (v4.4.0): dual-check
+ * wiring for oo_cap_require_fs. Runs the existing bitmask check
+ * AND the OCap rights check; aborts with a loud disagreement
+ * diagnostic if the bitmask passes but OCap fails. This is the
+ * tripwire that catches state corruption (a real cap token whose
+ * language-token record disagrees on rights).
+ *
+ * The other 21 oo_cap_require_* gates stay bitmask-only in Phase 2;
+ * Phase 3 routes them all through this pattern. */
+void oo_cap_require_fs(long long got, const char *op) {
+  oo_caps_init();
+  if (got == 0 || got != g_tok_fs) {
+    blackbox_trap_cap(op ? op : "fs", __func__, __FILE__, __LINE__);
+    fprintf(stderr, "ERR\tcap\t%s: missing or forged capability\n", op ? op : "?");
+    exit(1);
+  }
+  /* OCap cross-check: FsCap language token must grant at least the
+   * read bit. If the bitmask passes but OCap disagrees, abort —
+   * the cap system has an internal inconsistency and we fail-closed. */
+  if (!oo_cap_check_with_ocap(got, 1 /* read */)) {
+    fprintf(stderr,
+            "ERR\tcap-ocap\tdisagreement on op=%s: bitmask pass, ocap fail\n",
+            op ? op : "?");
+    exit(2);
+  }
+}
 void oo_cap_require_sys(long long got, const char *op) { oo_cap_require(got, g_tok_sys, op ? op : "sys"); }
 void oo_cap_require_env(long long got, const char *op) { oo_cap_require(got, g_tok_env, op ? op : "env"); }
 void oo_cap_require_net(long long got, const char *op) { oo_cap_require(got, g_tok_net, op ? op : "net"); }

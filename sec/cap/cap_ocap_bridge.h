@@ -27,4 +27,12 @@ int oo_cap_check_with_ocap(long long cap, long long required_rights);
  * rights without going through a check. */
 long long oo_cap_ocap_rights_at(int which);
 
+/* Phase 2 test-only hook. When set to non-zero, the next
+ * oo_cap_check_with_ocap call (and only the next) returns 0
+ * regardless of the cap/rights arguments. Used by the challenger
+ * probe to simulate OCap-side disagreement with the bitmask path
+ * (the dual-check wrapper in cap_require.c must abort when this
+ * happens). Reset to 0 after the single forced failure. */
+void oo_cap_bridge_set_test_force_fail(int on);
+
 #endif

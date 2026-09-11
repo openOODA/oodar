@@ -1,5 +1,55 @@
 # Changelog
 
+## v4.4.0 — Dual (2026-09-11 std/sec/capability bridge, Phase 2 — dual-check on fs gate)
+
+Phase 2 wires the existing `oo_cap_require_fs` through both the bitmask
+path AND the OCap rights path. They must agree — disagreement is the
+tripwire that catches state corruption (a real cap token whose
+language-token record disagrees on rights).
+
+### What changed
+
+`oo_cap_require_fs` in `sec/cap/cap_require.c` now runs the existing
+bitmask check (`got == g_tok_fs`) followed by an OCap rights check
+(`oo_cap_check_with_ocap(got, 1)` — read bit required). On bitmask
+fail: existing `blackbox_trap_cap` + `exit(1)`. On bitmask pass but
+OCap fail: new `ERR cap-ocap disagreement on op=...` diagnostic +
+`exit(2)`. The other 21 `oo_cap_require_*` gates stay bitmask-only;
+Phase 3 routes them all.
+
+### Test-only hook
+
+`oo_cap_bridge_set_test_force_fail(int on)` (declared in
+`sec/cap/cap_ocap_bridge.h`, defined in `cap_ocap_bridge.c`) lets
+the challenger probe force the next OCap check to return 0. This is
+how probe 5 forces disagreement without breaking production. The
+flag auto-resets after the single forced failure.
+
+### Probe matrix: 5/5
+
+`qa/tests_challenger_ocap_bridge.c` (198 lines) now covers:
+  1. cap=0 fail-closed.
+  2. Forge attempts (cap=-1, cap=0xDEADBEEFCAFEBABE) rejected.
+  3. Real tokens return documented rights (FsCap=31, SysCap=7,
+     EnvCap=1, NetCap=3, FsReadCap=1, FsWriteCap=3, AllocCap=3,
+     FfiCap=7).
+  4. Subset rule: EnvCap grants read but refuses write/execute.
+  5. Dual-check disagreement (Phase 2): fork() → child forces
+     OCap fail → child calls `oo_cap_require_fs(real_fs_cap)` →
+     child must exit(2). Parent observes non-zero exit. Also
+     tests the happy path (clean fork → real cap → exit 0).
+
+### Lint + REPRO + ABI
+
+- 3/3 structural lints PASS.
+- Probe passes double-run, exit 0 (with the disagreement diagnostic
+  visibly printed from the child).
+- REPRO OK at sha256 `0d3f6322bfaef7a8168d9e4201eca1070d0464effab7a78091919426e54540eb`.
+  3-way distribution sync confirmed.
+- Public ABI additive: `oo_cap_bridge_set_test_force_fail` added.
+  api_surface 109 → 109 (no new .c file; the bridge.c grew by 16
+  lines). The wrapper for `oo_cap_require_fs` is an internal change.
+
 ## v4.3.0 — Bridge (2026-09-11 std/sec/capability → oodar OCap bridge, Phase 1)
 
 Per the 2026-09-11 NORTHSTAR-aligned refactor: the 20 NORTHSTAR language

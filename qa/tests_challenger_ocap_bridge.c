@@ -5,6 +5,12 @@
  * give bit-for-bit equivalence with the bitmask cap-system on the
  * documented rights-mask expectations.
  *
+ * Phase 2 verification: the dual-check wrapper for oo_cap_require_fs
+ * must abort when the bitmask path passes but the OCap path fails.
+ * Tested by forking: parent observes the child's exit code, expects
+ * non-zero. The child uses oo_cap_bridge_set_test_force_fail to force
+ * the next OCap check to fail.
+ *
  * Probe matrix:
  *   1. cap=0 always returns 0 (fail-closed on absence).
  *   2. Forge attempts (cap=0xFFFFFFFFFFFFFFFF) return 0 (not a real token).
@@ -12,14 +18,20 @@
  *      mask for their language token (NORTHSTAR §1.4 mapping).
  *   4. Subset rule: granting a rights mask M and checking M & required
  *      == required gives 1; checking M & non_subset gives 0.
+ *   5. Disagreement: oo_cap_require_fs(real_fs_cap) with OCap forced
+ *      to fail must abort with non-zero exit code (the tripwire).
  *
  * Exit codes: 0 = all probes pass; 1 = at least one probe failed.
  */
 
 #include "../oodar.h"
+#include "../sec/cap/cap_ocap_bridge.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 static int g_failures = 0;
 
@@ -121,6 +133,49 @@ static void probe_subset_rule(void) {
          "EnvCap should refuse write|execute");
 }
 
+/* --- Probe 5: dual-check disagreement fires abort (Phase 2) ---
+ * oo_cap_require_fs(real_fs_cap, ...) should succeed normally.
+ * But when the OCap path is forced to fail (via the test hook),
+ * the dual-check wrapper must abort with non-zero exit. We test
+ * this by forking: the child sets the force-fail flag, then calls
+ * the wrapper. The parent waits and checks the child's exit code.
+ *
+ * We also test the success case: a clean child process calls
+ * oo_cap_require_fs with the real cap and exits 0 normally — this
+ * proves the dual-check doesn't break the existing happy path. */
+static void probe_dual_check_disagreement(void) {
+  extern void oo_cap_require_fs(long long got, const char *op);
+
+  /* Sub-test 5a: happy path. Child calls oo_cap_require_fs with the
+   * real fs cap; must exit 0. */
+  pid_t pid_ok = fork();
+  if (pid_ok == 0) {
+    long long fs = oo_cap_self_token(0);
+    oo_cap_require_fs(fs, "test_ok");
+    _exit(0);
+  }
+  int status_ok = 0;
+  waitpid(pid_ok, &status_ok, 0);
+  ASSERT(WIFEXITED(status_ok) && WEXITSTATUS(status_ok) == 0,
+         "oo_cap_require_fs(real fs cap) should succeed; child exited non-zero");
+
+  /* Sub-test 5b: disagreement. Child forces the next OCap check to
+   * fail, then calls oo_cap_require_fs with the real fs cap. The
+   * bitmask path will pass (real cap), but the OCap path will fail
+   * (forced), so the wrapper must abort with exit(2). */
+  pid_t pid_bad = fork();
+  if (pid_bad == 0) {
+    oo_cap_bridge_set_test_force_fail(1);
+    long long fs = oo_cap_self_token(0);
+    oo_cap_require_fs(fs, "test_disagree");
+    _exit(0);  /* should never reach here */
+  }
+  int status_bad = 0;
+  waitpid(pid_bad, &status_bad, 0);
+  ASSERT(WIFEXITED(status_bad) && WEXITSTATUS(status_bad) == 2,
+         "oo_cap_require_fs(real fs cap, ocap forced fail) should exit(2); child exited differently");
+}
+
 /* --- Driver --- */
 int main(int argc, char **argv) {
   (void)argc;
@@ -132,11 +187,12 @@ int main(int argc, char **argv) {
   probe_forge_attempt();
   probe_real_tokens();
   probe_subset_rule();
+  probe_dual_check_disagreement();
 
   if (g_failures != 0) {
     fprintf(stderr, "FAIL ocap-bridge: %d failures\n", g_failures);
     return 1;
   }
-  fprintf(stderr, "OK ocap-bridge: 4 probes passed (cap=0, forge, real-tokens, subset)\n");
+  fprintf(stderr, "OK ocap-bridge: 5 probes passed (cap=0, forge, real-tokens, subset, dual-disagree)\n");
   return 0;
 }
