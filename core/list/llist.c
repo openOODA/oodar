@@ -41,9 +41,8 @@
       for (long long i = 0; i < l.len; i++) EFAM##_release(l.data[i]);   \
       __atomic_store_n(&hdr->flags, 0xFFFFFFFFu, __ATOMIC_RELEASE);      \
       __atomic_thread_fence(__ATOMIC_RELEASE);                            \
-      pthread_mutex_lock(&g_quota_mu);                                    \
-      oo_list_ambient_bytes -= oo_list_block_bytes(l.cap, ESZ);           \
-      pthread_mutex_unlock(&g_quota_mu);                                  \
+      long long charge = oo_list_block_bytes(l.cap, ESZ);                 \
+      if (charge) __atomic_fetch_sub(&oo_list_ambient_bytes, (long long)charge, __ATOMIC_RELEASE); \
       oo_payload_free(l.data);                                            \
     }                                                                     \
   }                                                                       \
@@ -125,9 +124,8 @@ LL_ELEM_TABLE(LL_2D_FNS)
       for (long long i = 0; i < l.len; i++) oo_ll_##SFX##_release(l.data[i]); \
       __atomic_store_n(&hdr->flags, 0xFFFFFFFFu, __ATOMIC_RELEASE);      \
       __atomic_thread_fence(__ATOMIC_RELEASE);                            \
-      pthread_mutex_lock(&g_quota_mu);                                    \
-      oo_list_ambient_bytes -= oo_list_block_bytes(l.cap, sizeof(OoLL_##SFX)); \
-      pthread_mutex_unlock(&g_quota_mu);                                  \
+      long long charge = oo_list_block_bytes(l.cap, sizeof(OoLL_##SFX));  \
+      if (charge) __atomic_fetch_sub(&oo_list_ambient_bytes, (long long)charge, __ATOMIC_RELEASE); \
       oo_payload_free(l.data);                                            \
     }                                                                     \
   }                                                                       \
@@ -190,9 +188,8 @@ LL_ELEM_TABLE(LL_3D_FNS)
       for (long long i = 0; i < l.len; i++) oo_lll_##SFX##_release(l.data[i]); \
       __atomic_store_n(&hdr->flags, 0xFFFFFFFFu, __ATOMIC_RELEASE);      \
       __atomic_thread_fence(__ATOMIC_RELEASE);                            \
-      pthread_mutex_lock(&g_quota_mu);                                    \
-      oo_list_ambient_bytes -= oo_list_block_bytes(l.cap, sizeof(OoLLL_##SFX)); \
-      pthread_mutex_unlock(&g_quota_mu);                                  \
+      long long charge = oo_list_block_bytes(l.cap, sizeof(OoLLL_##SFX)); \
+      if (charge) __atomic_fetch_sub(&oo_list_ambient_bytes, (long long)charge, __ATOMIC_RELEASE); \
       oo_payload_free(l.data);                                            \
     }                                                                     \
   }                                                                       \

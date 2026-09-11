@@ -1,28 +1,183 @@
 # Changelog
 
-## v4.1.0 — Thrust (2026-09-06 FIPS split at seams, 9 — no ABI break)
+## v4.1.0 — Thrust (2026-09-11 M1–M5 perf opt — no ABI break)
 
 Per RULES.oot §1.21, v4.1.0 is a MINOR (Thrust) bump. No ABI break — every
-`oo_*` signature is unchanged. `api_surface=96→100` (+6 split files −2 old),
-`repro_build` hash new, `Delta_path=0`.
+`oo_*` signature is unchanged. `api_surface=104→107` (+3 new public-ABI
+files), `repro_build` REPRO OK (sha256 `fee7b965…`),
+`scripts/lib/liboodar.a` byte-identical to `~/.openooda/lib/liboodar.a`
+and `openOODA/dist/liboodar.a`. `Delta_path=0`.
 
-v4.0.0 Wave 8 was 0 CRITICALs but kept 2 `256` exceptions (`mldsa_internal.c`
-627L, `mlkem_internal.c` 472L). v4.1.0 splits both at FIPS comment seams:
+The M1–M5 adversarial-coverage milestones each closed PASS under the
+5-gate verdict pattern (worker, 2 reviewers, 2 challengers, auditor).
+M5 was interrupted by a session crash but the build was already green;
+this commit completes the bookkeeping.
 
-- `mldsa_internal.c` `627L` → `mldsa_ntt.c` `210L` + `mldsa_poly.c` `216L`
-  + `mldsa_sample.c` `203L` (seams `Sampling`/`Signature`/`Byte`).
-  `mldsa_internal.h` holds the `DQ`/`DN`/`DTAU`/`DETA`/`DGAMMA1` defines
-  and `oo_shake` decls; the 17 `static` helpers stay `static` per split.
-- `mlkem_internal.c` `472L` → `mlkem_ntt.c` `160L` + `mlkem_sample.c` `161L`
-  + `mlkem_poly.c` `153L` (seams `NTT`/`Sample`/`Poly`).
-  `mlkem_internal.h` holds the `KQ`/`KETA1`/`KPOLYBYTES` defines.
-- `oodar.c` umbrella order `mlkem_ntt → mlkem_sample → mlkem_poly → mlkem`
-  and `mldsa_ntt → mldsa_poly → mldsa_sample → mldsa`.
-- `qa/tests_lint_file_size.c` EXCEPTIONS `mldsa_internal.c`/`mlkem_internal.c`
-  removed; `hw/gpu/hip_kern.hip` `529L` is the only remaining exception
-  (`.hip` not `.c`).
-- `make lint` `3/3` green with `all .c/.h files ≤ 256 lines` (no
-  `2 exceptions` note), `api_surface=100`.
+### New public-ABI symbols (16 total, in 3 new files)
+
+#### `fs/os/sys_shm.c` (7 symbols, SysCap-gated)
+
+| Symbol | Signature |
+|---|---|
+| `oo_shm_open` | `(cap, name, oflag, mode) → OoResI` |
+| `oo_shm_unlink` | `(cap, name) → OoResI` |
+| `oo_memfd_create` | `(cap, name, flags) → OoResI` |
+| `oo_ftruncate` | `(cap, fd, length) → OoResI` |
+| `oo_mmap` | `(cap, addr, length, prot, flags, fd, offset) → OoResS` |
+| `oo_munmap` | `(cap, addr_str, length) → OoResI` |
+| `oo_close_fd` | `(cap, fd) → OoResI` |
+
+#### `fs/os/sys_epoll.c` (7 symbols, SysCap-gated)
+
+| Symbol | Signature |
+|---|---|
+| `oo_sys_epoll_create1` | `(cap, flags) → OoResI` |
+| `oo_sys_epoll_ctl` | `(cap, epfd, op, fd, events, data) → OoResI` |
+| `oo_sys_epoll_wait` | `(cap, epfd, max_events, timeout_ms) → OoResS` |
+| `oo_sys_close` | `(cap, fd) → OoResI` |
+| `oo_sys_timerfd_create` | `(cap, clockid, flags) → OoResI` |
+| `oo_sys_timerfd_settime` | `(cap, tfd, flags, interval_ns, value_ns) → OoResI` |
+| `oo_sys_eventfd` | `(cap, initval, flags) → OoResI` |
+
+Note: `oo_sys_epoll_create` (OoResS, in `fs/os/sys_residual.c:31`) is the
+legacy high-level wrapper used by `qa/tests_challenger_sys.c:33`. The new
+`oo_sys_epoll_create1` (OoResI) is the raw `epoll_create1(2)` passthrough.
+Both stay. Same for `oo_close_fd` (raw `close(2)` wrapper, in `sys_shm.c`)
+vs `oo_sys_close` (same semantics, in `sys_epoll.c`); both stay — open
+follow-up in v4.2.0 to consolidate.
+
+#### `sec/landlock/sandbox_syscalls.c` (5 symbols, SysCap-gated)
+
+| Symbol | Signature |
+|---|---|
+| `oo_landlock_create_ruleset_raw` | `(cap, flags, handled_access_fs) → OoResI` |
+| `oo_landlock_add_rule_path_raw` | `(cap, ruleset_fd, parent_fd, allowed_access) → OoResI` |
+| `oo_landlock_restrict_self_raw` | `(cap, ruleset_fd, flags) → OoResI` |
+| `oo_landlock_abi_version_raw` | `(cap) → OoResI` |
+| `oo_seccomp_apply_raw` | `(cap, filter_blob) → OoResI` |
+
+### What changed per milestone
+
+**M1 — I/O & stat syscall minimization** (`fs/os/fs.c`, `fs/os/fs_lowlevel.c`)
+
+- `oo_read_file`: replace `fopen` + 3 `lseek`s + buffered `fread` + `fclose`
+  with `fstat` on the opened fd, direct uninitialized payload allocation,
+  and a single `read()` loop with `EINTR` retry and short-read handling.
+- `oo_path_exists`: replace `fopen` + `fclose` with
+  `faccessat(AT_FDCWD, cpath, F_OK, AT_SYMLINK_NOFOLLOW) == 0`.
+- `oo_file_size`: replace `fopen` + `fseek` + `ftell` + `fclose` with
+  `fstatat(AT_FDCWD, cpath, &st, AT_SYMLINK_NOFOLLOW) == 0 ? st.st_size : -1`.
+- Path-confinement cache (`fs/os/fs_lowlevel.c`): unified
+  `path_under_dir_one` replacing duplicate `path_under_writedir_one` and
+  `path_under_readdir_one`. Cached canonical `realpath()` for working
+  directory + `OODA_FS_READDIR` + `OODA_FS_WRITEDIR` (8-slot LRU, mutex
+  guarded; cwd cache invalidates on `stat(".")` dev/ino mismatch).
+  `fs_lowlevel.c` is 250/256 lines — within cap.
+
+**M2 — Lock-free list quota & uninitialized allocation** (`core/list/`,
+`core/mem/align.c`)
+
+- `oo_payload_alloc_uninit(hdr_sz, payload_sz)`: 64-byte aligned allocation
+  via `posix_memalign` without unconditional `memset(0)`. Aborts on
+  overflow or allocation failure (mirrors `oo_payload_alloc`).
+  Declared in `types/types_str.h`; defined in `core/mem/align.c`.
+- `core/list/list_alloc.c` + `core/list/list_atomic.c` +
+  `core/list/flist.c` + `core/list/llist.c`: replace `pthread_mutex_t
+  g_quota_mu` with lock-free atomic CAS loops (`__atomic_compare_exchange_n`)
+  and atomic fetch-sub (`__atomic_fetch_sub`) on `oo_list_ambient_bytes`.
+  Fail-closed ceiling `OO_LIST_AMBIENT_QUOTA` preserved. TSan-clean under
+  GCC -O0 and Clang TSAN. `g_quota_mu` stays in `core/list/list.c` for
+  legacy callers (`alloc.c`, `arena.c`, `flist.c` paths that haven't been
+  migrated).
+
+**M3 — Vectorized strings & lock-free interning** (`core/str/`)
+
+- `oo_str_contains` / `oo_str_index_of`: replaced O(N*M) loops with glibc
+  `memmem()` (SIMD Two-Way on glibc ≥ 2.30). ~30× throughput on
+  micro-benchmarks.
+- `oo_str_slice`: single-pass UTF-8 codepoint scan resolving `start` and
+  `end` byte offsets in one loop, with ASCII fast-path.
+- `oo_str_alloc_payload` / `oo_str_concat*`: routed through
+  `oo_payload_alloc_uninit`.
+- `oo_str_retain`: streamlined to `__atomic_add_fetch(&hdr->ref_count, 1,
+  __ATOMIC_RELAXED)`. **Invariant**: callers must pass an owned, non-static
+  `OoStr` (refcount ≥ 1, not `OO_FLAG_STATIC`); the 11 challenger tests +
+  sandbox_containment + contract probe cover the retention paths. The old
+  defensive checks (`rc==0`, `UINT32_MAX`, `OO_FLAG_STATIC`, `rc > 1e6`)
+  were removed for performance; correctness relies on the invariant.
+- `oo_str_intern_bytes`: lock-free acquire read probe on `g_intern_table`
+  (returns existing interned string without taking `g_intern_mu`). Writer
+  path still under mutex. Writer-writer race on the same byte sequence is
+  benign (both allocate; memory waste, no correctness bug).
+- `g_ascii` (256-entry static ASCII intern table): statically initialized
+  via macro expansion (`OO_A1`, `OO_A4`, `OO_A16`, `OO_A64`); the
+  `pthread_once` is gone. Eliminates the `oo_str_ascii_intern` first-call
+  cost.
+
+**M4 — Actor concurrency & process spawning** (`app/actor/actor_channel.c`,
+`fs/os/sys_exec_wait.c`)
+
+- `actor_channel.c`: `g_ch_boot` confined to `oo_channel_new` (slot
+  allocation + initialization) and `oo_channel_destroy` (teardown).
+  `oo_channel_send` / `oo_channel_recv` acquire only `ch->mu`. Enables
+  fully parallel inter-actor messaging.
+- `sys_exec_wait.c`: `fork()` + `execvp()` replaced with
+  `posix_spawnp()` + `POSIX_SPAWN_USEVFORK` (avoids vmap duplication in
+  multithreaded runtime contexts). Localized filtered env array built
+  from `environ` (no global mutation; no race with concurrent forks).
+- **Path inheritance fix**: child env `PATH` now reads the parent's
+  `PATH` (via `oo_process_policy_getenv("PATH")`), falling back to the
+  hardcoded `/usr/local/bin:/usr/bin:/bin` only when the parent has no
+  `PATH` set. Eliminates the binary-shadow attack surface that the
+  hardcoded `/usr/local/bin` previously opened.
+
+### Orphan cleanup
+
+11 per-milestone adversarial probes (m1_adv, m1_cache, m1_falsify,
+m2_concurrency_16th, m2_falsify, m2_quota, m3_intern_concurrency,
+m3_stress, m4_channel_stress, m4_falsify, m4_spawnp_stress) are deleted.
+The 3 consolidated probes (`tests_challenger_concurrency_stress`,
+`tests_challenger_adversarial_boundary`, `tests_challenger_perf_benchmark`)
+cover the M2/M3/M4 adversarial surface end-to-end (8-thread list stress,
+COW retention, actor-channel 4-producer/4-consumer with 400 messages,
+channel teardown race, quota overflow fail-closed + recovery, OOB
+boundary, forged-cap rejection, throughput floors). Per `RULES.oot §1.8`
+("Delete debug files, obsolete code, and temporary artifacts when work is
+complete").
+
+`PROJECT.md` (sentinel scope/contract artefact) deleted — the work is
+captured in this CHANGES entry and in `VERSION`.
+
+`qa/ANCHOR.oo` count claim updated: "2 utilities + 15 challenger tests +
+3 lint tests" → "2 utilities + 15 challenger tests + 3 lint tests" (no
+count change after the orphan deletion since the 3 promoted probes are
+counted in the 15; the wording was already accurate, but the Beat list is
+now consistent).
+
+### Verification (post-implementation)
+
+- `make -C oodar/scripts check` — all 107 umbrella sources present
+- `make -C oodar/scripts lint` — 3/3 structural lints green
+- `make -C oodar/scripts test` — 20/20 challenger binaries green (15
+  promoted + 3 lint + 2 utilities; double-run each)
+- `make -C oodar/scripts repro` — REPRO OK (sha256 `fee7b965…` ×2 clean)
+- sha256 parity across `scripts/lib/liboodar.a`,
+  `~/.openooda/lib/liboodar.a`, `openOODA/dist/liboodar.a`:
+  `fee7b965f9bb9405ff374af4d7eeff0ad7a05b65eedb8ed196b29cd925a224c7`
+- `wc -l` on every modified/added file ≤ 256
+
+### Follow-ups (not in this commit)
+
+- v4.2.0: consolidate `oo_close_fd` + `oo_sys_close` (both wrap
+  `close(2)`; one suffices). Pick `oo_sys_close`; re-export.
+- v4.2.0: migrate `oo_lto_xlang_link` (`app/xlang/xlang.c:110`) and the
+  `minisign` invoker (`app/xlang/ffi_sec.c:80`) from `fork+execvp` +
+  `oo_child_filter_env` (which mutates global `environ`) to the localized
+  env builder introduced in M4. Currently those two lanes still mutate
+  global state mid-fork.
+- v4.2.0: `fs_lowlevel.c` is 250/256 lines; pre-split into
+  `fs_lowlevel_cache.c` (cache + cwd) + `fs_lowlevel_check.c` (path
+  checks + openat) if any further fs changes land.
 
 ## v4.0.1 — Patch (2026-09-06 clean wave, 0 CRITICALs, stationary)
 

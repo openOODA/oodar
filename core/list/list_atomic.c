@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-extern pthread_mutex_t g_quota_mu;
 extern long long oo_list_ambient_bytes;
 extern long long oo_list_block_bytes(long long cap, size_t elem);
 
@@ -44,9 +43,8 @@ void oo_ilist_release(OoIList l) {
      * An explicit release fence guarantees the tombstone is globally
      * visible before the slot is reclaimed, without paying for SEQ_CST. */
     __atomic_thread_fence(__ATOMIC_RELEASE);
-    pthread_mutex_lock(&g_quota_mu);
-    oo_list_ambient_bytes -= oo_list_block_bytes(l.cap, sizeof(long long));
-    pthread_mutex_unlock(&g_quota_mu);
+    long long charge = oo_list_block_bytes(l.cap, sizeof(long long));
+    if (charge) __atomic_fetch_sub(&oo_list_ambient_bytes, (long long)charge, __ATOMIC_RELEASE);
     oo_payload_free(l.data);
   }
 }
@@ -83,9 +81,8 @@ void oo_slist_release(OoSList l) {
     __atomic_store_n(&hdr->flags, 0xFFFFFFFFu, __ATOMIC_RELEASE);
     /* CRIT-1: see oo_ilist_release; same fence rationale. */
     __atomic_thread_fence(__ATOMIC_RELEASE);
-    pthread_mutex_lock(&g_quota_mu);
-    oo_list_ambient_bytes -= oo_list_block_bytes(l.cap, sizeof(OoStr));
-    pthread_mutex_unlock(&g_quota_mu);
+    long long charge = oo_list_block_bytes(l.cap, sizeof(OoStr));
+    if (charge) __atomic_fetch_sub(&oo_list_ambient_bytes, (long long)charge, __ATOMIC_RELEASE);
     oo_payload_free(l.data);
   }
 }

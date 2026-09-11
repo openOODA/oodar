@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-extern pthread_mutex_t g_quota_mu;
 extern long long oo_list_ambient_quota;
 extern long long oo_list_ambient_bytes;
 extern void oo_list_quota_init_public(void);
@@ -20,14 +19,14 @@ void *oo_list_alloc_payload(size_t elem_size, size_t cap) {
   if (cap == 0) return NULL;
   charge = oo_list_block_bytes((long long)cap, elem_size);
   oo_list_quota_init_public();
-  pthread_mutex_lock(&g_quota_mu);
-  if (oo_list_ambient_bytes + charge > oo_list_ambient_quota) {
-    pthread_mutex_unlock(&g_quota_mu);
-    fprintf(stderr, "ERR\tcap\tambient List memory quota exceeded (AllocCap required)\n");
-    exit(1);
+  long long curr = __atomic_load_n(&oo_list_ambient_bytes, __ATOMIC_RELAXED);
+  while (1) {
+    if (curr + (long long)charge > oo_list_ambient_quota) {
+      fprintf(stderr, "ERR\tcap\tambient List memory quota exceeded (AllocCap required)\n");
+      exit(1);
+    }
+    if (__atomic_compare_exchange_n(&oo_list_ambient_bytes, &curr, curr + (long long)charge, 0, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED)) break;
   }
-  oo_list_ambient_bytes += charge;
-  pthread_mutex_unlock(&g_quota_mu);
   pay = oo_payload_alloc(sizeof(OoListHeader), cap * elem_size);
   hdr = ((OoListHeader *)pay) - 1;
   __atomic_store_n(&hdr->ref_count, 0, __ATOMIC_RELEASE);
@@ -37,8 +36,7 @@ void *oo_list_alloc_payload(size_t elem_size, size_t cap) {
 
 void oo_list_quota_release_bytes(long long cap, size_t elem_size) {
   if (cap <= 0) return;
-  pthread_mutex_lock(&g_quota_mu);
-  oo_list_ambient_bytes -= oo_list_block_bytes(cap, elem_size);
-  if (oo_list_ambient_bytes < 0) oo_list_ambient_bytes = 0;
-  pthread_mutex_unlock(&g_quota_mu);
+  long long bytes = oo_list_block_bytes(cap, elem_size);
+  if (!bytes) return;
+  __atomic_fetch_sub(&oo_list_ambient_bytes, (long long)bytes, __ATOMIC_RELEASE);
 }

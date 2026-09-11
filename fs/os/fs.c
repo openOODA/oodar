@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 /* internal helpers (defined in fs_lowlevel.c) */
 int to_cpath(OoStr p, char *c, int max);
 int fs_read_confined(const char *cpath);
@@ -27,15 +29,25 @@ oo_cap_require_fsread(cap, "read_file"); OoResS r={0, oo_str_lit("read_file fail
 if (!to_cpath(path, cpath, PATH_MAX)) return r;
 if (!fs_read_confined(cpath)) return r;
 int rfd = fs_open_ro_nofollow(cpath); if (rfd < 0) return r;
-FILE *f = fdopen(rfd, "rb"); if (!f) { close(rfd); return r; }
-if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return r; }
-long sz = ftell(f); if (sz < 0) { fclose(f); return r; }
-if (fseek(f, 0, SEEK_SET) != 0) { fclose(f); return r; }
-char *buf = oo_str_alloc_payload((size_t)sz);
-size_t n = fread(buf, 1, (size_t)sz, f);
-if (ferror(f)) { oo_str_release((OoStr){buf, (long long)n}); fclose(f); return r; }
-buf[n] = 0; fclose(f);
-r.ok = 1; r.val.data = buf; r.val.len = (long long)n;
+struct stat st;
+if (fstat(rfd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size < 0) { close(rfd); return r; }
+size_t sz = (size_t)st.st_size;
+char *buf = oo_str_alloc_payload(sz);
+size_t off = 0;
+while (off < sz) {
+  ssize_t n = read(rfd, buf + off, sz - off);
+  if (n < 0) {
+    if (errno == EINTR) continue;
+    oo_str_release((OoStr){buf, (long long)off});
+    close(rfd);
+    return r;
+  }
+  if (n == 0) { sz = off; break; }
+  off += (size_t)n;
+}
+buf[sz] = 0;
+close(rfd);
+r.ok = 1; r.val.data = buf; r.val.len = (long long)sz;
 return r;
 }
 OoResV oo_write_file(long long cap, OoStr path, OoStr content) {
@@ -91,18 +103,16 @@ oo_cap_require_fsread(cap, "path_exists");
 char cpath[PATH_MAX];
 if (!to_cpath(path, cpath, PATH_MAX)) return 0;
 if (!fs_read_confined(cpath)) return 0;
-FILE *f=fopen(cpath,"rb");
-if(f){fclose(f);return 1;}
-return 0;
+return (faccessat(AT_FDCWD, cpath, F_OK, AT_SYMLINK_NOFOLLOW) == 0) ? 1 : 0;
 }
 long long oo_file_size(long long cap, OoStr path) {
 oo_cap_require_fsread(cap, "file_size");
 char cpath[PATH_MAX];
 if (!to_cpath(path, cpath, PATH_MAX)) return -1;
 if (!fs_read_confined(cpath)) return -1;
-FILE *f=fopen(cpath,"rb"); if(!f)return -1;
-fseek(f,0,SEEK_END); long long sz=ftell(f); fclose(f);
-return sz;
+struct stat st;
+if (fstatat(AT_FDCWD, cpath, &st, AT_SYMLINK_NOFOLLOW) != 0) return -1;
+return (long long)st.st_size;
 }
 OoResS oo_read_file_pc(OoPathCap pc, OoStr path) {
   OoResS r = {0, oo_str_lit("path cap denied")};

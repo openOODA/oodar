@@ -8,22 +8,14 @@ typedef struct {
     char data[8];
 } OoAsciiEntry;
 
-static OoAsciiEntry g_ascii[256];
-static pthread_once_t g_ascii_once = PTHREAD_ONCE_INIT;
-
-static void g_ascii_init(void) {
-    int i;
-    for (i = 0; i < 256; i++) {
-        g_ascii[i].hdr.ref_count = 1;
-        g_ascii[i].hdr.flags = OO_FLAG_STATIC;
-        g_ascii[i].data[0] = (char)i;
-        g_ascii[i].data[1] = 0;
-    }
-}
+#define OO_A1(i) { { 1, OO_FLAG_STATIC }, { (char)(i), 0 } }
+#define OO_A4(i) OO_A1(i), OO_A1((i)+1), OO_A1((i)+2), OO_A1((i)+3)
+#define OO_A16(i) OO_A4(i), OO_A4((i)+4), OO_A4((i)+8), OO_A4((i)+12)
+#define OO_A64(i) OO_A16(i), OO_A16((i)+16), OO_A16((i)+32), OO_A16((i)+48)
+static OoAsciiEntry g_ascii[256] = { OO_A64(0), OO_A64(64), OO_A64(128), OO_A64(192) };
 
 OoStr oo_str_ascii_intern(unsigned char c) {
     OoStr r;
-    pthread_once(&g_ascii_once, g_ascii_init);
     r.len = 1;
     r.data = g_ascii[c].data;
     return r;
@@ -59,6 +51,15 @@ OoStr oo_str_intern_bytes(const char *p, long long n) {
         h *= 16777619u;
     }
     slot = h % OO_INTERN_BUCKETS;
+    for (OoInternNode *node = __atomic_load_n(&g_intern_table[slot], __ATOMIC_ACQUIRE);
+         node != NULL;
+         node = __atomic_load_n(&node->next, __ATOMIC_ACQUIRE)) {
+        if (node->len == n && memcmp((char *)(node + 1), p, (size_t)n) == 0) {
+            r.len = n;
+            r.data = (char *)(node + 1);
+            return r;
+        }
+    }
     pthread_mutex_lock(&g_intern_mu);
     for (OoInternNode *node = g_intern_table[slot]; node != NULL; node = node->next) {
         if (node->len == n && memcmp((char *)(node + 1), p, (size_t)n) == 0) {
@@ -71,14 +72,14 @@ OoStr oo_str_intern_bytes(const char *p, long long n) {
     }
     OoInternNode *node = (OoInternNode *)malloc(sizeof(OoInternNode) + (size_t)n + 1);
     if (!node) abort();
-    node->next = g_intern_table[slot];
     node->len = n;
     node->hdr.ref_count = 1;
     node->hdr.flags = OO_FLAG_STATIC;
     char *data = (char *)(node + 1);
     memcpy(data, p, (size_t)n);
     data[n] = 0;
-    g_intern_table[slot] = node;
+    node->next = g_intern_table[slot];
+    __atomic_store_n(&g_intern_table[slot], node, __ATOMIC_RELEASE);
     pthread_mutex_unlock(&g_intern_mu);
     r.len = n;
     r.data = data;

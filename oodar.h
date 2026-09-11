@@ -236,5 +236,8 @@ OoResS oo_read_stdin_chunk(long long cap, long long timeout_ms);
 OoStr oo_file_stamp(long long cap, OoStr path);
 long long oo_import_c(long long cap, OoStr hdr);
 long long oo_lto_xlang_link(long long cap, OoStr a, OoStr b);
+#include "fs/os/sys_shm.h"
+#include "fs/os/sys_epoll.h"
+#include "sec/landlock/sandbox_syscalls.h"
 
 #endif

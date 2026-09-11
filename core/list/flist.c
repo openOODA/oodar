@@ -27,9 +27,8 @@ void oo_flist_release(OoFList l) {
   OoListHeader *hdr = ((OoListHeader *)l.data) - 1;
   uint32_t prev = __atomic_fetch_sub(&hdr->ref_count, 1, __ATOMIC_ACQ_REL);
   if (prev == 1) {
-    pthread_mutex_lock(&g_quota_mu);
-    oo_list_ambient_bytes -= oo_list_block_bytes(l.cap, sizeof(double));
-    pthread_mutex_unlock(&g_quota_mu);
+    long long charge = oo_list_block_bytes(l.cap, sizeof(double));
+    if (charge) __atomic_fetch_sub(&oo_list_ambient_bytes, (long long)charge, __ATOMIC_RELEASE);
     oo_payload_free(l.data);
   }
 }

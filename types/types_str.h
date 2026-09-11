@@ -46,6 +46,7 @@ char *oo_str_alloc_payload(size_t len);
 void *oo_list_alloc_payload(size_t elem_size, size_t cap);
 void oo_list_quota_release_bytes(long long cap, size_t elem_size);
 void *oo_payload_alloc(size_t hdr_sz, size_t payload_sz);
+void *oo_payload_alloc_uninit(size_t hdr_sz, size_t payload_sz);
 void oo_payload_free(void *payload);
 int oo_payload_aligned(const void *p);
 long long oo_list_block_bytes(long long cap, size_t elem);

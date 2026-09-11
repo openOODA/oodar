@@ -25,7 +25,23 @@ struct OoChannel {
   pthread_cond_t not_full;
 };
 
-static OoChannel g_chs[OO_CH_SLOTS];
+#define OO_CH_SLOT_INIT { \
+  .live = 0, \
+  .head = 0, \
+  .tail = 0, \
+  .count = 0, \
+  .msgs = { { 0, 0 } }, \
+  .mu = PTHREAD_MUTEX_INITIALIZER, \
+  .not_empty = PTHREAD_COND_INITIALIZER, \
+  .not_full = PTHREAD_COND_INITIALIZER \
+}
+
+static OoChannel g_chs[OO_CH_SLOTS] = {
+  OO_CH_SLOT_INIT, OO_CH_SLOT_INIT, OO_CH_SLOT_INIT, OO_CH_SLOT_INIT,
+  OO_CH_SLOT_INIT, OO_CH_SLOT_INIT, OO_CH_SLOT_INIT, OO_CH_SLOT_INIT,
+  OO_CH_SLOT_INIT, OO_CH_SLOT_INIT, OO_CH_SLOT_INIT, OO_CH_SLOT_INIT,
+  OO_CH_SLOT_INIT, OO_CH_SLOT_INIT, OO_CH_SLOT_INIT, OO_CH_SLOT_INIT
+};
 static pthread_mutex_t g_ch_boot = PTHREAD_MUTEX_INITIALIZER;
 
 static OoStr oo_ch_copy(OoStr s) {
@@ -63,13 +79,12 @@ OoResS oo_channel_new(long long cap) {
     r.val = oo_str_lit("channel_new: no free slot");
     return r;
   }
-  g_chs[slot].live = 1;
+  pthread_mutex_lock(&g_chs[slot].mu);
   g_chs[slot].head = 0;
   g_chs[slot].tail = 0;
   g_chs[slot].count = 0;
-  pthread_mutex_init(&g_chs[slot].mu, NULL);
-  pthread_cond_init(&g_chs[slot].not_empty, NULL);
-  pthread_cond_init(&g_chs[slot].not_full, NULL);
+  g_chs[slot].live = 1;
+  pthread_mutex_unlock(&g_chs[slot].mu);
   pthread_mutex_unlock(&g_ch_boot);
   snprintf(buf, sizeof buf, "ch:%d", slot);
   r.ok = 1;
@@ -88,17 +103,15 @@ OoResS oo_channel_send(long long cap, long long slot, OoStr msg) {
     return r;
   }
   ch = &g_chs[s];
-  pthread_mutex_lock(&g_ch_boot);
+  pthread_mutex_lock(&ch->mu);
   if (!ch->live) {
-    pthread_mutex_unlock(&g_ch_boot);
+    pthread_mutex_unlock(&ch->mu);
     r.ok = 0;
     r.val = oo_str_lit("channel_send: empty slot");
     return r;
   }
-  pthread_mutex_lock(&ch->mu);
   if (ch->count >= OO_CH_QDEPTH) {
     pthread_mutex_unlock(&ch->mu);
-    pthread_mutex_unlock(&g_ch_boot);
     r.ok = 0;
     r.val = oo_str_lit("channel_send: full");
     return r;
@@ -108,7 +121,6 @@ OoResS oo_channel_send(long long cap, long long slot, OoStr msg) {
   ch->count++;
   pthread_cond_signal(&ch->not_empty);
   pthread_mutex_unlock(&ch->mu);
-  pthread_mutex_unlock(&g_ch_boot);
   r.ok = 1;
   r.val = oo_str_lit("sent");
   return r;
@@ -120,29 +132,33 @@ OoResS oo_channel_destroy(long long cap, long long slot) {
   OoChannel *ch;
   oo_cap_require_thread(cap, "channel_destroy");
   if (s < 0 || s >= OO_CH_SLOTS) {
-    r.ok = 0; r.val = oo_str_lit("channel_destroy: bad slot"); return r;
+    r.ok = 0;
+    r.val = oo_str_lit("channel_destroy: bad slot");
+    return r;
   }
   pthread_mutex_lock(&g_ch_boot);
   ch = &g_chs[s];
-  if (!ch->live) {
-    pthread_mutex_unlock(&g_ch_boot);
-    r.ok = 0; r.val = oo_str_lit("channel_destroy: empty slot"); return r;
-  }
   pthread_mutex_lock(&ch->mu);
+  if (!ch->live) {
+    pthread_mutex_unlock(&ch->mu);
+    pthread_mutex_unlock(&g_ch_boot);
+    r.ok = 0;
+    r.val = oo_str_lit("channel_destroy: empty slot");
+    return r;
+  }
+  ch->live = 0;
   while (ch->count > 0) {
     OoStr m = ch->msgs[ch->head];
     if (m.data) oo_str_release(m);
     ch->head = (ch->head + 1) % OO_CH_QDEPTH;
     ch->count--;
   }
-  ch->head = 0; ch->tail = 0;
-  ch->live = 0;
+  ch->head = 0;
+  ch->tail = 0;
   pthread_mutex_unlock(&ch->mu);
-  pthread_mutex_destroy(&ch->mu);
-  pthread_cond_destroy(&ch->not_empty);
-  pthread_cond_destroy(&ch->not_full);
   pthread_mutex_unlock(&g_ch_boot);
-  r.ok = 1; r.val = oo_str_lit("destroyed");
+  r.ok = 1;
+  r.val = oo_str_lit("destroyed");
   return r;
 }
 
@@ -158,17 +174,15 @@ OoResS oo_channel_recv(long long cap, long long slot) {
     return r;
   }
   ch = &g_chs[s];
-  pthread_mutex_lock(&g_ch_boot);
+  pthread_mutex_lock(&ch->mu);
   if (!ch->live) {
-    pthread_mutex_unlock(&g_ch_boot);
+    pthread_mutex_unlock(&ch->mu);
     r.ok = 0;
     r.val = oo_str_lit("channel_recv: empty slot");
     return r;
   }
-  pthread_mutex_lock(&ch->mu);
   if (ch->count <= 0) {
     pthread_mutex_unlock(&ch->mu);
-    pthread_mutex_unlock(&g_ch_boot);
     r.ok = 0;
     r.val = oo_str_lit("channel_recv: empty");
     return r;
@@ -179,6 +193,5 @@ OoResS oo_channel_recv(long long cap, long long slot) {
   ch->count--;
   pthread_cond_signal(&ch->not_full);
   pthread_mutex_unlock(&ch->mu);
-  pthread_mutex_unlock(&g_ch_boot);
   return r;
 }

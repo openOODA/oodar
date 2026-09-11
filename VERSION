@@ -17,15 +17,19 @@
 # it must match the most recent git tag. See RULES.oot §1.24
 # and rfcs/0006-versioning-and-release-protocol.oot.
 
-oodar=4.0.27
-release_tag=4.0.27
+oodar=4.1.0
+release_tag=4.1.0
 ooda=2.10.0
 ooda_max=2.99.0
-api_surface=104
+api_surface=107
 # Note: api_surface counts domain .c files (core/ sec/ fs/ net/ hw/ app/).
 # CI matches that find. qa/ and examples/ are not in the ABI count.
 # Note: api_surface counts all .c files that ship in v4.0.6
 # (distributed across 6 per-domain subdirs: core, sec, fs, net, hw, app).
+# v4.1.0: M1–M5 perf opt adds 3 new files (fs/os/sys_shm.c,
+# fs/os/sys_epoll.c, sec/landlock/sandbox_syscalls.c). Net api_surface
+# delta: +3 (104 → 107). Public ABI is additive; no oo_* signature
+# changes. See CHANGES.md "v4.1.0" for the full new-symbol table.
 # v3.4.0 added 6 new files (cap_attenuate_path.c, cap_attenuate_hmac.c,
 # cap_alloc.c, cap_time.c, cap_ffi.c, random.c) and removed 1
 # (app/telemetry/metrics.c, which moved to core/event/metrics.c).

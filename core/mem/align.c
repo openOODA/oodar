@@ -9,6 +9,19 @@
 #define OO_PAYLOAD_ALIGN 64
 #endif
 
+void *oo_payload_alloc_uninit(size_t hdr_sz, size_t payload_sz) {
+  size_t n;
+  void *blk = NULL;
+  char *pay;
+  (void)hdr_sz;
+  if (payload_sz > (SIZE_MAX - OO_PAYLOAD_ALIGN - 1)) abort();
+  n = OO_PAYLOAD_ALIGN + payload_sz;
+  if (n % OO_PAYLOAD_ALIGN) n += OO_PAYLOAD_ALIGN - (n % OO_PAYLOAD_ALIGN);
+  if (posix_memalign(&blk, OO_PAYLOAD_ALIGN, n) != 0) abort();
+  pay = (char *)blk + OO_PAYLOAD_ALIGN;
+  return pay;
+}
+
 void *oo_payload_alloc(size_t hdr_sz, size_t payload_sz) {
   size_t n;
   void *blk = NULL;

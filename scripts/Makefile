@@ -273,12 +273,14 @@ CHALLENGERS := tests_challenger_contract tests_challenger_sys tests_challenger_w
 	tests_challenger_actor_race tests_fuzz_smoke \
 	tests_challenger_proc_mem_leak tests_challenger_sandbox_containment \
 	tests_challenger_env_pwd tests_wal_append_sync tests_ffi_call \
-	tests_stdin_owned_str
+	tests_stdin_owned_str tests_challenger_concurrency_stress \
+	tests_challenger_adversarial_boundary tests_challenger_perf_benchmark
 
 $(TEST_DIR):
 	@mkdir -p $@
 
 $(TEST_DIR)/%: $(REPO_ROOT)/qa/%.c $(REPO_ROOT)/oodar.c | $(TEST_DIR)
+	@mkdir -p $(dir $@)
 	@$(CC) $(filter-out -include oodar.h,$(CFLAGS)) -I$(REPO_ROOT) -o $@ $< $(REPO_ROOT)/oodar.c -lpthread -ldl -lm
 
 test: lint $(addprefix $(TEST_DIR)/,$(CHALLENGERS))
@@ -303,6 +305,12 @@ test: lint $(addprefix $(TEST_DIR)/,$(CHALLENGERS))
 	@$(TEST_DIR)/tests_wal_append_sync
 	@$(TEST_DIR)/tests_ffi_call
 	@$(TEST_DIR)/tests_ffi_call
+	@$(TEST_DIR)/tests_challenger_concurrency_stress
+	@$(TEST_DIR)/tests_challenger_concurrency_stress
+	@$(TEST_DIR)/tests_challenger_adversarial_boundary
+	@$(TEST_DIR)/tests_challenger_adversarial_boundary
+	@$(TEST_DIR)/tests_challenger_perf_benchmark
+	@$(TEST_DIR)/tests_challenger_perf_benchmark
 	@echo "TEST OK"
 
 # repro: bit-identical build gate — "the artifact is what the source says".
