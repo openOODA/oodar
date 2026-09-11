@@ -17,11 +17,18 @@
 # it must match the most recent git tag. See RULES.oot §1.24
 # and rfcs/0006-versioning-and-release-protocol.oot.
 
-oodar=4.0.29
-release_tag=4.0.29
+oodar=4.3.0
+release_tag=4.3.0
 ooda=2.10.0
 ooda_max=2.99.0
-api_surface=108
+api_surface=109
+# v4.3.0: std/sec/capability → oodar OCap bridge (Phase 1) adds 1 new
+# .c file (sec/cap/cap_ocap_bridge.c). Public ABI is additive: 2 new
+# functions (oo_cap_check_with_ocap, oo_cap_ocap_rights_at) declared
+# in sec/cap/cap_ocap_bridge.h and included by oodar.h. Existing
+# oo_cap_require_* callers don't change. Net api_surface delta: +1
+# (108 → 109). See CHANGES.md "v4.3.0".
+
 # Note: api_surface counts domain .c files (core/ sec/ fs/ net/ hw/ app/).
 # CI matches that find. qa/ and examples/ are not in the ABI count.
 # Note: api_surface counts all .c files that ship in v4.0.6
