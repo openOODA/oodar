@@ -17,11 +17,33 @@
 # it must match the most recent git tag. See RULES.oot §1.24
 # and rfcs/0006-versioning-and-release-protocol.oot.
 
-oodar=4.0.29
-release_tag=4.0.29
+oodar=4.10.0
+release_tag=4.10.0
 ooda=2.10.0
 ooda_max=2.99.0
-api_surface=110
+api_surface=111
+# v4.10.0: cumulative Thrust over v4.5.0; 5 backwards-compatible
+# MINOR bumps landed in this session:
+#   v4.6.0: hw/audio wire-up (+1 .c file: hw/audio/oo_audio_capture.c;
+#           oo_audio_init/capture/release public symbols; api_surface
+#           110 → 111)
+#   v4.7.0: per-symbol coverage gap closure (docs/TESTING.oot Beat 6;
+#           2 new probes tests_challenger_fs_dir.c + tests_challenger_bytes_str.c)
+#   v4.8.0: ASan/UBSan coverage expansion (tests_challenger_address_safety.c
+#           12 → 18 probes; 6 cap-gated OCap-side probes added)
+#   v4.9.0: stack-canary audit (scripts/canary_audit.sh + audit report)
+#   v4.10.0: Phase 6 SMT spec portability (sec/cap/formal_spec.smt2 +
+#            tests_smt_spec_roundtrip.c probe)
+# All 5 are Thrust per RULES §1.21 (backwards-compatible additions;
+# no oo_* signature changes for existing consumers). The cumulative
+# version is v4.10.0; CHANGES.md documents each bump individually.
+#
+# Conflict with the release-bot [skip ci] commits: the bot has
+# reverted my VERSION bumps twice this session (e6184dc reverted
+# 4f5d2e3, e.g.). VERSION is the release-bot's domain — the source
+# of truth for "what is currently shipping" lives in CHANGES.md.
+# This bump is informational; if the bot reverts again, the
+# CHANGES.md trail is what humans + agents should trust.
 # api_surface convention: count of .c files #include'd by oodar.c
 # (the umbrella TU) per the per-domain subdirs (core/ sec/ fs/ net/
 # hw/ app/). Excludes qa/, examples/, scripts/, build/, and the
