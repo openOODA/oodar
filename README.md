@@ -18,7 +18,7 @@
 
 ## This repo: oodar
 
-Gen 1 C host runtime substrate. ABI = set of `oo_*` symbols.
+Layer 1 C host runtime substrate. ABI = set of `oo_*` symbols.
 
 ## Install
 
