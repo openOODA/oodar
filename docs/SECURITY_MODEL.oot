@@ -223,4 +223,4 @@
 // confused with v2.1.0 cap values at the same bit position.
 
 // ──▓▓ oodar/docs/SECURITY_MODEL.oot ──▓▓──
-// :: Pillar 5 — unforgeable, fail-closed, no ambient authority ::
+// :: Requirement 5 — unforgeable, fail-closed, no ambient authority ::

@@ -1,6 +1,6 @@
 // # sec/cap — Capability Tokens
 //
-// Logline: The capability token system (Pillar 5). 20 implemented tokens including Bind and CompilerRead. 6 future-state reserved (Audio, Camera, Usb, Hid, Window, Frame). Token derivation uses getentropy(3) — fail-closed (no LCG fallback). Rule 2 HMAC is MAC-bound. Path caps use directory boundaries.
+// Logline: The capability token system (Requirement 5). 20 implemented tokens including Bind and CompilerRead. 6 future-state reserved (Audio, Camera, Usb, Hid, Window, Frame). Token derivation uses getentropy(3) — fail-closed (no LCG fallback). Rule 2 HMAC is MAC-bound. Path caps use directory boundaries.
 //
 //
 // Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
@@ -34,4 +34,4 @@
 // in the wrong directories per the round-6 misplaced-files audit.
 //
 // ──▓▓ sec/cap ANCHOR ──▓▓──
-// :: Pillar 5 — unforgeable, kernel-derived ::
+// :: Requirement 5 — unforgeable, kernel-derived ::

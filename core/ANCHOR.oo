@@ -14,4 +14,4 @@
 //   7. blackbox/ — zero-heap flight recorder and crash autopsy substrate.
 //
 // ──▓▓ core ANCHOR ──▓▓──
-// :: Pillar 7 — deterministic, no GC ::
+// :: Requirement 7 — deterministic, no GC ::

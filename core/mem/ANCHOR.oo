@@ -21,4 +21,4 @@
 // pinning, SoA, DoD, and checkpoint are independent concerns.
 //
 // ──▓▓ core/mem ANCHOR ──▓▓──
-// :: Pillar 7 — deterministic, no GC ::
+// :: Requirement 7 — deterministic, no GC ::

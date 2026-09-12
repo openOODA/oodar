@@ -1,6 +1,6 @@
 // # sec/landlock — Kernel-Mediated FS Containment
 //
-// Logline: The Landlock FS sandbox, the platform-detecting probe, and the live-RAM proc_mem reader gated by Landlock (Pillar 9).
+// Logline: The Landlock FS sandbox, the platform-detecting probe, and the live-RAM proc_mem reader gated by Landlock (Requirement 9).
 //
 //
 // Setup: Domain module. Caps and layout are in the parent ANCHOR.oo.
@@ -22,4 +22,4 @@
 // in sandbox.c (the orchestrator).
 //
 // ──▓▓ sec/landlock ANCHOR ──▓▓──
-// :: Pillar 9 — kernel-mediated, not userland shim ::
+// :: Requirement 9 — kernel-mediated, not userland shim ::

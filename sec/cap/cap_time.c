@@ -23,7 +23,7 @@ static void tr_once_init(void) {
    * path (which previously lived here) was a direct cap-forge: an
    * attacker on a system with broken getentropy(3) could replay the
    * predictable LCG and forge g_tok_time / g_tok_rand. Per NORTHSTAR
-   * Pillar 5, cap tokens are unforgeable or the process dies. */
+   * Requirement 5, cap tokens are unforgeable or the process dies. */
   if (getentropy(b, sizeof b) != 0) {
     fprintf(stderr, "ERR\tcap\tgetentropy failed for time/rand token derivation: %s\n", strerror(errno));
     abort();

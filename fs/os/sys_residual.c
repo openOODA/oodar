@@ -1,4 +1,4 @@
-/* sys_residual.c — official refuse for process/sys ops not yet Gen 1.
+/* sys_residual.c — official refuse for process/sys ops not yet Layer 1.
  * Cap check runs first. Then Err. Not implemented in this Floor. */
 #include "../../oodar.h"
 

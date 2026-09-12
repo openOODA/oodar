@@ -43,7 +43,7 @@ static void cg_sign_init(void) {
    * (which previously lived here) was a direct seal/verify forge: an
    * attacker on a system with broken getentropy(3) could replay the
    * predictable LCG and recover the HMAC key, then forge oo_cg_sign
-   * / oo_cg_verify. Per NORTHSTAR Pillar 5, the seal key is
+   * / oo_cg_verify. Per NORTHSTAR Requirement 5, the seal key is
    * unforgeable or the process dies. */
   if (getentropy(g_cg_sign_key, sizeof(g_cg_sign_key)) != 0) {
     fprintf(stderr, "ERR\tcap\tgetentropy failed for cg_sign HMAC key: %s\n", strerror(errno));

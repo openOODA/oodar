@@ -3,7 +3,7 @@
  * Walks the repo and verifies that every leaf-and-intermediate directory
  * (excluding the v2.3.0-known exception list below) has an ANCHOR.oo
  * file at its root. The ANCHOR.oo is the Academy 4-Element Header
- * convention (NORTHSTAR.oot Pillar 4) that documents the directory's
+ * convention (NORTHSTAR.oot Requirement 4) that documents the directory's
  * logline + beats in a way smaller LLMs can read before opening the
  * .c files.
  *

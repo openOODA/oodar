@@ -11,7 +11,7 @@
 //         here (build.zig, cap_check.zig, cap_check_test.zig) as a
 //         Phase 4 sample. This violated RULES §1.14 (file law
 //         restricts source code to .oo; .zig has no carve-out) and
-//         §1.23 (oodar/* is "Gen 1 C shims and Landlock sandbox"
+//         §1.23 (oodar/* is "Layer 1 C shims and Landlock sandbox"
 //         — explicitly C only). Those files have been deleted. The
 //         same leaf logic is now in sec/cap/cap_check_zig_fallback.c
 //         in plain C.
