@@ -11,7 +11,7 @@
 # asserts the oodar repo ships exactly the declared count of public
 # .c files (counted recursively across all 6 per-domain subdirs).
 
-oodar=4.10.0
+oodar=4.0.29
 ooda=2.10.0
 ooda_max=2.99.0
 api_surface=111
