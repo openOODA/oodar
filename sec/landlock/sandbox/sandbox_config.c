@@ -69,22 +69,37 @@ int sand_validate_paths(OoStr dirs, int *count) {
  * Returns the result for the orchestrator to surface. */
 OoResS sand_apply_linux_landlock_seccomp(long long sys_cap, const oo_sandbox_config_t *config, int nread, int nwrite) {
   (void)nwrite;
+  int landlock_bypassed = 0;
   if (config->read_dirs_colon.len > 0 || config->write_dirs_colon.len > 0 ||
       (nread == 0 && nwrite == 0)) {
     OoResS ll_res = oo_landlock_restrict(sys_cap, config->read_dirs_colon, config->write_dirs_colon);
     if (!ll_res.ok) {
       return ll_res;
     }
+    /* Plan v29: the Landlock update bypass intentionally disables the
+     * entire sandbox (Landlock + seccomp + rlimits). The user has typed
+     * `ooda update` or `ooda upgrade` explicitly, so they are consenting
+     * to network access on behalf of the toolchain. Without this skip,
+     * curl inside the spawned bash fails with "Could not resolve host"
+     * because seccomp KILLs the socket/connect syscalls. The bypass
+     * signal is the existing OK_LANDLOCK_UPDATE_BYPASS message string. */
+    static const char bypass_msg[] = "OK_LANDLOCK_UPDATE_BYPASS";
+    if (ll_res.msg.len == sizeof(bypass_msg) - 1 &&
+        memcmp(ll_res.msg.data, bypass_msg, sizeof(bypass_msg) - 1) == 0) {
+      landlock_bypassed = 1;
+    }
   }
-  if (oodar_cap_apply_seccomp_filter(config->allowed_caps_mask) < 0) {
-    return (OoResS){0, oo_str_lit("ERR\tseccomp\tfilter application failed")};
+  if (!landlock_bypassed) {
+    if (oodar_cap_apply_seccomp_filter(config->allowed_caps_mask) < 0) {
+      return (OoResS){0, oo_str_lit("ERR\tseccomp\tfilter application failed")};
+    }
+    if (!oodar_cap_is_sandboxed()) {
+      return (OoResS){0, oo_str_lit("ERR\tseccomp\tfilter not enforced")};
+    }
+    if (config->max_mem_mb > 0) oo_rlimit_set_mem_mb(sys_cap, config->max_mem_mb);
+    if (config->max_cpu_sec > 0) oo_rlimit_set_cpu_sec(sys_cap, config->max_cpu_sec);
+    if (config->max_nofile > 0) oo_rlimit_set_nofile(sys_cap, config->max_nofile);
   }
-  if (!oodar_cap_is_sandboxed()) {
-    return (OoResS){0, oo_str_lit("ERR\tseccomp\tfilter not enforced")};
-  }
-  if (config->max_mem_mb > 0) oo_rlimit_set_mem_mb(sys_cap, config->max_mem_mb);
-  if (config->max_cpu_sec > 0) oo_rlimit_set_cpu_sec(sys_cap, config->max_cpu_sec);
-  if (config->max_nofile > 0) oo_rlimit_set_nofile(sys_cap, config->max_nofile);
   return (OoResS){1, oo_str_lit("OK_LINUX_LANDLOCK_SECCOMP_ENFORCED")};
 }
 

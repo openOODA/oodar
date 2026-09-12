@@ -1,7 +1,7 @@
 // # oodar/docs — Per-Package Documentation
 //
 // Logline: Per-package docs for the oodar host. Five .oot
-//          files cover caps, pillars, build, and tests.
+//          files cover caps, requirements, build, and tests.
 //
 // Setup: RFC-0005. Website Source: openOODA/oodar/docs/.
 //        The 5 .oot files are the package manual. Each file
@@ -15,7 +15,7 @@
 //   5. TESTING.oot             — the 8D Red Team matrix and the 11 tier-5 tests_challenger_*.c files + 3 lint tests.
 //
 import "SECURITY_MODEL.oot";
-import "PILLARS.oot";
+import "REQUIREMENTS.oot";
 import "CAPABILITIES_TABLE.oot";
 import "BUILD_AND_INSTALL.oot";
 import "TESTING.oot";

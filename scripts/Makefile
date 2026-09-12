@@ -342,7 +342,8 @@ CHALLENGERS := tests_challenger_contract tests_challenger_sys tests_challenger_w
 	tests_challenger_audio_cap \
 	tests_challenger_fs_dir \
 	tests_challenger_bytes_str \
-	tests_smt_spec_roundtrip
+	tests_smt_spec_roundtrip \
+	tests_challenger_update_bypass
 
 $(TEST_DIR):
 	@mkdir -p $@
@@ -389,6 +390,7 @@ test: lint $(addprefix $(TEST_DIR)/,$(CHALLENGERS))
 	@$(TEST_DIR)/tests_challenger_bytes_str
 	@$(TEST_DIR)/tests_smt_spec_roundtrip
 	@$(TEST_DIR)/tests_smt_spec_roundtrip
+	@$(TEST_DIR)/tests_challenger_update_bypass
 	@echo "TEST OK"
 
 # test-asan: re-run the address-safety probe under ASan + UBSan. The
