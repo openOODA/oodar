@@ -84,8 +84,8 @@ OoResS sand_apply_linux_landlock_seccomp(long long sys_cap, const oo_sandbox_con
      * because seccomp KILLs the socket/connect syscalls. The bypass
      * signal is the existing OK_LANDLOCK_UPDATE_BYPASS message string. */
     static const char bypass_msg[] = "OK_LANDLOCK_UPDATE_BYPASS";
-    if (ll_res.msg.len == sizeof(bypass_msg) - 1 &&
-        memcmp(ll_res.msg.data, bypass_msg, sizeof(bypass_msg) - 1) == 0) {
+    if (ll_res.val.len == (long long)(sizeof(bypass_msg) - 1) &&
+        memcmp(ll_res.val.data, bypass_msg, sizeof(bypass_msg) - 1) == 0) {
       landlock_bypassed = 1;
     }
   }
