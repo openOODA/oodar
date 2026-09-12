@@ -1,10 +1,11 @@
 // # oodar/docs — Per-Package Documentation
 //
-// Logline: Per-package docs for the oodar host. Five .oot
-//          files cover caps, requirements, build, and tests.
+// Logline: Per-package docs for the oodar host. Six .oot
+//          files cover caps, requirements, build, tests, and the
+//          per-symbol coverage map.
 //
 // Setup: RFC-0005. Website Source: openOODA/oodar/docs/.
-//        The 5 .oot files are the package manual. Each file
+//        The 6 .oot files are the package manual. Each file
 //        is at most 256 lines per RFC-0003.
 //
 // Beats:
@@ -13,9 +14,11 @@
 //   3. CAPABILITIES_TABLE.oot  — 20 implemented + 6 future-state cap tokens.
 //   4. BUILD_AND_INSTALL.oot   — canonical `gcc oodar.c`, per-file compile, polyrepo, liboodar.a.
 //   5. TESTING.oot             — the 8D Red Team matrix and the 11 tier-5 tests_challenger_*.c files + 3 lint tests.
+//   6. TESTING_COVERAGE.oot    — per-symbol 8D coverage map (Beat 5 table, split from TESTING.oot for the 256-line cap).
 //
 import "SECURITY_MODEL.oot";
 import "REQUIREMENTS.oot";
 import "CAPABILITIES_TABLE.oot";
 import "BUILD_AND_INSTALL.oot";
 import "TESTING.oot";
+import "TESTING_COVERAGE.oot";

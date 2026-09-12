@@ -7,7 +7,9 @@
 //
 // Beats:
 //   1. round7.oot — 8D Red Team audit of v3.4.2 (2026-09-04).
-//   2. todo.oot — decided execution list (Waves 1-7).
+//   2. todo.oot — decided execution list (Waves 1-7, 8, 9).
+//   3. todo_waves_10_11.oot — Wave 10-11 execution logs (split for 256-line cap).
 
 import "round7.oot";
 import "todo.oot";
+import "todo_waves_10_11.oot";

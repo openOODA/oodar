@@ -252,13 +252,4 @@ No new cap, no signature change. `VERSION` `4.1.0` `api_surface=100`, `CHANGES.m
   fail-closed or zero ambient authority.
 - A Wave 4 item still open: no “audit closed” claim.
 - Wave 7 items ship only with a Floor bump and consumer rebuild.
-
-# Wave 10 — 2026-09-09 hostile memory-probe audit (Muse)
-- `make test` RED on main (TLS grantee pointed at sibling std repo). Fixed.
-- Suite: exit 0, 73 OK/PASS. Probe 5/5; `control_block_free` DELETED.
-- RESIDUAL: shipped .a uses -fno-stack-protector (repro vs canaries).
-
-# Wave 11 — 2026-09-09 Task-1 path fixes (Muse)
-- `path_under_*dir` split OODA_FS_*DIR on ':' (kernel always did; "/" refuses).
-- `UMBRELLA_SRCS` derived from oodar.c; oodar.o deps all 104 (stale-lib class
-  killed). Suite 73 green, repro verify OK.
+# Wave 10-11 → audit/todo_waves_10_11.oot.
