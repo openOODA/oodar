@@ -2,7 +2,7 @@
 //
 // Logline: oodar is the v4.5.0 reference implementation of the openOODA Layer 1 host substrate, and it lands 5 of the 10 Requirements (3, 4, 5, 7, 9) in the C backend today; the remaining 5 Requirements (1, 2, 6, 8, 10) are explicitly future-state and tracked under the polyrepo convention.
 //
-// Setup: This file documents the 10-requirement mapping for oodar as it stands in v4.5.0. The 10 Requirements are defined in openOODA/NORTHSTAR.oot §1.4. Requirement 6 (multi-process) is a future-state because the runtime supports actor/thread primitives but not the swarm scheduler. Requirement 4 (academy 4-element headers) is met in principle: oodar is the C-language backend, and the academy headers (intent, contract, evidence, scope) are a documentation convention that is enforced in the higher-level packages (oodac/, ooda/) rather than the C source files themselves.
+// Setup: This file documents the 10-requirement mapping for oodar as it stands in v4.5.0. The 10 Requirements are defined in openOODA/NORTHSTAR.oot §1.4. Requirement 6 (multi-process) is a future-state because the runtime supports actor/thread primitives but not the multi-process scheduler. Requirement 4 (academy 4-element headers) is met in principle: oodar is the C-language backend, and the academy headers (intent, contract, evidence, scope) are a documentation convention that is enforced in the higher-level packages (oodac/, ooda/) rather than the C source files themselves.
 //
 // Beats:
 //   1. Requirement 3 (8D Red Team) — wired into qa/ (19 challenger probes, all 8 dimensions).
@@ -77,15 +77,15 @@
 // through both paths. Cross-reference: sec/cap/ANCHOR.oo,
 // sec/cap/caps.h, sec/cap/caps.c, sec/cap/cap.c.
 
-# === Beat 4: Requirement 6 — Multi-agent swarm (future-state) ===
+# === Beat 4: Requirement 6 — Multi-process coordination (future-state) ===
 
 // Requirement 6 is the multi-process scheduler. oodar supports the
 // primitives — actor/thread, channel, OTP-style supervise — via
-// app/actor/ but does NOT implement the swarm scheduler itself.
-// The swarm scheduler lives in a future package; oodar is a
+// app/actor/ but does NOT implement the multi-process scheduler itself.
+// The multi-process scheduler lives in a future package; oodar is a
 // substrate dependency, not the scheduler.
 //
-// Requirement 6 is tracked as future-state in the 10-pillar map. The
+// Requirement 6 is tracked as future-state in the 10-requirement map. The
 // actor primitives (oo_actor_spawn, oo_actor_send, oo_actor_recv,
 // oo_actor_destroy, oo_actor_restart, oo_otp_supervise) are
 // declared in oodar.h:118-128 and implemented in app/actor/actor.c.
@@ -160,5 +160,5 @@
 // packages (NOT in oodar/ — oodar is the substrate, not the
 // scheduler or the academy).
 
-// ──▓▓ oodar/docs/PILLARS.oot ──▓▓──
+// ──▓▓ oodar/docs/REQUIREMENTS.oot ──▓▓──
 // :: 5-of-10 Requirement coverage — Requirement 3, 4, 5, 7, 9 wired ::

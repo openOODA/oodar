@@ -8,7 +8,7 @@
       /_/                   \___/ \___/|____/_/   \_\
 </pre>
 
-### openOODA — Sovereign Systems Language for the AI Era
+### openOODA — Primary Systems Language for the AI Era
 
 [openooda.org](https://openooda.org)
 

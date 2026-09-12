@@ -133,7 +133,7 @@
 //   - lsp/     (the LSP server)
 //   - vscode/  (the VS Code extension)
 //   - academy/ (the academy package — future-state)
-//   - swarm/   (the multi-process — future-state, Requirement 6)
+//   - coord/   (multi-process coordination — future-state, Requirement 6)
 //
 // Each package has its own ANCHOR.oo, its own version, and its
 // own release cadence. The packages are independent — a change

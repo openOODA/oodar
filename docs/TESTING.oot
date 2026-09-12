@@ -221,10 +221,6 @@
 // docs/TESTING_COVERAGE.oot to honour the 256-line cap. Read both
 // files together for the full coverage picture.
 
-# === Beat 7: Error-path coverage (v4.8.0, deferred) ===
-
-// (Placeholder — see plan Task E.3, deferred to a follow-up session.)
-
 // ──▓▓ oodar/docs/TESTING.oot ──▓▓──
 // :: 8D Red Team matrix — 21 challenger tests in qa/ — all 8 dimensions covered ::
 

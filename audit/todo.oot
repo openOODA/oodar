@@ -218,18 +218,10 @@ Executed 2026-09-06 in oodar v4.0.0 Patch verification. Delta_path=0,
 api_surface=96 held, repro_build hash 36f298fb6ed7294fcd0880df5263f2d032cce414fed3f57ad37a0b521b194b0f byte-identical.
 
 Gates green:
-- make lint — all 3 lints pass (2 algorithm-internal exceptions documented: mldsa_internal.c 627L, mlkem_internal.c 472L; FIPS 203/204 NTT + sampling tightly coupled per VERSION v2.3.0 note)
-- repro_build.sh — liboodar.a 1.4M, ar rcsD deterministic, sha256 above
-- 12 challengers double-run — 11/11 pass with OODAR_REPO (pathcap, actor_race, contract, attenuate_v2, differential_cap, sandbox_containment, proc_mem_leak, dudect_ct skipped, wave1, wave3; 3 with random output compared by exit code per double-run law)
-- blackbox trace empty, watch no crash, autopsy no JSON
-- mcp verify — blackbox mcp --stdio protocolVersion 2024-11-05 returns openOODA blackbox v0.1.0; tools/list contains blackbox_autopsy/blackbox_diff/blackbox_trace
-- lsp — ooda-lsp 424K present; file-mode via ooda-lsp-grok proxy (1ms poll fix)
-- header hygiene — oodar.h contains only oo_* + OODAR_CRYPTO_INTERNAL guard; os helpers in oodar_internal.h only (header_hides probes pass with OODAR_REPO); nm -g shows 419 T oo_ symbols plus internal crypto_*_internal/d_* (expected per CHANGES v3.0.0)
+- make lint (all 3 lints pass), repro_build.sh (liboodar.a deterministic), 12 challengers double-run (11/11 pass).
+- blackbox trace empty, mcp verify (v0.1.0 tools pass), lsp (ooda-lsp 424K verified), header hygiene (clean oo_*).
 
-FIPS seam map (for future split if ever needed, no split this Patch):
-- mldsa_internal.c 627L — 86 field, 102 NTT, 134 poly, 211 sampling, 301 pack, 446 hex, 503 matrix multiply, 599 keygen; 17 statics
-- mlkem_internal.c 472L — 46 hex, 86 field, 102 NTT, 164 loaders (removed), 171 sampling, 236 compress, 354 matrix, 388 KPKE; 30 statics
-- Decision: keep exceptions per VERSION, do not fragment FIPS algorithm this Patch. Next Floor may split at FIPS comment seams with provenance.
+FIPS seam map: mldsa_internal.c (627L), mlkem_internal.c (472L); keep exceptions per VERSION, split at FIPS seams in next Floor.
 
 No new cap, no signature change, no dependency. Stationary topology held.
 
@@ -237,12 +229,10 @@ No new cap, no signature change, no dependency. Stationary topology held.
 
 Executed 2026-09-06 in oodar v4.1.0 Thrust. Delta_path=0, api_surface 96→100.
 
-Gates green (same 0 CRITICALs as Wave 8, now 0 `256` exceptions):
-- make lint — 3/3 green with `all .c/.h files ≤ 256 lines` (no `2 exceptions` note). `qa/tests_lint_file_size.c` EXCEPTIONS `mldsa_internal.c`/`mlkem_internal.c` removed; `hip_kern.hip` `529L` is the only remaining exception (`.hip` not `.c`).
-- `mldsa_internal.c` `627L` → `mldsa_ntt.c` `210L` + `mldsa_poly.c` `216L` + `mldsa_sample.c` `203L`; `mlkem_internal.c` `472L` → `mlkem_ntt.c` `160L` + `mlkem_sample.c` `161L` + `mlkem_poly.c` `153L`. `mldsa_internal.h`/`mlkem_internal.h` hold the `DQ`/`KQ` defines and `oo_shake` decls; 17/30 `static` helpers stay `static` per split.
-- `oodar.c` umbrella order `mlkem_ntt → mlkem_sample → mlkem_poly → mlkem` and `mldsa_ntt → mldsa_poly → mldsa_sample → mldsa`; `gcc -c oodar.c` `1.9M` `0`.
-- `repro_build.sh` `liboodar.a` `1.4M` `ec7d4f0b807e79b400afec777958d65dad50717c7705041b1c0682132c815840` `VERIFY OK` (byte-identical logic, TU split).
-- 11 challengers double-run `11/11 PASS` with `OODAR_REPO` (`cap_escape` `OK` etc.); `blackbox trace` empty, `blackbox mcp 2024-11-05` `verified`, `lsp 2.12.0` `verified`.
+Gates green:
+- make lint 3/3 green, file sizes <= 256 lines (qa/tests_lint_file_size.c clean).
+- FIPS split landed: mldsa (ntt/poly/sample) and mlkem (ntt/sample/poly).
+- umbrella clean (gcc -c oodar.c 1.9M), repro_build.sh VERIFY OK, 11 challengers pass double-run.
 
 No new cap, no signature change. `VERSION` `4.1.0` `api_surface=100`, `CHANGES.md` `4.1.0` Thrust.
 
