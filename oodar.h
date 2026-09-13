@@ -227,11 +227,9 @@ void oo_reso_lf_retain(OoResO_LF v);
 void oo_reso_lf_release(OoResO_LF v);
 
 int oo_res_eq_s(OoResS a, OoResS b);
-
 int oo_landlock_is_available(void);
 int oo_landlock_is_applied(void); /* v2.1.0: true iff oo_landlock_restrict has been called and succeeded on this process. */
 OoResS oo_landlock_restrict(long long cap, OoStr read_dirs_colon, OoStr write_dirs_colon);
-
 OoResS oo_arena_create(long long cap, long long bytes);
 OoResS oo_arena_alloc(long long cap, long long id, long long n);
 OoResS oo_arena_reset(long long cap, long long id);
@@ -249,9 +247,9 @@ OoResS oo_read_stdin_chunk(long long cap, long long timeout_ms);
 OoStr oo_file_stamp(long long cap, OoStr path);
 long long oo_import_c(long long cap, OoStr hdr);
 long long oo_lto_xlang_link(long long cap, OoStr a, OoStr b);
+long long oo_hot_reload(OoStr path);
 #include "fs/os/sys_shm.h"
 #include "fs/os/sys_epoll.h"
 #include "sec/landlock/sandbox_syscalls.h"
 #include "hw/audio/audio.h"
-
 #endif

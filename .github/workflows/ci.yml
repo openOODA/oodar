@@ -84,9 +84,9 @@ jobs:
           set -euo pipefail
           mkdir -p "$HOME/.openooda/bin"
           curl -fsSL -o "$HOME/.openooda/bin/blackbox" \
-            "https://github.com/openOODA/blackbox/releases/download/v0.0.10/blackbox-linux-x86_64"
+            "https://github.com/openOODA/bb/releases/download/v0.0.10/blackbox-linux-x86_64"
           curl -fsSL -o "$HOME/.openooda/bin/blackbox.sha256" \
-            "https://github.com/openOODA/blackbox/releases/download/v0.0.10/blackbox-linux-x86_64.sha256"
+            "https://github.com/openOODA/bb/releases/download/v0.0.10/blackbox-linux-x86_64.sha256"
           expected=$(cut -d' ' -f1 "$HOME/.openooda/bin/blackbox.sha256")
           actual=$(sha256sum "$HOME/.openooda/bin/blackbox" | cut -d' ' -f1)
           test "$expected" = "$actual" || { echo "[blackbox-gate FAIL] sha256 mismatch"; exit 1; }
@@ -100,6 +100,7 @@ jobs:
           OODA_COMPILER: ${{ github.workspace }}/oodac/bin/oodac
         run: |
           set -euo pipefail
+          trap 'rm -f /tmp/*.diff[12] /tmp/flight.trace[12]' EXIT
           shopt -s nullglob
           count=0
           for f in qa/probe_*.oo; do

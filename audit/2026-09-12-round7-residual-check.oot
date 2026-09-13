@@ -33,7 +33,7 @@
 // | 11| HIGH     | write_int/read_int UAF vs oo_free                            | CLOSED   | core/mem/alloc.c — uses g_quota_mu mutex; alloc_table also mutex-protected. |
 // | 12| HIGH     | Actor/channel send vs destroy TOCTOU                         | CLOSED   | app/actor/actor.c — slot mutex `a->mu` covers send/destroy paths. |
 // | 13| HIGH     | Vacuous tests                                                | CLOSED   | qa/tests_challenger_contract.c:147-219 — covers oo_sandbox_apply, oo_write_file, oo_now_ms, oo_random, oo_write_int, oo_free. dudect cg_sign: see Action item A3. |
-// | 14| HIGH     | Docs and tables disagree with caps.h                         | CLOSED   | Just fixed in commit caf37cf: docs/SECURITY_MODEL.oot, docs/CAPABILITIES_TABLE.oot, docs/TESTING.oot, docs/PILLARS.oot, docs/BUILD_AND_INSTALL.oot, ANCHOR.oo, sec/cap/cap_table.json all updated to v4.5.0 reality. |
+// | 14| HIGH     | Docs and tables disagree with caps.h                         | CLOSED   | Just fixed in commit caf37cf: docs/security_model.oot, docs/capabilities_table.oot, docs/testing.oot, docs/PILLARS.oot, docs/build_and_install.oot, anchor.oo, sec/cap/cap_table.json all updated to v4.5.0 reality. |
 // | 15| MEDIUM   | Landlock probe_backend compile-time #ifdef                   | OPEN     | sec/landlock/sandbox/sandbox.c — backend selection is still compile-time (NO_LANDLOCK ifdef). Action item A4. |
 // | 16| MEDIUM   | g_ll_applied user-space bool                                 | OPEN     | sec/landlock/landlock.c — g_ll_applied is still a user-space bool; oo_landlock_mark_applied is still a global ELF symbol. Known limitation; documented in v3.x CHANGES.md. Action item A5. |
 // | 17| MEDIUM   | FS read uses realpath+fopen (symlink TOCTOU)                 | PARTIAL  | fs/os/fs.c — write path uses openat+O_NOFOLLOW; read path still realpath+fopen. The fs confinement + Landlock reduce the attack surface, but the TOCTOU window remains. Action item A6. |
@@ -43,9 +43,9 @@
 // | 21| MEDIUM   | Arena checkpoint is a global stack, not arena restore        | OPEN     | core/mem/arena.c — checkpoint is global; known limitation. Action item A9. |
 // | 22| MEDIUM   | Weak-ref TOCTOU UAF (epoch unused)                           | PARTIAL  | core/mem/weak.c — epoch exists but not enforced in all paths. Action item A10. |
 // | 23| MEDIUM   | AES-GCM uses secret-indexed S-boxes; dudect doesn't probe   | OPEN     | sec/crypto/symmetric/aes_gcm.c + qa/dudect_c_native.c. Known limitation. Action item A11. |
-// | 24| MEDIUM   | Makefile 337 lines, examples/ empty, ANCHOR Setup drift     | PARTIAL  | scripts/Makefile — now under 256 lines per lint-file-size. CHANGES.md is .md (RULES §1.14 carve-out). examples/ still empty (intentional placeholder). 25 ANCHOR.oo Setup sections still missing for nested subdirs — known drift. Actions A12-A13. |
+// | 24| MEDIUM   | Makefile 337 lines, examples/ empty, ANCHOR Setup drift     | PARTIAL  | scripts/Makefile — now under 256 lines per lint-file-size. CHANGES.md is .md (RULES §1.14 carve-out). examples/ still empty (intentional placeholder). 25 anchor.oo Setup sections still missing for nested subdirs — known drift. Actions A12-A13. |
 // | 25| MEDIUM   | examples/ is empty (RFC-0005 placeholder)                    | OPEN     | examples/ — intentional per RFC-0005. Action item A14 — either populate or formally deprecate. |
-// | 26| MEDIUM   | 25 nested ANCHOR.oo files omit Setup                         | OPEN     | Per-subdir ANCHOR.oo files — many still omit the Setup section. Action item A15. |
+// | 26| MEDIUM   | 25 nested anchor.oo files omit Setup                         | OPEN     | Per-subdir anchor.oo files — many still omit the Setup section. Action item A15. |
 
 // ## 2. Open items as concrete action items
 
@@ -64,20 +64,20 @@
 // A9. (item 21) Design arena checkpoint that respects arena boundaries (not a global stack).
 // A10. (item 22) Enforce epoch checks in all weak-ref read paths.
 // A11. (item 23) Add a dudect probe for AES-GCM (constant-time S-box access).
-// A12. (item 24) Populate the missing Setup sections in nested ANCHOR.oo files.
+// A12. (item 24) Populate the missing Setup sections in nested anchor.oo files.
 // A13. (item 24) Verify all Makefile targets under 256 lines (currently passes lint).
 // A14. (item 25) Either populate examples/ or formally deprecate via RFC-0005 amendment.
-// A15. (item 26) Same as A12 — nested ANCHOR.oo Setup sections.
+// A15. (item 26) Same as A12 — nested anchor.oo Setup sections.
 
 // ## 3. Cross-references to current authoritative docs
 
 // | Round7 item       | Current authoritative source                              |
 // |-------------------|-----------------------------------------------------------|
-// | 14 (docs drift)   | docs/SECURITY_MODEL.oot, docs/CAPABILITIES_TABLE.oot, docs/TESTING.oot, docs/PILLARS.oot, docs/BUILD_AND_INSTALL.oot, ANCHOR.oo (all updated in commit caf37cf) |
-// | 5 (Rule 2 HMAC)   | sec/cap/cap_attenuate_hmac.c:50-72 + docs/SECURITY_MODEL.oot Beat 4 (4 hard rules) |
-// | 6 (OoPathCap)     | sec/cap/ANCHOR.oo (item 6) + fs/os/fs.c, fs/os/fs_dir.c (wired) |
+// | 14 (docs drift)   | docs/security_model.oot, docs/capabilities_table.oot, docs/testing.oot, docs/PILLARS.oot, docs/build_and_install.oot, anchor.oo (all updated in commit caf37cf) |
+// | 5 (Rule 2 HMAC)   | sec/cap/cap_attenuate_hmac.c:50-72 + docs/security_model.oot Beat 4 (4 hard rules) |
+// | 6 (OoPathCap)     | sec/cap/anchor.oo (item 6) + fs/os/fs.c, fs/os/fs_dir.c (wired) |
 // | 8 (zeroize)       | sec/cap/caps.c:62-90 + sec/cap/cap_*.c sub-store coverage (action A1) |
-// | 15-26 (medium)    | docs/TESTING.oot (8D matrix) + docs/PILLARS.oot (Pillar 3 + 5 wiring) |
+// | 15-26 (medium)    | docs/testing.oot (8D matrix) + docs/PILLARS.oot (Pillar 3 + 5 wiring) |
 
 // ──▓▓ openOODA oodar round7 residual verification 2026-09-12 ──▓▓──
 // :: 26 items reviewed: 11 CLOSED, 8 PARTIAL, 7 OPEN (15 action items A1-A15) ::

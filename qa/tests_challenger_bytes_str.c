@@ -1,7 +1,7 @@
 /* tests_challenger_bytes_str.c — Hostile probe for the bytes/str/layout helpers.
  *
  * v4.7.0 (2026-09-12): closes the per-symbol coverage gap for the
- * (i)-substrate bytes/str/layout helpers (per docs/TESTING.oot Beat 6).
+ * (i)-substrate bytes/str/layout helpers (per docs/testing.oot Beat 6).
  *
  * Symbols covered:
  *   oo_bytes_concat, oo_bytes_from_str, oo_bytes_to_str
@@ -31,7 +31,7 @@
  *
  * The probe is intentionally lightweight: the goal is per-symbol
  * coverage, not functional depth (which lives in higher-level
- * packages per the (ii)-hand-off in docs/TESTING.oot Beat 6). */
+ * packages per the (ii)-hand-off in docs/testing.oot Beat 6). */
 
 #include "../oodar.h"
 #include <stdio.h>

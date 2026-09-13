@@ -6,7 +6,7 @@ File: oodar/audit/todo.oot
 # in v4.0.0 (Floor) and v4.1.0 (Thrust). All listed items are closed
 # and verified in CHANGES.md. The api_surface=100 claim at line 230 is
 # historical — current api_surface is 110 (see VERSION). For the current
-# oodar state, see docs/SECURITY_MODEL.oot + docs/TESTING.oot.
+# oodar state, see docs/security_model.oot + docs/testing.oot.
 # This file is preserved as a historical record; do not edit.
 
 Executed 2026-09-04 in oodar v4.0.0 Floor. Waves 1-7 landed.
@@ -145,26 +145,26 @@ Closed already (skip): LCG abort on cap/HMAC-key getentropy;
 
 # Wave 5 — Docs and tables match disk
 
-20. Rewrite SECURITY_MODEL.oot to 26 tokens, Metrics at 0x800
+20. Rewrite security_model.oot to 26 tokens, Metrics at 0x800
     as the v3.0.0 Floor reuse, Bind as core, atexit covering
     all stores, Rule 2 only on v2 with MAC-bound rights.
     Drop kernel_seal / enclave_enter or restore the code.
 
-21. Rewrite CAPABILITIES_TABLE.oot. Delete app/hitl/hitl.c.
+21. Rewrite capabilities_table.oot. Delete app/hitl/hitl.c.
     Bind/TCP/UDP/THREAD/GPU/ENV are core, not future-state.
     Host dumps: CompilerRead. FFI: dlopen/host_build.
 
-22. Rewrite TESTING.oot: 10 challenger tests + fuzz + 3 lints.
-    Root ANCHOR.oo: v3.4.2, umbrella 95. sec/cap/ANCHOR.oo:
-    Bind implemented. sec/ANCHOR.oo: no Audit/Hitl/Sync/Mem/Http.
-    docs/ANCHOR.oo, qa/ANCHOR.oo, scripts/ANCHOR.oo, BUILD_AND_INSTALL.oot,
-    core/ANCHOR.oo, sec/crypto/symmetric/ANCHOR.oo: kill stale paths.
+22. Rewrite testing.oot: 10 challenger tests + fuzz + 3 lints.
+    Root anchor.oo: v3.4.2, umbrella 95. sec/cap/anchor.oo:
+    Bind implemented. sec/anchor.oo: no Audit/Hitl/Sync/Mem/Http.
+    docs/anchor.oo, qa/anchor.oo, scripts/anchor.oo, build_and_install.oot,
+    core/anchor.oo, sec/crypto/symmetric/anchor.oo: kill stale paths.
     cap_table.json: _version 3.4.2; category vs implemented
     consistent; rule_2 note no longer “deferred”.
     mlkem_internal.c line claim 472 not 460.
-    SUBSTRATE_AUDIT_TLDR.oot: banner “superseded by audit/round7.oot”.
+    substrate_audit_tldr.oot: banner “superseded by audit/round7.oot”.
 
-23. Add Setup: to the 25 nested ANCHOR.oo files that omit it.
+23. Add Setup: to the 25 nested anchor.oo files that omit it.
 
 # Wave 6 — Medium physics
 
@@ -190,7 +190,7 @@ Closed already (skip): LCG abort on cap/HMAC-key getentropy;
 31. Net slot table: one mutex around boot/alloc/lookup/close.
 
 32. One C example in examples/ that grants AllocCap and allocs.
-    Update examples/ANCHOR.oo.
+    Update examples/anchor.oo.
 
 # Wave 7 — Floor / later (do not mix into a Patch)
 

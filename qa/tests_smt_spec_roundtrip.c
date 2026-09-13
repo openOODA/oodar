@@ -20,15 +20,33 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define PATH "../sec/cap/formal_spec.smt2"
-
+static const char *g_spec_path = "sec/cap/formal_spec.smt2";
 static int g_failures = 0;
 #define ASSERT(cond, msg) do { \
   if (!(cond)) { \
-    fprintf(stderr, "FAIL %s: %s\n", PATH, msg); \
+    fprintf(stderr, "FAIL %s: %s\n", g_spec_path, msg); \
     g_failures++; \
   } \
 } while (0)
+
+static const char *resolve_path(char *buf, size_t buflen) {
+  const char *p1 = "sec/cap/formal_spec.smt2";
+  FILE *f = fopen(p1, "rb");
+  if (f) { fclose(f); return p1; }
+
+  const char *repo = getenv("OODAR_REPO");
+  if (repo && *repo) {
+    snprintf(buf, buflen, "%s/sec/cap/formal_spec.smt2", repo);
+    f = fopen(buf, "rb");
+    if (f) { fclose(f); return buf; }
+  }
+
+  const char *p3 = "../sec/cap/formal_spec.smt2";
+  f = fopen(p3, "rb");
+  if (f) { fclose(f); return p3; }
+
+  return p1;
+}
 
 static int contains(const char *haystack, const char *needle) {
   return strstr(haystack, needle) != NULL;
@@ -49,10 +67,13 @@ int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
 
+  char path_buf[1024];
+  g_spec_path = resolve_path(path_buf, sizeof(path_buf));
+
   fprintf(stderr, "  smt-spec-roundtrip probe: starting\n");
 
   /* Read the spec file. */
-  FILE *fp = fopen(PATH, "rb");
+  FILE *fp = fopen(g_spec_path, "rb");
   ASSERT(fp != NULL, "spec file open failed");
   if (!fp) return 1;
   fseek(fp, 0, SEEK_END);

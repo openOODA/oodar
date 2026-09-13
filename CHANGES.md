@@ -188,7 +188,7 @@ for the convenience helpers that live above oodar.
 - 56 uncovered (the gap that v4.7.0 addresses)
 
 The 56 uncovered symbols are split into two classes per
-docs/TESTING.oot Beat 6:
+docs/testing.oot Beat 6:
 
 - **(i) substrate symbols** (25): cap-gated fs ops, OoPathCap variants,
   OoBytes ↔ OoStr conversions, memory layout, meta/mem substrate,
@@ -199,7 +199,7 @@ docs/TESTING.oot Beat 6:
   (oo_cos/oo_exp/oo_ln/oo_pow/oo_sin/oo_sqrt/oo_limb_*), host-build
   wrappers (oo_host_*), GPU shims (oo_gpu_hip_*, oo_float_buf_new).
   These live above oodar and have functional coverage in oodac/,
-  ooda/, oodac std/math/. Documented hand-off in docs/TESTING.oot
+  ooda/, oodac std/math/. Documented hand-off in docs/testing.oot
   Beat 6.
 
 ### What changed
@@ -217,7 +217,7 @@ New probes:
 
 Updated:
 
-- `docs/TESTING.oot` Beat 6 — full classification table + hand-off
+- `docs/testing.oot` Beat 6 — full classification table + hand-off
   policy for the (ii)-subset.
 - `scripts/Makefile` — both probes in CHALLENGERS + double-run rules.
   Total challenger count: 19 → 21.
@@ -239,7 +239,7 @@ fine, the probe doesn't care about cleanup success).
 - 154 unique `oo_*` symbols declared
 - 98 referenced by ≥1 qa/ probe (unchanged)
 - 25 newly covered by tests_challenger_fs_dir + tests_challenger_bytes_str
-- 30 documented (ii)-hand-off in docs/TESTING.oot Beat 6
+- 30 documented (ii)-hand-off in docs/testing.oot Beat 6
 - 1 inline (oo_reso_*_retain/release) is exercised by gcc; no
   separate probe needed
 
@@ -256,7 +256,7 @@ coverage gap target met (≤ 10% uncovered, all hand-off-documented).
 
 ### Scope discipline
 
-Per docs/TESTING.oot Beat 6 hand-off policy, the (ii)-subset symbols
+Per docs/testing.oot Beat 6 hand-off policy, the (ii)-subset symbols
 (math, host-build, GPU) are explicitly NOT covered by oodar-local
 probes. Adding such probes would expand oodar's scope into the higher-
 level packages; the existing functional coverage in oodac/, ooda/,
@@ -283,7 +283,7 @@ New module `oodar/hw/audio/`:
   `rpm -q alsa-lib-devel` → "not installed"), the shim returns
   `OoResS{ok=0, val="audio_capture: no device"}` and prints a stderr
   diagnostic pointing at the opt-in `-DUSE_ALSA` flag.
-- `hw/audio/ANCHOR.oo` (3-element header) — front door.
+- `hw/audio/anchor.oo` (3-element header) — front door.
 
 Public ABI additive: 3 new symbols in `oodar.h` (via
 `#include "hw/audio/audio.h"`):
@@ -582,7 +582,7 @@ to land here.
 - Wrote `sec/cap/cap_check_zig_fallback.c` (34 lines) — same leaf
   bit-check semantics in plain C. The TU is included in the umbrella
   but the function is `static`, so the symbol stays internal.
-- Updated `sec/cap/zig/ANCHOR.oo` to document the deferred RFC.
+- Updated `sec/cap/zig/anchor.oo` to document the deferred RFC.
 - The Zig installation at `/home/jeryd/.local/bin/zig` is kept
   (harmless; useful for out-of-tree tooling). The `.gitignore`
   line for `zig-out/` and `.zig-cache/` is also kept — those are
@@ -648,7 +648,7 @@ Per the corrected language from this session:
 
 ## v4.1.0 — Thrust (2026-09-11 M1–M5 perf opt — no ABI break)
 
-Per RULES.oot §1.21, v4.1.0 is a MINOR (Thrust) bump. No ABI break — every
+Per rules.oot §1.21, v4.1.0 is a MINOR (Thrust) bump. No ABI break — every
 `oo_*` signature is unchanged. `api_surface=104→107` (+3 new public-ABI
 files), `repro_build` REPRO OK (sha256 `fee7b965…`),
 `scripts/lib/liboodar.a` byte-identical to `~/.openooda/lib/liboodar.a`
@@ -787,14 +787,14 @@ The 3 consolidated probes (`tests_challenger_concurrency_stress`,
 cover the M2/M3/M4 adversarial surface end-to-end (8-thread list stress,
 COW retention, actor-channel 4-producer/4-consumer with 400 messages,
 channel teardown race, quota overflow fail-closed + recovery, OOB
-boundary, forged-cap rejection, throughput floors). Per `RULES.oot §1.8`
+boundary, forged-cap rejection, throughput floors). Per `rules.oot §1.8`
 ("Delete debug files, obsolete code, and temporary artifacts when work is
 complete").
 
 `PROJECT.md` (sentinel scope/contract artefact) deleted — the work is
 captured in this CHANGES entry and in `VERSION`.
 
-`qa/ANCHOR.oo` count claim updated: "2 utilities + 15 challenger tests +
+`qa/anchor.oo` count claim updated: "2 utilities + 15 challenger tests +
 3 lint tests" → "2 utilities + 15 challenger tests + 3 lint tests" (no
 count change after the orphan deletion since the 3 promoted probes are
 counted in the 15; the wording was already accurate, but the Beat list is
@@ -827,7 +827,7 @@ now consistent).
 
 ## v4.0.1 — Patch (2026-09-06 clean wave, 0 CRITICALs, stationary)
 
-Per RULES.oot §1.21, v4.0.1 is a PATCH bump. No ABI break — every
+Per rules.oot §1.21, v4.0.1 is a PATCH bump. No ABI break — every
 `oo_*` signature is unchanged. `api_surface=96` held, `repro_build`
 hash `36f298fb6ed7294fcd0880df5263f2d032cce414fed3f57ad37a0b521b194b0f`
 byte-identical, `Delta_path=0`.
@@ -853,7 +853,7 @@ the 2 FIPS files at comment-delimited seams with provenance if needed.
 
 ## v3.0.0 — Floor (cap-gating sweep: 8 public mutators, 1 new MetricsCap)
 
-Per RULES.oot §1.21, v3.0.0 is a MAJOR (Floor) bump. **The public ABI
+Per rules.oot §1.21, v3.0.0 is a MAJOR (Floor) bump. **The public ABI
 breaks.** Consumers (oodac-emitted C code) must rebuild against the
 new signatures.
 
@@ -996,7 +996,7 @@ You must rebuild. Concretely:
 
 ## v2.2.0 — Patch (24-item audit pass 3: 5 security + 4 North Star gaps + 8 cleanups + 1 OCap feature)
 
-Per RULES.oot §1.21, v2.2.0 is a PATCH bump. No public ABI
+Per rules.oot §1.21, v2.2.0 is a PATCH bump. No public ABI
 break (the only signature change is `oo_sandbox_c_*` gaining a
 `sys_cap` first arg; those 3 functions have zero callers in the
 tree, so the change is safe for v2.2.0). Driven by 4 parallel
@@ -1044,9 +1044,9 @@ v2.1.0 residuals.
 ### 4 North Star gaps closed
 
 6. **`docs/` populated** — 5 new .oot files documenting the
-   v2.1.0+ state: `SECURITY_MODEL.oot` (the cap system), `PILLARS.oot`
-   (North Star Pillar coverage), `CAPABILITIES_TABLE.oot` (per-token
-   table), `BUILD_AND_INSTALL.oot` (the build model), `TESTING.oot`
+   v2.1.0+ state: `security_model.oot` (the cap system), `PILLARS.oot`
+   (North Star Pillar coverage), `capabilities_table.oot` (per-token
+   table), `build_and_install.oot` (the build model), `testing.oot`
    (the 8D Red Team matrix). All ≤256 lines.
 
 7. **`qa/` tier-5 tests** — 5 new `tests_challenger_*.c` files
@@ -1077,13 +1077,13 @@ v2.1.0 residuals.
 10. **`core/list/list_set.c` folded inline into `core/list/list.c`**
     (63 lines; the `list_set.c` file is deleted).
 
-11. **`SUBSTRATE_AUDIT_TLDR.oot` line counts and paths updated** to
+11. **`substrate_audit_tldr.oot` line counts and paths updated** to
     v2.1.0 reality (138 lines, 6-subdir layout, 25 cap tokens).
 
 12. **3 dead oodar.h functions removed** — `heap_alloc_test`,
     `oo_arena_free`, `oo_ffi_gen`. Per the "no compat layers" rule.
 
-13. **`app/actor/closure.c` ANCHOR.oo clarified** — generic
+13. **`app/actor/closure.c` anchor.oo clarified** — generic
     `OoClosure` primitive, not actor-specific. The file itself is
     unchanged.
 
@@ -1169,7 +1169,7 @@ v2.1.0 residuals.
 
 ## v2.1.0 — Patch (zero-trust audit pass 2: 6 CRITICAL fixes + 11 HIGH/MEDIUM cleanups)
 
-Per RULES.oot §1.21, v2.1.0 is a PATCH bump. No ABI change — every
+Per rules.oot §1.21, v2.1.0 is a PATCH bump. No ABI change — every
 public function signature is unchanged. This release is a security
 hardening + dead-code cleanup driven by a zero-trust re-audit of v2.0.0
 (5 parallel subagents, one per lens: structural, REDTEAM, power-law
@@ -1266,17 +1266,17 @@ hardening + dead-code cleanup driven by a zero-trust re-audit of v2.0.0
     location implied they were production code. They are test
     utilities and now sit with the test infrastructure.
 
-12. **ANCHOR.oo fixes:**
-    - `app/actor/ANCHOR.oo` was claiming `thread.h` (the
+12. **anchor.oo fixes:**
+    - `app/actor/anchor.oo` was claiming `thread.h` (the
       OoThreadSlot type) — but no `thread.h` exists. The OoThreadSlot
       type is defined inline in `thread.c`. Fixed.
-    - `app/actor/ANCHOR.oo` had 5 beats; the new layout has 4
+    - `app/actor/anchor.oo` had 5 beats; the new layout has 4
       (thread + actor + channel + closure — no separate cycle beat
       since v2.0.0 killed it).
-    - `sec/cap/ANCHOR.oo` was claiming "14 unforgeable capability
+    - `sec/cap/anchor.oo` was claiming "14 unforgeable capability
       tokens". The actual count after the dead-cap removal is 25
       (14 NORTHSTAR core + 11 future-state for not-yet-wired
-      hardware caps). The ANCHOR.oo now states the full breakdown.
+      hardware caps). The anchor.oo now states the full breakdown.
 
 ### What did NOT change
 
@@ -1307,7 +1307,7 @@ Adding a cap to any of these changes the public function signature
 
 ## v2.0.0 — Floor break (audit: cap-gating, dead-code kill, build fix)
 
-Per RULES.oot §1.21, v2.0.0 is a MAJOR (Floor) bump. The super-check
+Per rules.oot §1.21, v2.0.0 is a MAJOR (Floor) bump. The super-check
 audit (zero-trust pass over every file) found 1 broken build, 3
 production .c files missing from the umbrella, 4 cap-gating gaps in
 the public API, and 520 lines of dead code. v2.0.0 closes all of them.
@@ -1374,7 +1374,7 @@ the public API, and 520 lines of dead code. v2.0.0 closes all of them.
    The Bacon-Rajan trial-deletion cycle detector had zero callers
    in oodar, oodac, or any other openOODA repo. Per the
    "old code is killed not deprecated" rule, it is removed entirely.
-   `app/actor/ANCHOR.oo` and the parent `app/ANCHOR.oo` are
+   `app/actor/anchor.oo` and the parent `app/anchor.oo` are
    updated to drop the cycle beat.
 
 5. **Build paths fixed (was: `gcc oodar.c` would not compile).**
@@ -1400,10 +1400,10 @@ the public API, and 520 lines of dead code. v2.0.0 closes all of them.
    - Removed duplicate `str_split` / `str_trim` declarations in
      `oodar.h` (declared twice each at lines 199/222 and 200/223).
    - `api_surface` 53 → 52 (cycle.c removed).
-   - `sec/ANCHOR.oo` updated to reflect the actual 30 cap tokens
+   - `sec/anchor.oo` updated to reflect the actual 30 cap tokens
      (14 NORTHSTAR core + 16 future-state extensions), not just
      the 14 the v1.0.0 text claimed.
-   - `core/ANCHOR.oo` corrected: types.h is at the **repo root**,
+   - `core/anchor.oo` corrected: types.h is at the **repo root**,
      not at `core/`.
 
 ### What consumers must change
@@ -1447,7 +1447,7 @@ You must rebuild. Concretely:
 
 ## v1.0.1 — Thrust (internal reorg, no consumer change)
 
-Per RULES.oot §1.21, v1.0.1 is a MINOR (Thrust) bump. The
+Per rules.oot §1.21, v1.0.1 is a MINOR (Thrust) bump. The
 internal subdir layout was reorganized to mirror std's
 vocabulary (core, sec, fs, net, hw, app). No public symbol
 changes, no API changes, no consumer changes — consumers
@@ -1473,11 +1473,11 @@ linking against v1.0.0 oodar.a or building from source with
 
 - **Sub-subdirs added** for the multi-file domains (e.g.,
   core/str/, sec/cap/, app/actor/). Each sub-subdir has its
-  own `ANCHOR.oo`, mirroring std's per-domain organization.
+  own `anchor.oo`, mirroring std's per-domain organization.
 
-- **27 `ANCHOR.oo` files total** (1 root + 6 tactical + 20
-  sub-subdir ANCHOR.oo). The root ANCHOR.oo documents the
-  overall structure; each tactical and sub-subdir ANCHOR.oo
+- **27 `anchor.oo` files total** (1 root + 6 tactical + 20
+  sub-subdir anchor.oo). The root anchor.oo documents the
+  overall structure; each tactical and sub-subdir anchor.oo
   documents its own files and reading order.
 
 - **No file renames, no symbol changes.** The 53 .c files and
@@ -1522,7 +1522,7 @@ populated std domains map to oodar content; the 7th
 
 ## v1.0.0 — Floor break from v0.1.x
 
-Per RULES.oot §1.21, v1.0.0 is a MAJOR (Floor) bump. The
+Per rules.oot §1.21, v1.0.0 is a MAJOR (Floor) bump. The
 subdir reorg + the C-coupled prefix drop in the file/header
 names is incompatible at the build-include level with v0.1.x.
 
@@ -1530,7 +1530,7 @@ names is incompatible at the build-include level with v0.1.x.
 
 1. **The 53 .c files are now in 17 per-domain subdirs** (was: a
    flat directory at the repo root). Each subdir has its own
-   `ANCHOR.oo` describing its files and reading order.
+   `anchor.oo` describing its files and reading order.
 
 2. **The C-coupled file/header prefix is gone.** The v0.1.x
    prefix encoded "C Host Substrate — Runtime" in every file
@@ -1629,7 +1629,7 @@ and `ooda_host_build` are in `os/host.c` (the latter is an
 
 ## v2.3.0 — Patch (256-line file cap enforcement across the tree)
 
-Per RULES.oot §1.21, v2.3.0 is a PATCH bump. **The public ABI does
+Per rules.oot §1.21, v2.3.0 is a PATCH bump. **The public ABI does
 not change.** Every oo_* symbol keeps its v3.0.0 signature. The split
 is purely organizational: 17 .c/.h files over 256 lines were split
 into 60+ files across 9 new sub-dirs so smaller LLMs can hold each
@@ -1771,9 +1771,9 @@ the `app/` boundary. The umbrella update touches 4 includes
 (`oodar.c`, `app/telemetry/metrics.c`, `sec/crypto/symmetric/crypto.c`,
 and the 2 PQ AEAD files).
 
-**The 9 new ANCHOR.oo files:**
+**The 9 new anchor.oo files:**
 
-The zero-trust lens found 8 missing ANCHOR.oo files in sub-dirs
+The zero-trust lens found 8 missing anchor.oo files in sub-dirs
 created by the v2.3.0 file split. v3.1.0 adds them:
 `sec/landlock/landlock/`, `sec/landlock/sandbox/`, `sec/pqc/mlkem/`,
 `sec/pqc/mldsa/`, `sec/pqc/pq_sig/`, `sec/crypto/symmetric/`,
@@ -1857,7 +1857,7 @@ PASS  cap_threat       0/4 cap-threat amplifications succeeded
 PASS  dudect_ct        ct probe verified (branchless |t|<4500, branchy |t|>=4500)
 PASS  proc_mem_leak    v2.1.0 Landlock-APPLIED gate is intact
 PASS  sandbox_containment  Landlock containment verified
-OK    lint_anchors     all directories have ANCHOR.oo
+OK    lint_anchors     all directories have anchor.oo
 OK    lint_file_size   all .c/.h files ≤ 256 lines
 OK    lint_cap_table   cap_table.json matches caps.h (26 caps)
 ```
@@ -1978,7 +1978,7 @@ OK    diff              22 cap tokens × 8 children: all unique, all non-zero
 OK    dudect_ct         branchless XOR-mix is constant-time
 OK    proc_mem_leak     Landlock-APPLIED gate is intact
 OK    sandbox_containment  Landlock containment verified
-OK    lint_anchors      all directories have ANCHOR.oo
+OK    lint_anchors      all directories have anchor.oo
 OK    lint_file_size    all .c/.h files ≤ 256 lines
 OK    lint_cap_table    cap_table.json matches caps.h (26 caps)
 ```
@@ -2042,7 +2042,7 @@ OK    fuzz              200 iterations, no crashes
 OK    dudect_ct         branchless XOR-mix is constant-time
 OK    proc_mem_leak     Landlock-APPLIED gate is intact
 OK    sandbox_containment  Landlock containment verified
-OK    lint_anchors      all directories have ANCHOR.oo
+OK    lint_anchors      all directories have anchor.oo
 OK    lint_file_size    all .c/.h files ≤ 256 lines
 OK    lint_cap_table    cap_table.json matches caps.h (26 caps)
 ```
@@ -2054,7 +2054,7 @@ OK    lint_cap_table    cap_table.json matches caps.h (26 caps)
 v3.3.0 is a **Thrust** (MINOR) bump from v3.2.3. Closes the last
 deferred CRITICAL from round-4: the `oo_cap_attenuate` bitmask
 subset check. Adds a new function `oo_cap_attenuate_v2` that
-enforces SECURITY_MODEL.oot Rule 2. The old `oo_cap_attenuate`
+enforces security_model.oot Rule 2. The old `oo_cap_attenuate`
 is preserved for back-compat (it has no way to know the parent's
 rights and cannot do the check).
 
@@ -2353,11 +2353,11 @@ fixes are internal correctness. The new test file does not
 add a new `oo_*` symbol.
 
 
-## v3.4.0 — Floor (round-6 closes 3 CRITICAL + 4 HIGH misplacements + 5 ANCHOR.oo drift)
+## v3.4.0 — Floor (round-6 closes 3 CRITICAL + 4 HIGH misplacements + 5 anchor.oo drift)
 
 The round-6 deep-dive audit (4 parallel lenses: misplaced-files,
-qa-test-files, ANCHOR.oo drift, header-deps) caught 7 misplacements
-and 5+ ANCHOR.oo drift items that the prior rounds missed. v3.4.0
+qa-test-files, anchor.oo drift, header-deps) caught 7 misplacements
+and 5+ anchor.oo drift items that the prior rounds missed. v3.4.0
 closes them all in one Floor break. All moves are pure relocations
 within the umbrella TU; no oo_* signatures change.
 
@@ -2404,23 +2404,23 @@ call the canonical `oo_cap_require_X` macro now. Also moved
 metrics module is a consumer of the event bus and belongs
 with the rest of the event infrastructure.
 
-### Fix 6: ANCHOR.oo drift
+### Fix 6: anchor.oo drift
 
-**The bug:** 6 ANCHOR.oo files were stale (claimed v3.0.0, 49
+**The bug:** 6 anchor.oo files were stale (claimed v3.0.0, 49
 files, or referenced deleted files). The most embarrassing:
-`app/hitl/ANCHOR.oo` described a `hitl.c` that was killed in
-v3.1.0; the directory was a zombie with only an ANCHOR.oo
+`app/hitl/anchor.oo` described a `hitl.c` that was killed in
+v3.1.0; the directory was a zombie with only an anchor.oo
 inside.
 
-**The fix:** rewrote 6 ANCHOR.oo files (root, qa/, app/, hw/gpu/,
+**The fix:** rewrote 6 anchor.oo files (root, qa/, app/, hw/gpu/,
 sec/cap/, scripts/, docs/) to match the v3.4.0 reality. Removed
-`app/hitl/` zombie directory. The `app/ANCHOR.oo` now correctly
+`app/hitl/` zombie directory. The `app/anchor.oo` now correctly
 says "xlang + actor + io" (no telemetry, no hitl).
 
 ### Test results
 
 11/11 challenger tests + 3/3 lint + adversarial all pass.
-3 lints confirm the new file structure (ANCHOR.oo coverage,
+3 lints confirm the new file structure (anchor.oo coverage,
 256-line cap, cap_table.json drift). Build hash is reproducible.
 
 ### Public ABI
@@ -2438,7 +2438,7 @@ api_surface 90 → 95 (added 6, removed 1).
 ## v3.4.1 — Patch (round-6 qa test hardening)
 
 The round-6 qa test files audit (run in parallel with the misplaced-
-files and ANCHOR.oo drift lenses) caught 1 CRITICAL + 3 HIGH test
+files and anchor.oo drift lenses) caught 1 CRITICAL + 3 HIGH test
 defects. v3.4.1 closes the two most actionable ones.
 
 ### Fix 1: tests_challenger_contract.c — distinguish crash from fail-closed (HIGH)

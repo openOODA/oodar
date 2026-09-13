@@ -1,7 +1,7 @@
 /* qa/tests_challenger_attenuate_v2.c — Rule 2 bitmask subset check.
  *
  * Round-5 deep-dive: the v2 attenuate API must enforce
- * SECURITY_MODEL.oot Rule 2 (parent_rights & child_rights ==
+ * security_model.oot Rule 2 (parent_rights & child_rights ==
  * child_rights) before HMACing. The old API (oo_cap_attenuate)
  * cannot do this because the signature doesn't include
  * parent_rights; the v2 API fixes that.

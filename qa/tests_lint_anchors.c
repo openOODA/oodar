@@ -1,19 +1,19 @@
-/* qa/tests_lint_anchors.c — every directory must have ANCHOR.oo.
+/* qa/tests_lint_anchors.c — every directory must have anchor.oo.
  *
  * Walks the repo and verifies that every leaf-and-intermediate directory
- * (excluding the v2.3.0-known exception list below) has an ANCHOR.oo
- * file at its root. The ANCHOR.oo is the Academy 4-Element Header
- * convention (NORTHSTAR.oot Requirement 4) that documents the directory's
+ * (excluding the v2.3.0-known exception list below) has an anchor.oo
+ * file at its root. The anchor.oo is the Academy 4-Element Header
+ * convention (northstar.oot Requirement 4) that documents the directory's
  * logline + beats in a way smaller LLMs can read before opening the
  * .c files.
  *
  * v3.1.2 added: this CI lint, after the v2.3.0 file split left 8
- * new sub-dirs without ANCHOR.oo (caught by the round-4 zero-trust
- * audit) and v3.1.0 had to manually write 9 ANCHOR.oo files.
+ * new sub-dirs without anchor.oo (caught by the round-4 zero-trust
+ * audit) and v3.1.0 had to manually write 9 anchor.oo files.
  *
  * Exit codes:
- *   0 — every required directory has ANCHOR.oo
- *   1 — missing ANCHOR.oo; lists the offenders
+ *   0 — every required directory has anchor.oo
+ *   1 — missing anchor.oo; lists the offenders
  *   2 — cannot read directory tree
  */
 #define _POSIX_C_SOURCE 200809L
@@ -23,7 +23,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-/* Directories that legitimately do NOT have ANCHOR.oo. Be careful
+/* Directories that legitimately do NOT have anchor.oo. Be careful
  * adding to this list — the goal is to converge to zero entries. */
 static const char *EXCLUDE[] = {
   ".git",
@@ -47,8 +47,8 @@ static int is_excluded(const char *name) {
 
 static int has_anchor(const char *dir) {
   char path[1024];
-  snprintf(path, sizeof path, "%s/ANCHOR.oo", dir);
   struct stat st;
+  snprintf(path, sizeof path, "%s/anchor.oo", dir);
   return stat(path, &st) == 0;
 }
 
@@ -95,10 +95,10 @@ int main(void) {
   fclose(report);
 
   if (ok) {
-    printf("OK\tlint\tall directories have ANCHOR.oo\n");
+    printf("OK\tlint\tall directories have anchor.oo\n");
     return 0;
   }
-  fprintf(stderr, "FAIL\tlint\tmissing ANCHOR.oo:\n%s", buf);
+  fprintf(stderr, "FAIL\tlint\tmissing anchor.oo:\n%s", buf);
   fprintf(stderr, "\tAdd a 4-element header (Title, Logline, Setup, Beats) to each missing dir.\n");
   return 1;
 }

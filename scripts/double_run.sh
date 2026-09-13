@@ -12,22 +12,28 @@ FAIL=0
 PASS_N=0
 say() { printf '[double-run] %s\n' "$*"; }
 
+TMPD="$(mktemp -d /tmp/oodar_dr_XXXXXX)"
+trap 'rm -rf "$TMPD"' EXIT INT TERM
+
 # Ensure binaries exist (also proves the suite passes once via make test).
-if ! make -C scripts test > /tmp/oodar_doublerun_maketest.log 2>&1; then
+if ! make -C scripts test > "$TMPD/oodar_doublerun_maketest.log" 2>&1; then
   say "FAIL: make test failed; last 30 lines:"
-  tail -n 30 /tmp/oodar_doublerun_maketest.log
+  tail -n 30 "$TMPD/oodar_doublerun_maketest.log"
   exit 1
 fi
 say "make test green; starting identical-twice loop"
 
 run_twice() {
   local bin="$1"; shift
-  "$bin" "$@" > /tmp/odr1.log 2>&1; local e1=$?
-  "$bin" "$@" > /tmp/odr2.log 2>&1; local e2=$?
+  "$bin" "$@" > "$TMPD/odr1.log" 2>&1; local e1=$?
+  "$bin" "$@" > "$TMPD/odr2.log" 2>&1; local e2=$?
   if [[ "$e1" != "$e2" ]]; then
     say "FAIL: $bin exit differs ($e1 vs $e2)"; FAIL=1; return
   fi
-  if ! cmp -s /tmp/odr1.log /tmp/odr2.log; then
+  if [[ "$e1" != "0" ]]; then
+    say "FAIL: $bin non-zero exit ($e1)"; FAIL=1; return
+  fi
+  if ! cmp -s "$TMPD/odr1.log" "$TMPD/odr2.log"; then
     say "FAIL: $bin output differs across fresh runs"; FAIL=1; return
   fi
   PASS_N=$((PASS_N + 1))
@@ -40,8 +46,8 @@ run_twice() {
 # Anything else diverging is a real failure.
 run_twice_exit_only() {
   local bin="$1"; shift
-  "$bin" "$@" > /tmp/odr1.log 2>&1; local e1=$?
-  "$bin" "$@" > /tmp/odr2.log 2>&1; local e2=$?
+  "$bin" "$@" > "$TMPD/odr1.log" 2>&1; local e1=$?
+  "$bin" "$@" > "$TMPD/odr2.log" 2>&1; local e2=$?
   if [[ "$e1" != "$e2" ]]; then
     say "FAIL: $bin exit differs ($e1 vs $e2)"; FAIL=1; return
   fi
@@ -57,7 +63,7 @@ for bin in scripts/build/test/* scripts/build/lint/*; do
   [[ -x "$bin" && -f "$bin" ]] || continue
   case "$bin" in
     *fuzz*) run_twice "$bin" 0x12345678 ;;
-    *differential_cap*|*pathcap*) run_twice_exit_only "$bin" ;;
+    *differential_cap*|*pathcap*|*perf_benchmark*) run_twice_exit_only "$bin" ;;
     *) run_twice "$bin" ;;
   esac
 done

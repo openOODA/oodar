@@ -1,6 +1,6 @@
 /* qa/tests_lint_file_size.c — every .c and .h must be ≤ 256 lines.
  *
- * Per RULES.oot §1.21 and the v2.3.0 file-split goal, every source
+ * Per rules.oot §1.21 and the v2.3.0 file-split goal, every source
  * file in the umbrella must be ≤ 256 lines so smaller-context LLMs
  * (8K-32K tokens) can hold an entire file in their context window
  * and reason about type signatures, function bodies, and includes

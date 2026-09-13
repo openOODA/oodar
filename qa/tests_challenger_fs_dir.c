@@ -1,7 +1,7 @@
 /* tests_challenger_fs_dir.c — Hostile probe for the fs-directory ops.
  *
  * v4.7.0 (2026-09-12): closes the per-symbol coverage gap for the
- * (i)-substrate fs directory operations (per docs/TESTING.oot Beat 6).
+ * (i)-substrate fs directory operations (per docs/testing.oot Beat 6).
  *
  * Symbols covered:
  *   oo_read_stdin                      — cap-gated fs read

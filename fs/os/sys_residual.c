@@ -44,3 +44,9 @@ OoResS oo_sys_prctl(long long cap, long long op) {
   oo_cap_require_sys(cap, "sys_prctl");
   return oo_sys_res_miss("prctl residual");
 }
+
+long long oo_hot_reload(OoStr path) {
+  (void)path;
+  oo_cap_require(0, 1, "hot_reload");
+  return 0;
+}

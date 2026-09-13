@@ -2,7 +2,7 @@
  * cap-system leaf bit check.
  *
  * Originally authored in Zig (sec/cap/zig/cap_check.zig, deleted
- * 2026-09-11 — see git history and ANCHOR.oo for that directory).
+ * 2026-09-11 — see git history and anchor.oo for that directory).
  * That file violated RULES §1.14 (no .zig carve-out) and §1.23
  * (oodar/* is "Layer 1 C shims and Landlock sandbox" — explicitly C
  * only). This TU provides the same leaf logic in plain C.

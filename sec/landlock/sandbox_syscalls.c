@@ -7,7 +7,7 @@
  *   oo_landlock_abi_version_raw: syscall query LANDLOCK_CREATE_RULESET_VERSION
  *   oo_seccomp_apply_raw: prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER)
  *
- * Governed by RULES.oot <= 256 lines and zero ambient authority.
+ * Governed by rules.oot <= 256 lines and zero ambient authority.
  */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE

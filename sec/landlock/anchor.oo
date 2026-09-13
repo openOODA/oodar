@@ -1,0 +1,25 @@
+// # sec/landlock — Kernel-Mediated FS Containment
+//
+// Logline: The Landlock FS sandbox, the platform-detecting probe, and the live-RAM proc_mem reader gated by Landlock (Requirement 9).
+//
+//
+// Setup: Domain module. Caps and layout are in the parent anchor.oo.
+// Beats:
+//   1. landlock/landlock.h — the OoLandlockStatus enum and rule flags (kept at top level for the public C API).
+//   2. landlock/landlock.c — orchestrator: the Landlock rule construction and apply.
+//   3. landlock/landlock_restrict.c — oo_landlock_restrict_fd (the per-fd restrict primitive).
+//   4. sandbox/sandbox.c — orchestrator: the platform-detecting probe (Landlock on Linux, fail-closed elsewhere).
+//   5. sandbox/sandbox.h — the OoLandlockSandbox type (kept at top level for the public C API).
+//   6. sandbox/sandbox_c.c — the v2.2.0 sys_cap-gated oo_sandbox_c_* C-ABI backdoor (preserved).
+//   7. sandbox/sandbox_config.c — the OoLandlockConfig builder.
+//   8. sandbox/sandbox_matrix.c — the per-domain (FsRead, FsWrite, Net, ...) rule matrix.
+//   9. proc_mem.c — the live-RAM reader; gated by Landlock + cap.
+//
+// v2.3.0 file split: the original 296-line landlock.c was split into
+// landlock/ subdir (2 files), and the original 638-line sandbox.c was
+// split into sandbox/ subdir (4 files). The split is functional
+// (one Landlock concern per file). The platform-detect probe stays
+// in sandbox.c (the orchestrator).
+//
+// ──▓▓ sec/landlock ANCHOR ──▓▓──
+// :: Requirement 9 — kernel-mediated, not userland shim ::

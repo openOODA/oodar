@@ -11,7 +11,7 @@
  *   - oo_cap_attenuate / oo_cap_attenuate_ok   (v1, back-compat)
  *   - oo_cap_attenuate_v2 / oo_cap_attenuate_v2_ok (v2, Rule 2)
  *
- * v2 enforces SECURITY_MODEL.oot Rule 2: child rights bitmask must
+ * v2 enforces security_model.oot Rule 2: child rights bitmask must
  * be a subset of parent rights. v1 cannot enforce Rule 2 (the API
  * has no parent_rights arg) and is preserved for back-compat only.
  * The verifier (oodac) is updated to call v2. */
@@ -19,7 +19,7 @@
 
 /* OPEN-72: child seal = HMAC-SHA256(parent_hmac, child_rights). Empty inputs fail closed.
  *
- * v3.3.0: SECURITY_MODEL.oot Rule 2 is now enforced. The new
+ * v3.3.0: security_model.oot Rule 2 is now enforced. The new
  * oo_cap_attenuate_v2() takes (parent_hmac, parent_rights,
  * child_rights) and verifies `parent_rights & child_rights ==
  * child_rights` (the bitmask subset check) before HMACing. */

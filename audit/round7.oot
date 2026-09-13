@@ -6,9 +6,9 @@ File: oodar/audit/round7.oot
 # versions (v3.4.4, v4.0.0, v4.1.0, v4.2.0, v4.3.0, v4.4.0, v4.5.0)
 # have landed: 14 CRITICAL/HIGH items below are now closed (verified
 # in CHANGES.md). For the current oodar state, see:
-#   - docs/SECURITY_MODEL.oot (current cap model)
-#   - docs/CAPABILITIES_TABLE.oot (current cap inventory)
-#   - docs/TESTING.oot (current challenger matrix — 19 probes, all 8D)
+#   - docs/security_model.oot (current cap model)
+#   - docs/capabilities_table.oot (current cap inventory)
+#   - docs/testing.oot (current challenger matrix — 19 probes, all 8D)
 #   - audit/2026-09-11-focused-oodar.oot (next focused audit)
 # This file is preserved as a historical record; do not edit the
 # "next (priority order)" items at the bottom — they're tracked, not
@@ -112,9 +112,9 @@ mediation until the CRITICAL items below are closed.
     names oo_cap_require_fs_write do not match C symbols.
 
 14. Docs and tables disagree with caps.h.
-    SECURITY_MODEL.oot still says 25 tokens and 0x800 reserved.
+    security_model.oot still says 25 tokens and 0x800 reserved.
     METRICS is 0x800. Bind is required on tcp_bind/bind_udp but
-    ANCHOR.oo still calls Bind future-state. TESTING.oot still
+    anchor.oo still calls Bind future-state. testing.oot still
     says 5 challenger tests (disk has 10). COMPILER_READ has no
     consumer; host.c uses FfiCap. cap_table.json _version 3.1.1.
 
@@ -134,7 +134,7 @@ mediation until the CRITICAL items below are closed.
 24. Makefile 337 lines (claimed 331). Two .py files drive CI lint.
     repro_build.sh is an extra host script. CHANGES.md extra .md.
 25. examples/ is empty (RFC-0005 placeholder).
-26. 25 nested ANCHOR.oo files omit Setup.
+26. 25 nested anchor.oo files omit Setup.
 
 # Residuals still true (prior audits)
 

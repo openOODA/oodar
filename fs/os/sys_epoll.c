@@ -9,7 +9,7 @@
  *   oo_sys_timerfd_settime: timerfd_settime(2) periodic or one-shot
  *   oo_sys_eventfd: eventfd(2) inter-thread notification
  *
- * Governed by RULES.oot <= 256 lines and zero ambient authority.
+ * Governed by rules.oot <= 256 lines and zero ambient authority.
  */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE

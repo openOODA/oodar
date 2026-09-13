@@ -9,7 +9,7 @@
  *   oo_munmap: munmap(2) unmapping memory buffer
  *   oo_close_fd: close(2) file descriptor cleanup
  *
- * Governed by RULES.oot <= 256 lines and zero ambient authority.
+ * Governed by rules.oot <= 256 lines and zero ambient authority.
  */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE

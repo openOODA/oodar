@@ -5,7 +5,7 @@
 # functions + their relocations. A function is "stack-protected" if
 # it has at least one PLT32 relocation to __stack_chk_fail.
 #
-# Then check the high-risk functions (per docs/SECURITY_MODEL.oot
+# Then check the high-risk functions (per docs/security_model.oot
 # Beat 5 + the 2026-09-11 focused audit, audit/2026-09-11-focused-
 # oodar.oot — F1 finding): any function that takes OoStr (untrusted
 # length-prefixed string) AND copies bytes into a stack buffer MUST

@@ -27,7 +27,7 @@ jobs:
           [ -z "$latest" ] && latest="v0.1.24"
           ver=${latest#v}
           # oodar/VERSION is a config file with `oodar=MAJOR.MINOR.PATCH`
-          # (per RULES.oot §1.21, single number per repo — semver).
+          # (per rules.oot §1.21, single number per repo — semver).
           cur=$(grep -E '^oodar=' VERSION 2>/dev/null | head -n 1 | cut -d= -f2 | tr -d '\r\n ' || echo "")
           echo "latest tag: $latest -> ver $ver, current oodar= field: $cur"
           if [ "$ver" = "$cur" ]; then

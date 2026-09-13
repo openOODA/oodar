@@ -6,7 +6,7 @@
  * and the Landlock ruleset is APPLIED to the current process.
  *
  * Setup: This is a regression probe (Red 8 dimension 6). The
- * v2.1.0 fix (see SUBSTRATE_AUDIT_TLDR.oot Beat 2 Fix 3) added
+ * v2.1.0 fix (see sec/landlock/proc_mem.c) added
  * a check for oo_landlock_is_applied() in addition to
  * oo_landlock_is_available(). The probe verifies the fix.
  *

@@ -18,7 +18,7 @@
  * bit position). The metrics counter is process-global state — a side
  * channel via counter export — so v3.0.0 gives it its own cap token.
  * The bit was reserved since v2.1.0 for exactly this kind of future
- * re-introduction; we use it now per RULES.oot §1.21 Floor break. */
+ * re-introduction; we use it now per rules.oot §1.21 Floor break. */
 #define OODAR_CAP_METRICS 2048u
 /* v2.1.0: removed OODAR_CAP_AUDIT (now METRICS at 0x800), OODAR_CAP_HITL
  * (0x2000), OODAR_CAP_SYNC (0x4000), OODAR_CAP_MEM (0x8000), OODAR_CAP_HTTP
@@ -119,7 +119,7 @@ int oo_cap_attenuate_ok(OoStr parent_hmac, OoStr child_rights);
 
 /* v3.3.0: bitmask-checked attenuation. The v2 API takes
  * (parent_hmac, parent_rights, child_rights) and enforces
- * SECURITY_MODEL.oot Rule 2: `parent_rights & child_rights ==
+ * security_model.oot Rule 2: `parent_rights & child_rights ==
  * child_rights`. New code MUST use the v2 API. The old API
  * (oo_cap_attenuate) is preserved for back-compat. */
 OoStr oo_cap_attenuate_v2(OoStr parent_hmac, OoStr parent_rights, OoStr child_rights);
