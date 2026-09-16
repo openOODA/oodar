@@ -14,12 +14,14 @@
 oodar=4.0.29
 ooda=2.10.0
 ooda_max=2.99.0
-api_surface=111
+api_surface=112
 # v4.10.0: cumulative Thrust over v4.5.0; 5 backwards-compatible
 # MINOR bumps landed in this session:
 #   v4.6.0: hw/audio wire-up (+1 .c file: hw/audio/oo_audio_capture.c;
 #           oo_audio_init/capture/release public symbols; api_surface
 #           110 → 111)
+#   committed cap_bridge_emitted.c: CI find + umbrella #include count
+#           is 112 (shim is committed C, not a gitignored emit-c artifact)
 #   v4.7.0: per-symbol coverage gap closure (docs/TESTING.oot Beat 6;
 #           2 new probes tests_challenger_fs_dir.c + tests_challenger_bytes_str.c)
 #   v4.8.0: ASan/UBSan coverage expansion (tests_challenger_address_safety.c
@@ -39,10 +41,10 @@ api_surface=111
 # CHANGES.md trail is what humans + agents should trust.
 # api_surface convention: count of .c files #include'd by oodar.c
 # (the umbrella TU) per the per-domain subdirs (core/ sec/ fs/ net/
-# hw/ app/). Excludes qa/, examples/, scripts/, build/, and the
-# gitignored sec/cap/cap_bridge_emitted.c (oodac-emitted build
-# artifact). Verified v4.5.0: `sed -n 's/^#include "\([^"]*\.c\)".
-#*/\1/p' oodar.c | wc -l` = 111; minus cap_bridge_emitted.c = 110.
+# hw/ app/). Excludes qa/, examples/, scripts/, build/. CI `find`
+# matches that set. sec/cap/cap_bridge_emitted.c is a committed C
+# shim (not gitignored; residual emit-c does not regenerate it).
+# `sed -n 's/^#include "\([^"]*\.c\)".*/\1/p' oodar.c | wc -l` = 112.
 #
 # v4.5.0: std/sec/capability → oodar OCap bridge Phases 1-3; no new
 # .c files in the umbrella (the bridge file cap_ocap_bridge.c was
