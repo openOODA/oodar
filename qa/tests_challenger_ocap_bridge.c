@@ -1,7 +1,7 @@
 /* tests_challenger_ocap_bridge.c — Hostile probe for the OCap bridge.
  *
  * Phase 1 verification: the OCap bridge (oodar/sec/cap/cap_ocap_bridge.c
- * + the oodac-emitted C from std/sec/capability/ocap_to_oodar.oo) must
+ * + the committed rights-mask shim in sec/cap/cap_bridge_emitted.c) must
  * give bit-for-bit equivalence with the bitmask cap-system on the
  * documented rights-mask expectations.
  *

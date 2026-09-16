@@ -8,8 +8,7 @@
  * tokens (NORTHSTAR §1.4) and exposes a fail-soft rights check.
  *
  * Source of truth for the mapping: cap_ocap_bridge.c: SUBSTRATE_TO_LANGUAGE[26]
- * and SUBSTRATE_TO_OCAP_RIGHTS[26] tables. The C-side bridge uses the
- * oodac-emitted std/sec/capability/ocap_to_oodar.oo to look up rights.
+ * and the committed rights-mask table in cap_bridge_emitted.c.
  */
 
 /* Returns 1 iff:

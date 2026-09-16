@@ -1,9 +1,9 @@
 /* oodar/sec/cap/cap_ocap_bridge.c — Memory-safe cap check via std OCap.
  *
  * Phase 1 of the std/sec/capability migration. The C-side bridge uses
- * the OCap records produced by std/sec/capability/ocap_to_oodar.oo
- * (compiled via oodac emit-c into scripts/build/cap_ocap_emitted.c)
- * to do structured-rights checks on every cap gate.
+ * the committed rights-mask table in sec/cap/cap_bridge_emitted.c
+ * (20 NORTHSTAR language tokens). Default make compiles that shim
+ * with the umbrella; it does not invoke oodac emit-c.
  *
  * Mapping: the 26 substrate caps (oodar's g_tok_*) map to the 20
  * NORTHSTAR language tokens (NORTHSTAR §1.4). The mapping table at
@@ -12,19 +12,17 @@
  * caps.h) don't have language tokens yet — they map to FsReadCap
  * for now per the substrate convention.
  *
- * The bridge is additive: existing callers don't change. Phase 2
- * routes one existing oo_cap_require_X gate through both paths and
- * requires agreement. Phase 3 routes the remaining 19 gates.
+ * The bridge is additive: existing callers don't change. Phases 2-3
+ * dual-check all 22 oo_cap_require_* gates (bitmask + OCap agreement).
  */
 
 #include "../../oodar.h"
 #include "../../core/mem/safety.h"
-#include "../landlock/sandbox.h"
+#include <pthread.h>
 #include <stddef.h>
 #include <string.h>
 
-/* Forward decls for the oodac-emitted C. The header is generated
- * per build by scripts/Makefile's emit-std-ocap target. */
+/* Forward decls for the committed C shim in cap_bridge_emitted.c. */
 extern OCapBridgeRecord ocap_to_oodar_record_for(OoStr name);
 extern long long ocap_to_oodar_rights_for_name(OoStr name);
 extern OoSList ocap_to_oodar_all_names(void);

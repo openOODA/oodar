@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — drop residual `emit-c` from default make
+
+`oodac emit-c` is residual (exit 2). Default `make all` no longer
+invokes it. `scripts/Makefile` `emit-std-ocap` is gone. The umbrella
+compiles the committed C shim `sec/cap/cap_bridge_emitted.c` (NORTHSTAR
+rights-mask table) with `cap_ocap_bridge.c`. Host-absolute `#line`
+paths from the old generated file are gone. Product path remains
+C99 `gcc oodar.c` plus oodac LLVM IR.
+
 ## v4.10.0 — SMT (2026-09-12 Phase 6 SMT spec portability — QF_BV encoding + structural probe)
 
 Per the 2026-09-12 deepening plan Task B. v4.10.0 ships the SMT-LIB 2

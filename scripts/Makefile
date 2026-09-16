@@ -61,41 +61,6 @@ endif
 # Command-line `make CC=clang` still overrides a file assignment.
 CC = gcc
 AR ?= ar
-# ---------------------------------------------------------------------------
-# emit-std-ocap: Phase 1 of the std → oodar cap-bridge. Runs `oodac emit-c`
-# on std/sec/capability/ocap_to_oodar.oo (the rights-mask shim) and
-# writes the C output to sec/cap/cap_bridge_emitted.c. The umbrella
-# TU includes this file (via oodar.c). The emitted file is gitignored
-# — it's a build artifact, the source of truth is the .oo shim.
-#
-# Override OODAC if the oodac binary isn't at ~/.openooda/bin/oodac:
-#   make OODAC=/path/to/oodac
-# ---------------------------------------------------------------------------
-OODAC ?= $(HOME)/.openooda/bin/oodac
-STD_DIR := $(REPO_ROOT)/../std
-OCAP_SHIM := $(STD_DIR)/sec/capability/ocap_to_oodar.oo
-OCAP_EMITTED := $(REPO_ROOT)/sec/cap/cap_bridge_emitted.c
-
-$(OCAP_EMITTED): $(OCAP_SHIM) | $(REPO_ROOT)/sec/cap
-	@echo "EMIT std/sec/capability/ocap_to_oodar.oo (oodac check + emit-c, stripped)"
-	@$(OODAC) check $< 2>&1 || (echo "OODAC check failed for $<"; exit 1)
-	@$(OODAC) emit-c $< > $@.full 2>/dev/null
-	# Strip lines 1-247. The umbrella already has the runtime decls
-	# in oodar.h, types/types_str.h, and the core/list/*.c / core/str/*.c
-	# TUs. We keep lines 248+ which contain the OCapBridgeRecord
-	# struct definition (oodar.h doesn't have this) plus the
-	# function bodies.
-	# The function bodies reference oo_retain_S / oo_release_S (the
-	# type-safe wrappers around oo_str_retain/release). We add a
-	# small static-inline prologue that defines them locally — this
-	# avoids redefinition conflicts with the umbrella's existing
-	# types_str.h wrappers.
-	@echo "/* runtime decls stripped; oo_retain_S/release_S shim added — see $(OCAP_SHIM) */" > $@
-	@printf 'static inline void oo_retain_S(OoStr v) { oo_str_retain(v); }\nstatic inline void oo_release_S(OoStr v) { oo_str_release(v); }\n' >> $@
-	@awk 'NR >= 248' $@.full >> $@
-	@rm -f $@.full
-
-emit-std-ocap: $(OCAP_EMITTED)
 # Plain `=`, not `?=`: GNU make ships a built-in ARFLAGS=rv, which counts
 # as "defined" — `?=` never fired and every archive ran `ar -rv` (real
 # mtimes in the index header → non-deterministic .a, caught by `repro`).
@@ -134,7 +99,7 @@ PERFILE_LIB := $(LIB_DIR)/liboodar_perfile.a
 MEMSAFE_LIB := $(LIB_DIR)/liboodar_memsafe.a
 
 # ---------------------------------------------------------------------------
-# The 94 .c files in the umbrella TU (mirrors oodar.c:13-106). The order
+# The .c files in the umbrella TU (derived from oodar.c #includes). The order
 # is dependency order from oodar.c; the order does not matter for .o
 # files (only for #include chains, which are resolved at compile time
 # per-file). v2.3.0: 17 files over 256 lines were split into 60+ files
@@ -169,10 +134,6 @@ all: $(LIB)
 $(LIB): $(BUILD_DIR)/oodar.o | $(LIB_DIR)
 	@echo "AR  $@"
 	@$(AR) $(ARFLAGS) $@ $<
-
-# The umbrella depends on the emitted OCap bridge (via oodar.c).
-# Without this, the .o would silently link against a stale .c.
-$(BUILD_DIR)/oodar.o: $(OCAP_EMITTED)
 
 # memsafe: same source as `all`, but compiled with OODAR_MEMSAFE=1
 # so the safety shims in core/mem/safety.h activate. Output is

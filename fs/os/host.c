@@ -2,11 +2,10 @@
 
 /* ----- Host FFI wrappers (symbols from optional host staticlib) -----
  * Only compiled when OODA_WITH_HOST_FFI is set (programs that call
- * host_build / host_* dumps). Pure CHS links without host FFI.
- *
- * Pure emit preamble deliberately does NOT declare these symbols
- * (see oodac/c_emit_preamble.oo). Pure product binaries must not
- * reference them; this TU stays for optional host FFI builds only.
+ * host_build / host_* dumps). The runtime product is C99 `gcc oodar.c`
+ * (plus oodac LLVM IR), not oodac emit-c. Pure product binaries must
+ * not reference these symbols; this TU stays for optional host FFI
+ * builds only.
  */
 #ifdef OODA_WITH_HOST_FFI
 extern char *ooda_host_ast_dump(const char *path);
