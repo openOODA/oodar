@@ -79,18 +79,18 @@ jobs:
       - name: require compiler
         run: |
           test -x oodac/bin/oodac || chmod +x oodac/bin/oodac
-      - name: install blackbox (download prebuilt from GitHub release)
+      - name: install bb (download prebuilt from GitHub release)
         run: |
           set -euo pipefail
           mkdir -p "$HOME/.openooda/bin"
-          curl -fsSL -o "$HOME/.openooda/bin/blackbox" \
-            "https://github.com/openOODA/bb/releases/download/v0.0.10/blackbox-linux-x86_64"
-          curl -fsSL -o "$HOME/.openooda/bin/blackbox.sha256" \
-            "https://github.com/openOODA/bb/releases/download/v0.0.10/blackbox-linux-x86_64.sha256"
-          expected=$(cut -d' ' -f1 "$HOME/.openooda/bin/blackbox.sha256")
-          actual=$(sha256sum "$HOME/.openooda/bin/blackbox" | cut -d' ' -f1)
+          curl -fsSL -o "$HOME/.openooda/bin/bb" \
+            "https://github.com/openOODA/bb/releases/download/v0.0.15/bb-linux-x86_64"
+          curl -fsSL -o "$HOME/.openooda/bin/bb.sha256" \
+            "https://github.com/openOODA/bb/releases/download/v0.0.15/bb-linux-x86_64.sha256"
+          expected=$(cut -d' ' -f1 "$HOME/.openooda/bin/bb.sha256")
+          actual=$(sha256sum "$HOME/.openooda/bin/bb" | cut -d' ' -f1)
           test "$expected" = "$actual" || { echo "[blackbox-gate FAIL] sha256 mismatch"; exit 1; }
-          chmod +x "$HOME/.openooda/bin/blackbox"
+          chmod +x "$HOME/.openooda/bin/bb"
       - name: blackbox double-run on qa/ probes (RULES §1.10)
         working-directory: ${{ github.workspace }}/oodar
         env:
@@ -107,11 +107,11 @@ jobs:
             test -f "$f" || continue
             count=$((count + 1))
             base=$(basename "$f" .oo)
-            ~/.openooda/bin/blackbox diff "$f" > "/tmp/${base}.diff1" 2>&1 || {
+            ~/.openooda/bin/bb diff "$f" > "/tmp/${base}.diff1" 2>&1 || {
               echo "[blackbox-gate FAIL] diff non-zero exit on $f"
               exit 1
             }
-            ~/.openooda/bin/blackbox diff "$f" > "/tmp/${base}.diff2" 2>&1 || {
+            ~/.openooda/bin/bb diff "$f" > "/tmp/${base}.diff2" 2>&1 || {
               echo "[blackbox-gate FAIL] second diff non-zero exit on $f"
               exit 1
             }
@@ -126,11 +126,11 @@ jobs:
             exit 0
           fi
           if [ -s .blackbox/flight.json ]; then
-            ~/.openooda/bin/blackbox trace > /tmp/flight.trace1 2>&1 || {
+            ~/.openooda/bin/bb trace > /tmp/flight.trace1 2>&1 || {
               echo "[blackbox-gate FAIL] unreadable flight log"
               exit 1
             }
-            ~/.openooda/bin/blackbox trace > /tmp/flight.trace2 2>&1 || {
+            ~/.openooda/bin/bb trace > /tmp/flight.trace2 2>&1 || {
               echo "[blackbox-gate FAIL] unreadable flight log on second read"
               exit 1
             }
