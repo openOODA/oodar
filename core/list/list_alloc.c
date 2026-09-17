@@ -16,6 +16,10 @@ void *oo_list_alloc_payload(size_t elem_size, size_t cap) {
   OoListHeader *hdr;
   long long charge;
   if (cap == 0) return NULL;
+  if (elem_size > 0 && cap > (size_t)9223372036854775807ULL / elem_size) {
+    fprintf(stderr, "ERR\tcap\tlist allocation capacity overflow\n");
+    exit(1);
+  }
   charge = oo_list_block_bytes((long long)cap, elem_size);
   oo_list_quota_init_public();
   long long curr = __atomic_load_n(&oo_list_ambient_bytes, __ATOMIC_RELAXED);
