@@ -1,5 +1,4 @@
 #include "../../oodar.h"
-#include <unistd.h>
 
 /* v2.2.0: removed the `oo_je_*` arm-file JSON-errors mechanism. It was
  * an opt-in covert-exfiltration channel (a `.ooda-cache/ooda-tmp/
@@ -17,7 +16,9 @@ void oo_print_str(OoStr s) {
   if (s.data && s.len > 0) fwrite(s.data, 1, (size_t)s.len, stdout);
 }
 
-void oo_eprint_str(OoStr s) { fwrite(s.data, 1, (size_t)s.len, stderr); }
+void oo_eprint_str(OoStr s) {
+  if (s.data && s.len > 0) fwrite(s.data, 1, (size_t)s.len, stderr);
+}
 void oo_print_int(long long n) { printf("%lld", n); }
 void oo_print_bool(int b) { fputs(b ? "true" : "false", stdout); }
 void oo_println(void) { fputc('\n', stdout); }

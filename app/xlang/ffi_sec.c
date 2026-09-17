@@ -12,9 +12,7 @@
 #include <unistd.h>
 #include <dlfcn.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <sys/wait.h>
-#include <errno.h>
 
 /* Canonical-path prefix allow: both inputs run through realpath and the
  * canonical paths are compared. Closes `..` traversal, symlink hops,

@@ -8,7 +8,9 @@
 scripts/build/
 scripts/lib/
 build/
+build
 lib/
+*.a
 # Zig build outputs (sec/cap/zig/, future zig/ subdirs)
 zig-out/
 .zig-cache/

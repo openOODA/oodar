@@ -4,7 +4,6 @@
  * writes the g_quota_mu / oo_list_ambient_bytes state in list.c via extern.
  * Fail-closed: on quota overflow, prints to stderr and exits (1). */
 #include "../../oodar.h"
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 
