@@ -144,18 +144,18 @@ OoResS oo_arena_alloc(long long cap, long long id, long long n) {
     r.val = oo_str_lit("arena_alloc: bad id");
     return r;
   }
+  if (a->off & 15) a->off = (a->off + 15) & ~15ULL;
   if ((size_t)n > a->cap - a->off) {
     pthread_mutex_unlock(&a->mu);
     r.val = oo_str_lit("arena_alloc: full");
     return r;
   }
   {
-    char buf[32];
-    snprintf(buf, sizeof buf, "%llu", (unsigned long long)a->off);
+    unsigned long long allocated_off = (unsigned long long)a->off;
     a->off += (size_t)n;
     pthread_mutex_unlock(&a->mu);
     r.ok = 1;
-    r.val = oo_str_lit(buf);
+    r.val = oo_int_to_str((long long)allocated_off);
   }
   return r;
 }

@@ -7,6 +7,7 @@
 #include <time.h>
 #include <execinfo.h>
 #include <string.h>
+#include <errno.h>
 
 static uint8_t s_altstack[16384];
 static char s_autopsy_buf[32768];
@@ -116,10 +117,20 @@ static size_t bb_format_stack(char *buf, size_t pos, size_t max) {
 }
 
 static void bb_write_file(const char *buf, size_t len) {
-  (void)mkdir(".blackbox", 0777);
-  int fd = open(".blackbox/autopsy.json", O_WRONLY | O_CREAT | O_TRUNC, 0644);
-  if (fd >= 0) { (void)write(fd, buf, len); (void)close(fd); }
-  else { (void)write(STDERR_FILENO, buf, len); }
+  (void)mkdir(".blackbox", 0700);
+  int fd = open(".blackbox/autopsy.json", O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+  if (fd >= 0) {
+    size_t off = 0;
+    while (off < len) {
+      ssize_t w = write(fd, buf + off, len - off);
+      if (w < 0 && errno == EINTR) continue;
+      if (w <= 0) break;
+      off += (size_t)w;
+    }
+    (void)close(fd);
+  } else {
+    (void)write(STDERR_FILENO, buf, len);
+  }
 }
 
 void blackbox_dump_autopsy(int sig, const siginfo_t *info, void *ucontext) {

@@ -169,7 +169,7 @@ void (oo_write_int)(long long cap, long long ptr, long long offset, long long va
     fprintf(stderr, "ERR\tmem\tforeign pointer (bad magic) in oo_write_int — refused\n");
     exit(1);
   }
-  if ((size_t)offset + sizeof(long long) > hdr->capacity) {
+  if (offset > (long long)hdr->capacity - (long long)sizeof(long long)) {
     pthread_mutex_unlock(&g_quota_mu);
     fprintf(stderr, "ERR\tmem\tout of bounds write in oo_write_int\n");
     exit(1);
@@ -192,7 +192,7 @@ long long (oo_read_int)(long long cap, long long ptr, long long offset) {
     fprintf(stderr, "ERR\tmem\tforeign pointer (bad magic) in oo_read_int — refused\n");
     exit(1);
   }
-  if ((size_t)offset + sizeof(long long) > hdr->capacity) {
+  if (offset > (long long)hdr->capacity - (long long)sizeof(long long)) {
     pthread_mutex_unlock(&g_quota_mu);
     fprintf(stderr, "ERR\tmem\tout of bounds read in oo_read_int\n");
     exit(1);
