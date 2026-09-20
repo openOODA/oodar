@@ -1,0 +1,96 @@
+// # oodar/docs/archive/changes_v1_v3.oot — Historical Changelog Archive (v1.0.0–v3.4.2)
+//
+// Logline: Historical release log of legacy oodar runtime versions from v1.0.0 through v3.4.2, sorted in strict descending semantic version order.
+//
+// Setup: Referenced by active oodar/CHANGES.md. Preserves structural changes, capability sweeps, and security audits.
+//
+// Beats:
+//   1. v3.4.x releases: Cap helper relocations, timing tests, QA test hardening.
+//   2. v3.3.x releases: Bitmask subset checks, path attenuators, OTP supervision fixes.
+//   3. v3.2.x releases: Fail-closed memory reads, adversarial scanners, token derivation.
+//   4. v3.0.x–v3.1.x releases: Security defect closures, public mutator cap-gating, MetricsCap.
+//   5. v1.x–v2.x releases: 256-line file split, zero-trust audits, baseline host runtime.
+
+## v3.4.2 — 2026-09-06: Cryptographic Timing Verification
+- Integrated dudect constant-time leakage tests for capability-protected crypto routines.
+- Confirmed timing variation satisfies statistical bounds (|t| < 4.5).
+
+## v3.4.1 — 2026-09-06: QA Test Harness Hardening
+- Extended regression tests in `qa/` for edge cases in memory and string handling.
+- Hardened test runner execution against transient signal aborts.
+
+## v3.4.0 — 2026-09-06: Capability Subsystem Refactoring
+- Relocated capability attenuation routines into `sec/cap/cap_attenuate_hmac.c`.
+- Relocated allocation, time, and FFI capability gates to dedicated `sec/cap/` files.
+- Cleaned up event bus placement by moving metrics from `app/` to `core/event/`.
+
+## v3.3.4 — 2026-09-05: Concurrency and Test Hardening
+- Fixed TOCTOU race in `oo_otp_supervise` by locking actor boot state during restart checks.
+- Corrected test harness ordering in `tests_challenger_cap_escape.c` for `oo_proc_mem_read`.
+
+## v3.3.3 — 2026-09-05: Path Capability Memory Fix
+- Implemented deep-copy semantics for path capability structures.
+- Resolved memory corruption and use-after-free conditions on capability attenuation.
+
+## v3.3.2 — 2026-09-05: MLKEM Buffer Boundary Fix
+- Resolved stringop-overread defect in MLKEM `k_prf` key generation routines.
+- Bound checked internal buffer indexing to prevent out-of-bounds reads.
+
+## v3.3.1 — 2026-09-05: Path Attenuation Verification
+- Enforced path-prefix normalization and directory traversal rejection.
+- Authored contract test suites verifying fail-closed attenuation behavior.
+
+## v3.3.0 — 2026-09-05: Capability Bitmask Subset Enforcement
+- Enforced Rule 2 bitmask subset invariants during capability attenuation.
+- Asserted that child capability tokens cannot exceed parent permission sets.
+
+## v3.2.3 — 2026-09-05: Fuzzing Smoke Suite Integration
+- Added fuzzing smoke tests verifying parser robustness against malformed payloads.
+- Verified absence of panics and unhandled memory faults on random inputs.
+
+## v3.2.2 — 2026-09-05: Differential Capability Derivation
+- Added differential test suites comparing capability derivation algorithms.
+- Confirmed exact match across token hashing and rights calculation.
+
+## v3.2.1 — 2026-09-05: Adversarial File Scanning
+- Integrated adversarial reading scanner testing non-standard file descriptors.
+- Asserted fail-closed rejection on invalid permissions and unauthorized descriptors.
+
+## v3.2.0 — 2026-09-05: Process Memory Safety Hardening
+- Enforced fail-closed ordering in `oo_proc_mem_read` prior to Landlock checks.
+- Prevented unauthorized process memory reads on missing or invalid capability tokens.
+
+## v3.1.0 — 2026-09-04: Security Defect Remediation
+- Fixed GPU capability shadowing defect in `oo_gpu_hip_try_launch_dispatch`.
+- Removed pseudo-random LCG fallbacks; enforced fail-closed entropy requirements.
+- Standardized UDP socket binding to require `BindCap`.
+
+## v3.0.0 — 2026-09-04: Public Mutator Capability Gating
+- Gated 8 public mutators (`oo_read_stdin`, `oo_file_stamp`, `oo_metrics_*`) behind capabilities.
+- Re-introduced `MetricsCap` at bit `0x800` to secure process-global telemetry.
+- Expanded capability token inventory to 26 total substrate capabilities.
+
+## v2.3.0 — 2026-09-03: Architectural 256-Line File Enforcement
+- Partitioned 17 monolithic files into 60+ modular units across 9 directories.
+- Maintained exact binary ABI equivalence with zero public symbol signature alterations.
+- Isolated FIPS 203/204 mathematical engines (`mldsa_internal.c`, `mlkem_internal.c`).
+
+## v2.2.0 — 2026-09-03: Zero-Trust Security Audit Pass 3
+- Closed 5 security defects and 4 governance gaps across filesystem and memory subsystems.
+- Tightened Landlock sandbox rules for temporary file operations.
+
+## v2.1.0 — 2026-09-02: Zero-Trust Security Audit Pass 2
+- Remedied 6 critical and 11 moderate security issues across IPC and network stacks.
+- Reserved bit `0x800` to prevent future token allocation collisions.
+
+## v2.0.0 — 2026-09-01: Memory Allocation Capability Protection
+- Gated memory allocation and weak reference operations behind explicit capability tokens.
+- Deprecated legacy unmanaged memory mutation primitives.
+
+## v1.0.1 — 2026-08-25: Internal Subsystem Reorganization
+- Reorganized internal directory structures and unified build scripts.
+- Migrated legacy test fixtures into standard `qa/` challenger suites.
+
+## v1.0.0 — 2026-08-20: Sovereign Runtime Substrate Baseline
+- Initial stable release of the `oodar` C99 runtime substrate.
+- Integrated Landlock sandboxing, capability-based security, and core POSIX abstractions.

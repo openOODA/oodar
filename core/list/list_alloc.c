@@ -32,7 +32,7 @@ void *oo_list_alloc_payload(size_t elem_size, size_t cap) {
   }
   pay = oo_payload_alloc(sizeof(OoListHeader), cap * elem_size);
   hdr = ((OoListHeader *)pay) - 1;
-  __atomic_store_n(&hdr->ref_count, 0, __ATOMIC_RELEASE);
+  __atomic_store_n(&hdr->ref_count, 1, __ATOMIC_RELEASE);
   __atomic_store_n(&hdr->flags, 0, __ATOMIC_RELEASE);
   return pay;
 }
