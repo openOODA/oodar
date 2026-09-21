@@ -1,0 +1,12 @@
+#define _GNU_SOURCE 1
+#include "oodar.h"
+#include "hw/gpu/gpu/gpu.c"
+#include "hw/gpu/gpu/gpu_pool.c"
+#include "hw/gpu/gpu/gpu_mem.c"
+#include "hw/gpu/gpu/gpu_stream.c"
+#include "hw/gpu/gpu/gpu_classify.c"
+#include "hw/gpu/gpu/gpu_launch.c"
+#include "hw/gpu/gpu/gpu_hip_dlopen.c"
+#include "hw/gpu/gpu/gpu_hip_dispatch.c"
+#include "hw/gpu/gpu/gpu_hip_dispatch_buf.c"
+#include "hw/gpu/gpu/gpu_hip.c"

@@ -14,11 +14,20 @@
 # so the per-file build is best-effort and may fail for those files.
 #
 # Targets:
-#   all     — build liboodar.a (default; uses the umbrella TU)
+#   all     — build liboodar.a and all modular archives (default)
+#   modular — build all 6 modular static archives
+#   core    — build liboodar-core.a (<90 KB ceiling, .text <= 78.6 KB)
+#   pqc     — build liboodar-pqc.a (ML-KEM, ML-DSA, PQ signatures)
+#   gpu     — build liboodar-gpu.a (ROCm/HIP kernel dispatch)
+#   actor   — build liboodar-actor.a (supervisors, channels, WAL)
+#   audio   — build liboodar-audio.a (audio capture)
+#   net     — build liboodar-net.a (HTTP fetch, TLS 1.3, AEAD, FFI)
 #   perfile — best-effort per-file build → liboodar_perfile.a
 #   clean   — remove all .o and the lib artifacts
-#   install — copy liboodar.a to ${DESTDIR}/${LIBDIR}
+#   install — copy liboodar.a and modular archives to ${DESTDIR}/${LIBDIR}
 #   check    — verify all source files in UMBRELLA_SRCS are present in REPO_ROOT
+#   check-size — verify liboodar-core.a .text <= 78.6 KB
+#   hashes   — compute SHA-256 sidecars for all static archive artifacts
 #   lint     — run all 3 lint tests (anchors, file size, cap table)
 #   adversarial — run the adversarial_read scanner (advisory, exit 0)
 #
@@ -75,7 +84,11 @@ ARFLAGS = rcsD
 # -fstack-protector-strong is explicit: the confinement code copies
 # untrusted OoStr bytes into PATH_MAX stack buffers, and toolchain
 # defaults vary (this host's gcc ships with the protector disabled).
-CFLAGS ?= -O2 -g -std=c11 -fPIC -fstack-protector-strong -D_GNU_SOURCE -DOODAR_CRYPTO_INTERNAL -include oodar.h
+CFLAGS ?= -Os -std=c11 -fPIC -fstack-protector-strong \
+          -ffunction-sections -fdata-sections \
+          -fno-asynchronous-unwind-tables -fno-unwind-tables \
+          -D_GNU_SOURCE -DOODAR_CRYPTO_INTERNAL \
+          -I$(REPO_ROOT) -include oodar.h
 # MEMSAFE_CFLAGS adds OODAR_MEMSAFE=1 + -O0 for the debug-mode safety
 # build. The memsafe shims (core/mem/safety.h) turn every wrapped entry
 # into a hostile-input probe: null deref, OOB, header corruption all
@@ -98,6 +111,15 @@ LIB := $(LIB_DIR)/liboodar.a
 PERFILE_LIB := $(LIB_DIR)/liboodar_perfile.a
 MEMSAFE_LIB := $(LIB_DIR)/liboodar_memsafe.a
 
+# Modular static archive paths (Milestone M1)
+CORE_LIB   := $(LIB_DIR)/liboodar-core.a
+PQC_LIB    := $(LIB_DIR)/liboodar-pqc.a
+GPU_LIB    := $(LIB_DIR)/liboodar-gpu.a
+ACTOR_LIB  := $(LIB_DIR)/liboodar-actor.a
+AUDIO_LIB  := $(LIB_DIR)/liboodar-audio.a
+NET_LIB    := $(LIB_DIR)/liboodar-net.a
+MODULAR_LIBS := $(CORE_LIB) $(PQC_LIB) $(GPU_LIB) $(ACTOR_LIB) $(AUDIO_LIB) $(NET_LIB)
+
 # ---------------------------------------------------------------------------
 # The .c files in the umbrella TU (derived from oodar.c #includes). The order
 # is dependency order from oodar.c; the order does not matter for .o
@@ -113,25 +135,68 @@ MEMSAFE_LIB := $(LIB_DIR)/liboodar_memsafe.a
 # the build and a missing entry silently ships stale objects.
 UMBRELLA_SRCS := $(shell sed -n 's/^#include "\([^"]*\.c\)".*/\1/p' $(REPO_ROOT)/oodar.c)
 
+# Derived modular umbrella sources: each umbrella TU #includes its domain files.
+CORE_SRCS  := $(shell sed -n 's/^#include "\([^"]*\.c\)".*/\1/p' $(REPO_ROOT)/oodar_core.c 2>/dev/null)
+PQC_SRCS   := $(shell sed -n 's/^#include "\([^"]*\.c\)".*/\1/p' $(REPO_ROOT)/oodar_pqc.c 2>/dev/null)
+GPU_SRCS   := $(shell sed -n 's/^#include "\([^"]*\.c\)".*/\1/p' $(REPO_ROOT)/oodar_gpu.c 2>/dev/null)
+ACTOR_SRCS := $(shell sed -n 's/^#include "\([^"]*\.c\)".*/\1/p' $(REPO_ROOT)/oodar_actor.c 2>/dev/null)
+AUDIO_SRCS := $(shell sed -n 's/^#include "\([^"]*\.c\)".*/\1/p' $(REPO_ROOT)/oodar_audio.c 2>/dev/null)
+NET_SRCS   := $(shell sed -n 's/^#include "\([^"]*\.c\)".*/\1/p' $(REPO_ROOT)/oodar_net.c 2>/dev/null)
+
 # Derived: .o files in BUILD_DIR, one per .c. Each .o lives at
 # build/<path>.o (preserving the source path so the build dir
 # mirrors the source tree).
 UMBRELLA_OBJS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(UMBRELLA_SRCS))
 
 # Phony targets
-.PHONY: all clean install check perfile lint lint-anchors lint-file-size lint-cap-table adversarial test repro
+.PHONY: all clean install check perfile lint lint-anchors lint-file-size \
+        lint-cap-table adversarial test repro \
+        core pqc gpu actor audio net modular check-size hashes
 
 # ---------------------------------------------------------------------------
 # Default: build liboodar.a from the umbrella TU (single .o).
 # This is the recommended path — one .o, one ar, no transitive-include
 # issues. The output is lib/liboodar.a.
 # ---------------------------------------------------------------------------
-all: $(LIB)
+all: $(LIB) $(MODULAR_LIBS)
+
+# Phony convenience targets for individual modular archives
+modular: $(MODULAR_LIBS)
+core:  $(CORE_LIB)
+pqc:   $(PQC_LIB)
+gpu:   $(GPU_LIB)
+actor: $(ACTOR_LIB)
+audio: $(AUDIO_LIB)
+net:   $(NET_LIB)
 
 # Build the lib from the single .o produced by `gcc -c oodar.c`.
 # The sort is unnecessary here (one file) but kept for symmetry
 # with the perfile rule. The result is lib/liboodar.a.
 $(LIB): $(BUILD_DIR)/oodar.o | $(LIB_DIR)
+	@echo "AR  $@"
+	@$(AR) $(ARFLAGS) $@ $<
+
+$(CORE_LIB): $(BUILD_DIR)/oodar_core.o | $(LIB_DIR)
+	@echo "AR  $@"
+	@$(AR) $(ARFLAGS) $@ $<
+
+$(PQC_LIB): $(BUILD_DIR)/oodar_pqc.o | $(LIB_DIR)
+	@echo "AR  $@"
+	@$(AR) $(ARFLAGS) $@ $<
+
+$(GPU_LIB): $(BUILD_DIR)/oodar_gpu.o | $(LIB_DIR)
+	@echo "AR  $@"
+	@$(AR) $(ARFLAGS) $@ $<
+
+$(ACTOR_LIB): $(BUILD_DIR)/oodar_actor.o | $(LIB_DIR)
+	@echo "AR  $@"
+	@$(AR) $(ARFLAGS) $@ $<
+
+$(AUDIO_LIB): $(BUILD_DIR)/oodar_audio.o | $(LIB_DIR)
+	@echo "AR  $@"
+	@$(AR) $(ARFLAGS) $@ $<
+
+$(NET_LIB): $(BUILD_DIR)/oodar_net.o | $(LIB_DIR)
 	@echo "AR  $@"
 	@$(AR) $(ARFLAGS) $@ $<
 
@@ -158,6 +223,30 @@ $(BUILD_DIR)/oodar_memsafe.o: $(REPO_ROOT)/oodar.c | $(BUILD_DIR)
 # silently ships a stale lib with a lying reproducible hash.
 $(BUILD_DIR)/oodar.o: $(REPO_ROOT)/oodar.c $(addprefix $(REPO_ROOT)/,$(UMBRELLA_SRCS)) | $(BUILD_DIR)
 	@echo "CC  oodar.c"
+	@$(CC) $(CFLAGS) -I$(REPO_ROOT) -c $< -o $@
+
+$(BUILD_DIR)/oodar_core.o: $(REPO_ROOT)/oodar_core.c $(addprefix $(REPO_ROOT)/,$(CORE_SRCS)) | $(BUILD_DIR)
+	@echo "CC  oodar_core.c"
+	@$(CC) $(CFLAGS) -I$(REPO_ROOT) -c $< -o $@
+
+$(BUILD_DIR)/oodar_pqc.o: $(REPO_ROOT)/oodar_pqc.c $(addprefix $(REPO_ROOT)/,$(PQC_SRCS)) | $(BUILD_DIR)
+	@echo "CC  oodar_pqc.c"
+	@$(CC) $(CFLAGS) -I$(REPO_ROOT) -c $< -o $@
+
+$(BUILD_DIR)/oodar_gpu.o: $(REPO_ROOT)/oodar_gpu.c $(addprefix $(REPO_ROOT)/,$(GPU_SRCS)) | $(BUILD_DIR)
+	@echo "CC  oodar_gpu.c"
+	@$(CC) $(CFLAGS) -I$(REPO_ROOT) -c $< -o $@
+
+$(BUILD_DIR)/oodar_actor.o: $(REPO_ROOT)/oodar_actor.c $(addprefix $(REPO_ROOT)/,$(ACTOR_SRCS)) | $(BUILD_DIR)
+	@echo "CC  oodar_actor.c"
+	@$(CC) $(CFLAGS) -I$(REPO_ROOT) -c $< -o $@
+
+$(BUILD_DIR)/oodar_audio.o: $(REPO_ROOT)/oodar_audio.c $(addprefix $(REPO_ROOT)/,$(AUDIO_SRCS)) | $(BUILD_DIR)
+	@echo "CC  oodar_audio.c"
+	@$(CC) $(CFLAGS) -I$(REPO_ROOT) -c $< -o $@
+
+$(BUILD_DIR)/oodar_net.o: $(REPO_ROOT)/oodar_net.c $(addprefix $(REPO_ROOT)/,$(NET_SRCS)) | $(BUILD_DIR)
+	@echo "CC  oodar_net.c"
 	@$(CC) $(CFLAGS) -I$(REPO_ROOT) -c $< -o $@
 
 # ---------------------------------------------------------------------------
@@ -203,10 +292,13 @@ $(BUILD_DIR):
 # ---------------------------------------------------------------------------
 # Install: copy the lib to ${DESTDIR}/${LIBDIR}.
 # ---------------------------------------------------------------------------
-install: $(LIB)
-	@echo "INSTALL $(DESTDIR)/$(LIBDIR)/liboodar.a"
+install: $(LIB) $(MODULAR_LIBS)
+	@echo "INSTALL libraries to $(DESTDIR)/$(LIBDIR)"
 	@install -d $(DESTDIR)/$(LIBDIR)
 	@install -m 644 $(LIB) $(DESTDIR)/$(LIBDIR)/liboodar.a
+	@for lib in $(MODULAR_LIBS); do \
+		install -m 644 $$lib $(DESTDIR)/$(LIBDIR)/$$(basename $$lib); \
+	done
 
 # ---------------------------------------------------------------------------
 # Clean: remove the lib, all .o, and the build/ tree.
@@ -273,6 +365,29 @@ lint-cap-table: $(LINT_BIN_DIR)/tests_lint_cap_table
 
 lint: lint-anchors lint-file-size lint-cap-table
 	@echo "LINT OK: all 3 structural lints pass"
+
+# ---------------------------------------------------------------------------
+# check-size: verify liboodar-core.a .text is <= 78.6 KB (< 90 KB ceiling)
+# ---------------------------------------------------------------------------
+check-size: $(CORE_LIB)
+	@echo "SIZE CHECK liboodar-core.a"
+	@text_sz=$$(size $(CORE_LIB) | awk 'NR==2 {print $$1}'); \
+	echo "  .text size: $$text_sz bytes (ceiling: 80486 bytes / 78.6 KiB)"; \
+	if [ "$$text_sz" -le 80486 ]; then \
+		echo "SIZE OK: liboodar-core.a text section is $$text_sz bytes <= 78.6 KiB"; \
+	else \
+		echo "SIZE FAIL: liboodar-core.a text section ($$text_sz bytes) exceeds 78.6 KiB ceiling"; \
+		exit 1; \
+	fi
+
+# ---------------------------------------------------------------------------
+# hashes: compute SHA-256 sidecars for all static archive artifacts
+# ---------------------------------------------------------------------------
+hashes: $(LIB) $(MODULAR_LIBS)
+	@for f in $(LIB) $(MODULAR_LIBS); do \
+		sha256sum "$$f" > "$$f.sha256"; \
+		echo "HASH  $$f.sha256: $$(cat $$f.sha256 | cut -d' ' -f1)"; \
+	done
 
 # ---------------------------------------------------------------------------
 # adversarial: surface every defensive claim in comments and check that
@@ -393,10 +508,10 @@ repro:
 	@set -e; \
 	$(MAKE) --no-print-directory -f $(THIS_MAKEFILE) clean >/dev/null; \
 	$(MAKE) --no-print-directory -f $(THIS_MAKEFILE) all >/dev/null; \
-	h1=$$(sha256sum "$(LIB)" | cut -d' ' -f1); \
+	h1=$$(sha256sum "$(LIB)" $(MODULAR_LIBS) | cut -d' ' -f1); \
 	$(MAKE) --no-print-directory -f $(THIS_MAKEFILE) clean >/dev/null; \
 	$(MAKE) --no-print-directory -f $(THIS_MAKEFILE) all >/dev/null; \
-	h2=$$(sha256sum "$(LIB)" | cut -d' ' -f1); \
+	h2=$$(sha256sum "$(LIB)" $(MODULAR_LIBS) | cut -d' ' -f1); \
 	echo "REPRO 1: $$h1"; echo "REPRO 2: $$h2"; \
-	if [ "$$h1" = "$$h2" ]; then echo "REPRO OK: liboodar.a bit-identical across clean rebuilds"; \
-	else echo "REPRO FAIL: liboodar.a differs between clean rebuilds"; exit 1; fi
+	if [ "$$h1" = "$$h2" ]; then echo "REPRO OK: all archives bit-identical across clean rebuilds"; \
+	else echo "REPRO FAIL: archives differ between clean rebuilds"; exit 1; fi
