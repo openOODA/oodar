@@ -4,48 +4,39 @@
 
 /* Path A M165: owned string ops (byte index). Not &str borrow / no lifetime. */
 int oo_str_eq(OoStr a, OoStr b) {
-  if (a.len != b.len) return 0;
-  return memcmp(a.data, b.data, (size_t)a.len) == 0;
+  return a.len == b.len && memcmp(a.data, b.data, (size_t)a.len) == 0;
 }
-
 int oo_str_contains(OoStr hay, OoStr needle) {
   if (needle.len == 0) return 1;
   if (needle.len < 0 || needle.len > hay.len || !hay.data || !needle.data) return 0;
   return memmem(hay.data, (size_t)hay.len, needle.data, (size_t)needle.len) != NULL;
 }
-
 int oo_str_starts_with(OoStr s, OoStr pre) {
   if (pre.len <= 0) return 1;
   if (!s.data || !pre.data || pre.len > s.len) return 0;
   return memcmp(s.data, pre.data, (size_t)pre.len) == 0;
 }
-
 int oo_str_ends_with(OoStr s, OoStr suf) {
   if (suf.len <= 0) return 1;
   if (!s.data || !suf.data || suf.len > s.len) return 0;
   return memcmp(s.data + (s.len - suf.len), suf.data, (size_t)suf.len) == 0;
 }
-
 long long oo_str_index_of(OoStr hay, OoStr needle) {
   if (needle.len == 0) return 0;
   if (needle.len < 0 || needle.len > hay.len || !hay.data || !needle.data) return -1;
   void *match = memmem(hay.data, (size_t)hay.len, needle.data, (size_t)needle.len);
   return match ? (long long)((char *)match - hay.data) : -1;
 }
-
 OoStr oo_str_repeat(OoStr s, long long n) {
   if (n < 0) n = 0;
   if (n > 1024) n = 1024;
   long long sl = (s.data && s.len > 0 && s.len < (1LL << 28)) ? s.len : 0;
   if (sl > 0 && n > 0 && sl > ((1LL << 28) / n)) n = (1LL << 28) / sl;
-  OoStr r;
-  r.len = sl * n;
-  r.data = oo_str_alloc_payload((size_t)r.len);
+  OoStr r; r.len = sl * n; r.data = oo_str_alloc_payload((size_t)r.len);
   for (long long i = 0; i < n; i++)
     if (sl > 0) memcpy(r.data + (size_t)(i * sl), s.data, (size_t)sl);
   return r;
 }
-
 long long oo_byte_at(OoStr s, long long idx) {
   if (!s.data || idx < 0 || idx >= s.len) return -1;
   return (long long)(unsigned char)s.data[idx];
@@ -53,11 +44,14 @@ long long oo_byte_at(OoStr s, long long idx) {
 long long oo_str_byte_at(OoStr s, long long idx) { return oo_byte_at(s, idx); }
 long long oo_bytes_len(OoStr s) { return oo_str_byte_len(s); }
 OoStr oo_byte_slice(OoStr s, long long start, long long end) {
-  if (!s.data || s.len < 0) { OoStr e; e.len=0; e.data=oo_str_alloc_payload(0); return e; }
+  if (!s.data || s.len < 0) return oo_str_intern_bytes("", 0);
   if (start < 0) start = 0;
   if (end > s.len) end = s.len;
-  if (start > end || start >= s.len) { OoStr e; e.len=0; e.data=oo_str_alloc_payload(0); return e; }
-  OoStr r; r.len = end - start; r.data = oo_str_alloc_payload((size_t)r.len);
+  if (start > end || start >= s.len) return oo_str_intern_bytes("", 0);
+  long long rlen = end - start;
+  if (rlen == 0) return oo_str_intern_bytes("", 0);
+  if (rlen == 1) return oo_str_ascii_intern((unsigned char)s.data[start]);
+  OoStr r; r.len = rlen; r.data = oo_str_alloc_payload((size_t)r.len);
   memcpy(r.data, s.data + (size_t)start, (size_t)r.len);
   return r;
 }
@@ -65,37 +59,54 @@ int oo_bytes_eq(OoStr a, OoStr b) { return oo_str_eq(a, b); }
 OoStr oo_bytes_from_str(OoStr s) { return oo_byte_slice(s, 0, oo_bytes_len(s)); }
 OoStr oo_bytes_concat(OoStr a, OoStr b) { return oo_str_concat(a, b); }
 OoIList oo_bytes_new(void) { return oo_ilist_new(); }
-OoIList oo_bytes_push(OoIList l, long long b) {
-  if (b < 0) b = 0;
-  if (b > 255) b = 255;
-  return oo_ilist_push(l, b);
-}
+OoIList oo_bytes_push(OoIList l, long long b) { return oo_ilist_push(l, b < 0 ? 0 : (b > 255 ? 255 : b)); }
 long long oo_bytes_get(OoIList l, long long i) {
   if (!l.data || i < 0 || i >= l.len) return -1;
-  long long v = l.data[i]; if (v < 0) return 0; if (v > 255) return 255; return v;
+  long long v = l.data[i]; return v < 0 ? 0 : (v > 255 ? 255 : v);
 }
 OoStr oo_bytes_to_str(OoIList l) {
   long long n = (l.data && l.len > 0 && l.len < (1LL << 28)) ? l.len : 0;
   OoStr r; r.len = n; r.data = oo_str_alloc_payload((size_t)n);
-  for (long long i = 0; i < n; i++) { long long v=l.data[i]; if(v<0)v=0; if(v>255)v=255; r.data[i]=(char)(unsigned char)v; }
+  for (long long i = 0; i < n; i++) {
+    long long v = l.data[i]; r.data[i] = (char)(unsigned char)(v < 0 ? 0 : (v > 255 ? 255 : v));
+  }
   return r;
 }
+static inline int oo_str_is_ascii(OoStr s) {
+  if (!s.data || s.len <= 0) return 1;
+  if (((uintptr_t)s.data) < sizeof(OoStrHeader) + 8) return 0;
+  return (((OoStrHeader *)s.data) - 1)->flags & OO_FLAG_ASCII;
+}
 long long oo_chars_len(OoStr s) {
-  long long n=0;
-  for (long long i=0;i<s.len;) { unsigned char c=(unsigned char)s.data[i]; if(c<0x80) i+=1; else if((c&0xE0)==0xC0) i+=2; else if((c&0xF0)==0xE0) i+=3; else i+=4; n++; }
+  if (!s.data || s.len <= 0) return 0;
+  if (oo_str_is_ascii(s)) return s.len;
+  long long i = 0;
+  while (i < s.len && (unsigned char)s.data[i] < 0x80) i++;
+  if (i == s.len) return s.len;
+  long long n = i;
+  while (i < s.len) {
+    unsigned char c = (unsigned char)s.data[i];
+    i += (c < 0x80) ? 1 : (((c & 0xE0) == 0xC0) ? 2 : (((c & 0xF0) == 0xE0) ? 3 : 4));
+    n++;
+  }
   return n;
 }
 static long long utf8_byte_index(OoStr s, long long char_idx) {
   if (!s.data || char_idx < 0) return -1;
-  long long n=0,i=0;
-  while(i<s.len){
-    if(n==char_idx) return i;
-    unsigned char c=(unsigned char)s.data[i];
-    if(c<0x80) i+=1; else if((c&0xE0)==0xC0) i+=2; else if((c&0xF0)==0xE0) i+=3; else i+=4;
+  if (oo_str_is_ascii(s)) return char_idx <= s.len ? char_idx : -1;
+  long long n = 0, i = 0;
+  if (char_idx < s.len) {
+    while (i < char_idx && (unsigned char)s.data[i] < 0x80) i++;
+    if (i == char_idx && (unsigned char)s.data[i] < 0x80) return char_idx;
+    n = i;
+  }
+  while (i < s.len) {
+    if (n == char_idx) return i;
+    unsigned char c = (unsigned char)s.data[i];
+    i += (c < 0x80) ? 1 : (((c & 0xE0) == 0xC0) ? 2 : (((c & 0xF0) == 0xE0) ? 3 : 4));
     n++;
   }
-  if(n==char_idx) return i;
-  return -1;
+  return n == char_idx ? i : -1;
 }
 OoStr oo_char_at(OoStr s, long long idx) {
   long long b=utf8_byte_index(s, idx);
@@ -107,7 +118,7 @@ OoStr oo_char_at(OoStr s, long long idx) {
 }
 OoStr oo_str_slice(OoStr s, long long start, long long end) {
   if (!s.data || s.len <= 0 || start < 0 || end < start || start > s.len) {
-    OoStr e = {oo_str_alloc_payload(0), 0}; return e;
+    return oo_str_intern_bytes("", 0);
   }
   long long bs = -1, be = -1, cp = 0, i = 0;
   if (end <= s.len) {
@@ -123,12 +134,13 @@ OoStr oo_str_slice(OoStr s, long long start, long long end) {
     i += (c < 0x80) ? 1 : (((c & 0xE0) == 0xC0) ? 2 : (((c & 0xF0) == 0xE0) ? 3 : 4));
     cp++;
   }
-  if (bs < 0 || be < 0 || be < bs) {
-    OoStr e = {oo_str_alloc_payload(0), 0}; return e;
-  }
+  if (bs < 0 || be < 0 || be < bs) return oo_str_intern_bytes("", 0);
 do_slice:;
-  OoStr r; r.len = be - bs; r.data = oo_str_alloc_payload((size_t)r.len);
-  if (r.len > 0) memcpy(r.data, s.data + bs, (size_t)r.len);
+  long long rlen = be - bs;
+  if (rlen <= 0) return oo_str_intern_bytes("", 0);
+  if (rlen == 1) return oo_str_ascii_intern((unsigned char)s.data[bs]);
+  OoStr r; r.len = rlen; r.data = oo_str_alloc_payload((size_t)r.len);
+  memcpy(r.data, s.data + bs, (size_t)r.len);
   return r;
 }
 int oo_char_is_digit(OoStr s){ return s.len==1 && isdigit((unsigned char)s.data[0]); }
@@ -138,29 +150,21 @@ int oo_char_is_space(OoStr s){ return s.len==1 && isspace((unsigned char)s.data[
 OoStr oo_int_to_str(long long n) { return oo_int_intern(n); }
 
 OoStr oo_str_trim(OoStr s) {
-  if (!s.data || s.len == 0) {
-    OoStr empty = {oo_str_alloc_payload(0), 0};
-    return empty;
-  }
+  if (!s.data || s.len == 0) return oo_str_intern_bytes("", 0);
   long long start = 0;
   while (start < s.len && isspace((unsigned char)s.data[start])) start++;
   long long end = s.len;
   while (end > start && isspace((unsigned char)s.data[end - 1])) end--;
   long long tlen = end - start;
-  if (tlen <= 0) {
-    OoStr empty = {oo_str_alloc_payload(0), 0};
-    return empty;
-  }
+  if (tlen <= 0) return oo_str_intern_bytes("", 0);
+  if (tlen == 1) return oo_str_ascii_intern((unsigned char)s.data[start]);
   OoStr r; r.len = tlen; r.data = oo_str_alloc_payload((size_t)tlen);
   memcpy(r.data, s.data + start, (size_t)tlen);
   return r;
 }
 
 OoStr oo_str_to_lowercase(OoStr s) {
-  if (!s.data || s.len == 0) {
-    OoStr empty = {oo_str_alloc_payload(0), 0};
-    return empty;
-  }
+  if (!s.data || s.len == 0) return oo_str_intern_bytes("", 0);
   int needs = 0;
   for (long long i = 0; i < s.len; i++) {
     if (s.data[i] >= 'A' && s.data[i] <= 'Z') { needs = 1; break; }
@@ -172,10 +176,7 @@ OoStr oo_str_to_lowercase(OoStr s) {
 }
 
 OoStr oo_str_to_uppercase(OoStr s) {
-  if (!s.data || s.len == 0) {
-    OoStr empty = {oo_str_alloc_payload(0), 0};
-    return empty;
-  }
+  if (!s.data || s.len == 0) return oo_str_intern_bytes("", 0);
   int needs = 0;
   for (long long i = 0; i < s.len; i++) {
     if (s.data[i] >= 'a' && s.data[i] <= 'z') { needs = 1; break; }
@@ -186,7 +187,7 @@ OoStr oo_str_to_uppercase(OoStr s) {
   return r;
 }
 
-/* str_split: tokenize by delimiter. Empty delim or empty s → return single-element list. */
+/* str_split: tokenize by delimiter. Empty delim or empty s -> return single-element list. */
 OoSList str_split(OoStr s, OoStr delim) {
   OoSList l = oo_slist_new();
   if (!s.data || s.len <= 0) return l;
@@ -200,8 +201,12 @@ OoSList str_split(OoStr s, OoStr delim) {
     if (memcmp(s.data + i, delim.data, (size_t)delim.len) == 0) {
       OoStr part;
       part.len = i - start;
-      part.data = oo_str_alloc_payload((size_t)part.len);
-      if (part.len > 0) memcpy(part.data, s.data + start, (size_t)part.len);
+      if (part.len == 0) part = oo_str_intern_bytes("", 0);
+      else if (part.len == 1) part = oo_str_ascii_intern((unsigned char)s.data[start]);
+      else {
+        part.data = oo_str_alloc_payload((size_t)part.len);
+        memcpy(part.data, s.data + start, (size_t)part.len);
+      }
       OoSList next = oo_slist_push(l, part);
       oo_slist_release(l);
       l = next;
@@ -212,8 +217,12 @@ OoSList str_split(OoStr s, OoStr delim) {
   }
   OoStr part;
   part.len = s.len - start;
-  part.data = oo_str_alloc_payload((size_t)part.len);
-  if (part.len > 0) memcpy(part.data, s.data + start, (size_t)part.len);
+  if (part.len == 0) part = oo_str_intern_bytes("", 0);
+  else if (part.len == 1) part = oo_str_ascii_intern((unsigned char)s.data[start]);
+  else {
+    part.data = oo_str_alloc_payload((size_t)part.len);
+    memcpy(part.data, s.data + start, (size_t)part.len);
+  }
   OoSList next = oo_slist_push(l, part);
   oo_slist_release(l);
   l = next;
@@ -223,29 +232,20 @@ OoSList str_split(OoStr s, OoStr delim) {
 
 /* str_trim: strip leading and trailing ASCII whitespace. */
 OoStr str_trim(OoStr s) {
-  if (!s.data || s.len <= 0) {
-    OoStr r;
-    r.len = 0;
-    r.data = oo_str_alloc_payload(0);
-    return r;
-  }
+  if (!s.data || s.len <= 0) return oo_str_intern_bytes("", 0);
   long long start = 0;
-  while (start < s.len && isspace((unsigned char)s.data[start])) {
-    start++;
-  }
+  while (start < s.len && isspace((unsigned char)s.data[start])) start++;
   long long end = s.len;
-  while (end > start && isspace((unsigned char)s.data[end - 1])) {
-    end--;
-  }
-  OoStr r;
-  r.len = end - start;
-  r.data = oo_str_alloc_payload((size_t)r.len);
-  if (r.len > 0) memcpy(r.data, s.data + start, (size_t)r.len);
+  while (end > start && isspace((unsigned char)s.data[end - 1])) end--;
+  long long rlen = end - start;
+  if (rlen <= 0) return oo_str_intern_bytes("", 0);
+  if (rlen == 1) return oo_str_ascii_intern((unsigned char)s.data[start]);
+  OoStr r; r.len = rlen; r.data = oo_str_alloc_payload((size_t)r.len);
+  memcpy(r.data, s.data + start, (size_t)r.len);
   return r;
 }
 
-/* Result[String, String] structural equality. Compares the ok bit and, if
- * both sides are Ok, the payload strings via oo_str_eq. */
+/* Result[String, String] structural equality. */
 int oo_res_eq_s(OoResS a, OoResS b) {
   if (a.ok != b.ok) return 0;
   if (a.ok == 0) return 1;

@@ -30,6 +30,9 @@ extern "C" {
 #ifndef OO_FLAG_BUFFERED
 #define OO_FLAG_BUFFERED  (1u << 6)
 #endif
+#ifndef OO_FLAG_ASCII
+#define OO_FLAG_ASCII     (1u << 7)
+#endif
 
 #ifndef OO_HAVE_CONTROL_BLOCK
 #define OO_HAVE_CONTROL_BLOCK

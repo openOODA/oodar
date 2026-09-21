@@ -6,5 +6,6 @@
  * uses to mark static (unfreeable) payloads. */
 
 #define OO_FLAG_STATIC 1
+#define OO_FLAG_ASCII  (1u << 7)
 
 #endif

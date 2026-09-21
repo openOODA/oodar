@@ -52,9 +52,8 @@ OoStr oo_str_lit(const char *s) {
 }
 
 OoStr oo_chr(long long cp) {
-  char *data = oo_str_alloc_payload(1);
-  data[0] = (cp < 0) ? 0 : (cp > 255 ? 0 : (char)cp);
-  OoStr r; r.data = data; r.len = 1; return r;
+  if (cp >= 0 && cp <= 255) return oo_str_ascii_intern((unsigned char)cp);
+  return oo_str_ascii_intern(0);
 }
 
 OoStr oo_str_xor_lit(const unsigned char *p, long long n, long long key) {
@@ -68,6 +67,9 @@ OoStr oo_str_xor_lit(const unsigned char *p, long long n, long long key) {
 OoStr oo_str_concat(OoStr a, OoStr b) {
   long long al = (a.data && a.len > 0 && a.len < (1LL << 28)) ? a.len : 0;
   long long bl = (b.data && b.len > 0 && b.len < (1LL << 28)) ? b.len : 0;
+  if (al == 0 && bl == 0) return oo_str_intern_bytes("", 0);
+  if (al == 0 && bl == 1) return oo_str_ascii_intern((unsigned char)b.data[0]);
+  if (al == 1 && bl == 0) return oo_str_ascii_intern((unsigned char)a.data[0]);
   OoStr r; r.len = al + bl; r.data = oo_str_alloc_payload((size_t)r.len);
   if (al > 0) memcpy(r.data, a.data, (size_t)al);
   if (bl > 0) memcpy(r.data + al, b.data, (size_t)bl);
@@ -81,6 +83,12 @@ OoStr oo_str_concat_list(OoSList lst) {
     long long l = (s.data && s.len > 0 && s.len < (1LL << 28)) ? s.len : 0;
     total += l;
   }
+  if (total == 0) return oo_str_intern_bytes("", 0);
+  if (total == 1) {
+    for (long long i = 0; i < lst.len; i++) {
+      if (lst.data[i].len == 1) return oo_str_ascii_intern((unsigned char)lst.data[i].data[0]);
+    }
+  }
   OoStr r; r.len = total; r.data = oo_str_alloc_payload((size_t)total);
   long long off = 0;
   for (long long i = 0; i < lst.len; i++) {
@@ -92,7 +100,7 @@ OoStr oo_str_concat_list(OoSList lst) {
 }
 
 OoStr oo_str_concat_multi(int n, ...) {
-  if (n <= 0) { OoStr r; r.len = 0; r.data = oo_str_alloc_payload(0); return r; }
+  if (n <= 0) return oo_str_intern_bytes("", 0);
   va_list ap; va_start(ap, n);
   va_list ap2; va_copy(ap2, ap);
   long long total = 0;
@@ -102,6 +110,7 @@ OoStr oo_str_concat_multi(int n, ...) {
     total += l;
   }
   va_end(ap2);
+  if (total == 0) { va_end(ap); return oo_str_intern_bytes("", 0); }
   OoStr r; r.len = total; r.data = oo_str_alloc_payload((size_t)total);
   long long off = 0;
   for (int i = 0; i < n; i++) {

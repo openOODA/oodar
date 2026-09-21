@@ -43,3 +43,32 @@ OoFList oo_flist_slice(OoFList l, long long lo, long long hi) {
   }
   return o;
 }
+
+OoLL_I oo_ll_I_slice(OoLL_I l, long long lo, long long hi) {
+  OoLL_I o = oo_ll_I_new();
+  if (lo < 0) lo = 0;
+  if (hi > l.len) hi = l.len;
+  long long i = lo;
+  while (i < hi && l.data) {
+    OoLL_I n = oo_ll_I_push(o, l.data[i]);
+    oo_ll_I_release(o);
+    o = n;
+    i++;
+  }
+  return o;
+}
+
+OoLL_S oo_ll_S_slice(OoLL_S l, long long lo, long long hi) {
+  OoLL_S o = oo_ll_S_new();
+  if (lo < 0) lo = 0;
+  if (hi > l.len) hi = l.len;
+  long long i = lo;
+  while (i < hi && l.data) {
+    OoLL_S n = oo_ll_S_push(o, l.data[i]);
+    oo_ll_S_release(o);
+    o = n;
+    i++;
+  }
+  return o;
+}
+

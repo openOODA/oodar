@@ -8,7 +8,7 @@ typedef struct {
     char data[8];
 } OoAsciiEntry;
 
-#define OO_A1(i) { { 1, OO_FLAG_STATIC }, { (char)(i), 0 } }
+#define OO_A1(i) { { 1, (i < 128 ? (OO_FLAG_STATIC | OO_FLAG_ASCII) : OO_FLAG_STATIC) }, { (char)(i), 0 } }
 #define OO_A4(i) OO_A1(i), OO_A1((i)+1), OO_A1((i)+2), OO_A1((i)+3)
 #define OO_A16(i) OO_A4(i), OO_A4((i)+4), OO_A4((i)+8), OO_A4((i)+12)
 #define OO_A64(i) OO_A16(i), OO_A16((i)+16), OO_A16((i)+32), OO_A16((i)+48)
@@ -31,7 +31,7 @@ typedef struct OoInternNode {
 static OoInternNode *g_intern_table[OO_INTERN_BUCKETS];
 static pthread_mutex_t g_intern_mu = PTHREAD_MUTEX_INITIALIZER;
 
-static OoAsciiEntry g_empty_intern = { .hdr = { 1, OO_FLAG_STATIC }, .data = "" };
+static OoAsciiEntry g_empty_intern = { .hdr = { 1, OO_FLAG_STATIC | OO_FLAG_ASCII }, .data = "" };
 
 OoStr oo_str_intern_bytes(const char *p, long long n) {
     unsigned h = 2166136261u;
@@ -72,9 +72,11 @@ OoStr oo_str_intern_bytes(const char *p, long long n) {
     }
     OoInternNode *node = (OoInternNode *)malloc(sizeof(OoInternNode) + (size_t)n + 1);
     if (!node) abort();
+    int is_ascii = 1;
+    for (long long k = 0; k < n; k++) if ((unsigned char)p[k] >= 0x80) { is_ascii = 0; break; }
     node->len = n;
     node->hdr.ref_count = 1;
-    node->hdr.flags = OO_FLAG_STATIC;
+    node->hdr.flags = OO_FLAG_STATIC | (is_ascii ? OO_FLAG_ASCII : 0);
     char *data = (char *)(node + 1);
     memcpy(data, p, (size_t)n);
     data[n] = 0;

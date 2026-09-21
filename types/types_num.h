@@ -22,6 +22,7 @@ OoIList oo_ll_I_get(OoLL_I l, long long i);
 long long oo_ll_I_len(OoLL_I l);
 void oo_ll_I_retain(OoLL_I l);
 void oo_ll_I_release(OoLL_I l);
+OoLL_I oo_ll_I_slice(OoLL_I l, long long lo, long long hi);
 
 OoLL_S oo_ll_S_new(void);
 OoLL_S oo_ll_S_push(OoLL_S l, OoSList v);
@@ -30,6 +31,7 @@ OoSList oo_ll_S_get(OoLL_S l, long long i);
 long long oo_ll_S_len(OoLL_S l);
 void oo_ll_S_retain(OoLL_S l);
 void oo_ll_S_release(OoLL_S l);
+OoLL_S oo_ll_S_slice(OoLL_S l, long long lo, long long hi);
 
 OoLL_F oo_ll_F_new(void);
 OoLL_F oo_ll_F_push(OoLL_F l, OoFList v);
