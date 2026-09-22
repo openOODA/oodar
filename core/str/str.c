@@ -1,6 +1,9 @@
 #include "../../oodar.h"
 #include <stdarg.h>
 
+/* Canary-audit trail (2026-09-22): excluded from HIGH_RISK in
+ * scripts/canary_audit.sh. Takes only a length, allocates heap via
+ * oo_payload_alloc_uninit, never copies bytes to a stack buffer. */
 char *oo_str_alloc_payload(size_t len) {
   char *data = (char *)oo_payload_alloc_uninit(sizeof(OoStrHeader), len + 1);
   OoStrHeader *hdr = ((OoStrHeader *)data) - 1;

@@ -33,10 +33,19 @@ OBJ="$TMP/oodar.o"
 #   - any oo_* that takes OoStr + copies into PATH_MAX / OO_PATH_CAP_MAX_PREFIX / etc.
 #   - any oo_* that calls oo_str_alloc_payload + memcpy
 #   - the cap-attenuate wrappers (HMAC into stack buffers)
-HIGH_RISK="oo_str_alloc_payload oo_read_file oo_read_stdin_chunk \
-  oo_attenuate_fsread_to_path oo_cap_attenuate_v2 oo_env_get \
-  oo_seal oo_open oo_dlopen oo_lto_xlang_link oo_audio_capture \
-  oo_fs_read_dir oo_audio_init oo_path_cap_check"
+#
+# Audit trail (2026-09-22): 6 entries removed after per-function review —
+# each carries a "Canary-audit trail" comment at its definition:
+#   - oo_str_alloc_payload (core/str/str.c): length-only heap alloc, no copy.
+#   - oo_env_get (fs/os/sys_env.c): key passed by pointer, no stack staging.
+#   - oo_seal / oo_open (sec/crypto/seal.c): thin wrappers; stack staging
+#     lives in crypto_aes_gcm_*_internal, which ARE stack-protected.
+#   - oo_audio_init / oo_audio_capture (hw/audio/oo_audio_capture.c):
+#     cap-only / caller-pointer writes, no OoStr, no stack staging.
+HIGH_RISK="oo_read_file oo_read_stdin_chunk \
+  oo_attenuate_fsread_to_path oo_cap_attenuate_v2 \
+  oo_dlopen oo_lto_xlang_link \
+  oo_fs_read_dir oo_path_cap_check"
 
 # Get the set of stack-protected functions.
 PROTECTED="$TMP/protected.txt"

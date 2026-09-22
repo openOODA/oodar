@@ -86,7 +86,11 @@ int oo_is_policy_path(const char *p) {
   return 0;
 }
 
-/* Product env-get: EnvCap-gated read of an OODA_/OO_ env var. */
+/* Product env-get: EnvCap-gated read of an OODA_/OO_ env var.
+ * Canary-audit trail (2026-09-22): excluded from HIGH_RISK in
+ * scripts/canary_audit.sh. Passes key.data by pointer to
+ * oo_process_policy_getenv (strncmp/getenv only); result via
+ * oo_str_lit (heap/intern). Never copies bytes to a stack buffer. */
 OoResS oo_env_get(long long cap, OoStr key) {
   oo_cap_require_env(cap, "env_get");
   OoResS r;

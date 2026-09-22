@@ -43,6 +43,9 @@
 
 static int g_audio_inited = 0;
 
+/* Canary-audit trail (2026-09-22): excluded from HIGH_RISK in
+ * scripts/canary_audit.sh. Takes only a cap token, no OoStr, never
+ * copies untrusted bytes to a stack buffer. */
 int oo_audio_init(long long cap) {
   /* Cap-gate: AudioCap is required to open the audio device. The
    * dual_check in cap_require.c runs the bitmask check + the OCap
@@ -63,6 +66,10 @@ int oo_audio_init(long long cap) {
 #endif
 }
 
+/* Canary-audit trail (2026-09-22): excluded from HIGH_RISK in
+ * scripts/canary_audit.sh. Takes cap + caller pointer; snprintf/memset
+ * target the caller-provided struct, stack holds only OoResS with
+ * static lits. No OoStr param, never copies untrusted bytes to stack. */
 OoResS oo_audio_capture(long long cap, OoAudioBuf *out) {
   OoResS r = {0, oo_str_lit("audio_capture: no device")};
   if (out == NULL) {

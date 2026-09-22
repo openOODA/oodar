@@ -13,6 +13,10 @@
 #include "../../oodar.h"
 #include "../crypto/crypto_internal.h"
 
+/* Canary-audit trail (2026-09-22): excluded from HIGH_RISK in
+ * scripts/canary_audit.sh. Holds only OoResS on stack, forwards OoStr
+ * by value to crypto_aes_gcm_seal_internal where bytes stage in stack
+ * arrays (rk[176] etc.); that internal IS __stack_chk_fail-protected. */
 OoResS oo_seal(long long cap, OoStr key, OoStr nonce, OoStr plaintext, OoStr aad) {
   OoResS r;
   oo_cap_require_sign(cap, "seal");
@@ -32,6 +36,10 @@ OoResS oo_seal(long long cap, OoStr key, OoStr nonce, OoStr plaintext, OoStr aad
   return r;
 }
 
+/* Canary-audit trail (2026-09-22): excluded from HIGH_RISK in
+ * scripts/canary_audit.sh. Holds only OoResS on stack, forwards OoStr
+ * by value to crypto_aes_gcm_open_internal where bytes stage in stack
+ * arrays (rk[176] etc.); that internal IS __stack_chk_fail-protected. */
 OoResS oo_open(long long cap, OoStr key, OoStr nonce, OoStr ct, OoStr tag, OoStr aad) {
   OoResS r;
   oo_cap_require_sign(cap, "open");
