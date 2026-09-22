@@ -11,6 +11,13 @@
 extern long long oo_list_ambient_bytes;
 extern long long oo_list_block_bytes(long long cap, size_t elem);
 
+/* Arena payloads are owned by the bump arena (freed by reset/destroy), so
+ * retain/release must both no-op on them. This mirrors oo_list_hdr_ok in
+ * list.c, which rejects OO_LIST_FLAG_ARENA for the release path. */
+#ifndef OO_LIST_FLAG_ARENA
+#define OO_LIST_FLAG_ARENA 2
+#endif
+
 /* Forward decls of the refcount-state helpers in list.c (orchestrator). */
 static int oo_list_hdr_ok(void *data, long long len, long long cap);
 static int oo_list_owned(void *data);
@@ -20,7 +27,7 @@ void oo_ilist_retain(OoIList l) {
   OoListHeader *hdr = ((OoListHeader *)l.data) - 1;
   uint32_t rc = __atomic_load_n(&hdr->ref_count, __ATOMIC_ACQUIRE);
   uint32_t fl = __atomic_load_n(&hdr->flags, __ATOMIC_ACQUIRE);
-  if (rc == 0 || rc == UINT32_MAX || (fl & 1)) return;
+  if (rc == 0 || rc == UINT32_MAX || (fl & (1 | OO_LIST_FLAG_ARENA))) return;
   /* CAS loop so a concurrent release-to-zero cannot be lost. */
   while (rc > 0 && rc < UINT32_MAX) {
     if (__atomic_compare_exchange_n(&hdr->ref_count, &rc, rc + 1, 1,
@@ -29,7 +36,7 @@ void oo_ilist_retain(OoIList l) {
     }
     rc = __atomic_load_n(&hdr->ref_count, __ATOMIC_RELAXED);
     fl = __atomic_load_n(&hdr->flags, __ATOMIC_RELAXED);
-    if (rc == 0 || rc == UINT32_MAX || (fl & 1)) return;
+    if (rc == 0 || rc == UINT32_MAX || (fl & (1 | OO_LIST_FLAG_ARENA))) return;
   }
 }
 
@@ -58,7 +65,7 @@ void oo_slist_retain(OoSList l) {
   OoListHeader *hdr = ((OoListHeader *)l.data) - 1;
   uint32_t rc = __atomic_load_n(&hdr->ref_count, __ATOMIC_ACQUIRE);
   uint32_t fl = __atomic_load_n(&hdr->flags, __ATOMIC_ACQUIRE);
-  if (rc == 0 || rc == UINT32_MAX || (fl & 1)) return;
+  if (rc == 0 || rc == UINT32_MAX || (fl & (1 | OO_LIST_FLAG_ARENA))) return;
   while (rc > 0 && rc < UINT32_MAX) {
     if (__atomic_compare_exchange_n(&hdr->ref_count, &rc, rc + 1, 1,
                                     __ATOMIC_ACQ_REL, __ATOMIC_RELAXED)) {
@@ -66,7 +73,7 @@ void oo_slist_retain(OoSList l) {
     }
     rc = __atomic_load_n(&hdr->ref_count, __ATOMIC_RELAXED);
     fl = __atomic_load_n(&hdr->flags, __ATOMIC_RELAXED);
-    if (rc == 0 || rc == UINT32_MAX || (fl & 1)) return;
+    if (rc == 0 || rc == UINT32_MAX || (fl & (1 | OO_LIST_FLAG_ARENA))) return;
   }
 }
 

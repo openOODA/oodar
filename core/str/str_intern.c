@@ -21,8 +21,8 @@ OoStr oo_str_ascii_intern(unsigned char c) {
     return r;
 }
 
-#define OO_SLAB_CAP 4096
-#define OO_SLAB_HASH_SIZE 8192
+#define OO_SLAB_CAP 16384
+#define OO_SLAB_HASH_SIZE 32768
 #define OO_SLAB_HASH_MASK (OO_SLAB_HASH_SIZE - 1)
 
 typedef struct {
@@ -110,17 +110,16 @@ OoStr oo_str_intern_bytes(const char *p, long long n) {
     return (OoStr){ .data = data, .len = n };
 }
 
-OoResS oo_arena_pass_reset(long long cap, long long id) {
-    extern pthread_mutex_t g_quota_mu;
-    extern long long oo_list_ambient_bytes;
-    extern OoResS oo_arena_reset(long long cap, long long id);
-    OoResS r = oo_arena_reset(cap, id);
-    if (!r.ok) return r;
-    pthread_mutex_lock(&g_quota_mu);
-    if (oo_list_ambient_bytes > 65536) {
-        oo_list_ambient_bytes = 65536;
-    }
-    pthread_mutex_unlock(&g_quota_mu);
-    return r;
+/* Public oo_byte_slice: slab fast path for <=15-byte results, heap core above.
+ * oo_byte_slice_orig lives in str_ops.c (no macro rename: each TU owns one
+ * symbol, so umbrella and per-file builds both link without duplicates). */
+OoStr oo_byte_slice_orig(OoStr s, long long start, long long end);
+OoStr oo_byte_slice(OoStr s, long long start, long long end) {
+    if (!s.data || s.len < 0) return oo_str_intern_bytes("", 0);
+    if (start < 0) start = 0;
+    if (end > s.len) end = s.len;
+    if (start > end || start >= s.len) return oo_str_intern_bytes("", 0);
+    long long rlen = end - start;
+    if (rlen <= 15) return oo_str_intern_bytes(s.data + start, rlen);
+    return oo_byte_slice_orig(s, start, end);
 }
-

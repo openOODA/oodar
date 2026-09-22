@@ -7,9 +7,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifndef OO_LIST_FLAG_ARENA
+#define OO_LIST_FLAG_ARENA 2
+#endif
+
 extern long long oo_list_ambient_quota;
 extern long long oo_list_ambient_bytes;
 extern void oo_list_quota_init_public(void);
+extern int oo_arena_active_id(void);
+extern void *oo_arena_alloc_payload(int slot, size_t hdr_sz, size_t payload_sz);
 
 void *oo_list_alloc_payload(size_t elem_size, size_t cap) {
   void *pay;
@@ -19,6 +25,16 @@ void *oo_list_alloc_payload(size_t elem_size, size_t cap) {
   if (elem_size > 0 && cap > (size_t)9223372036854775807ULL / elem_size) {
     fprintf(stderr, "ERR\tcap\tlist allocation capacity overflow\n");
     exit(1);
+  }
+  int aid = oo_arena_active_id();
+  if (aid >= 0) {
+    pay = oo_arena_alloc_payload(aid, sizeof(OoListHeader), cap * elem_size);
+    if (pay) {
+      hdr = ((OoListHeader *)pay) - 1;
+      __atomic_store_n(&hdr->ref_count, 1, __ATOMIC_RELEASE);
+      __atomic_store_n(&hdr->flags, OO_LIST_FLAG_ARENA, __ATOMIC_RELEASE);
+      return pay;
+    }
   }
   charge = oo_list_block_bytes((long long)cap, elem_size);
   oo_list_quota_init_public();

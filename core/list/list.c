@@ -26,6 +26,10 @@ void oo_list_quota_init_public(void) {
   pthread_once(&g_quota_once, oo_list_quota_init_once);
 }
 
+#ifndef OO_LIST_FLAG_ARENA
+#define OO_LIST_FLAG_ARENA 2
+#endif
+
 /* Refcount-state validation used by retain/release (list_atomic.c) and get
  * (here + llist.c / flist.c). Static so the symbol stays TU-local. */
 static int oo_list_hdr_ok(void *data, long long len, long long cap) {
@@ -37,7 +41,8 @@ static int oo_list_hdr_ok(void *data, long long len, long long cap) {
   uint32_t rc = __atomic_load_n(&hdr->ref_count, __ATOMIC_ACQUIRE);
   if (rc == 0 || rc == UINT32_MAX) return 0;
   if (rc > 1000000u) return 0;
-  if (__atomic_load_n(&hdr->flags, __ATOMIC_ACQUIRE) & 1) return 0;
+  uint32_t fl = __atomic_load_n(&hdr->flags, __ATOMIC_ACQUIRE);
+  if (fl & (1 | OO_LIST_FLAG_ARENA)) return 0;
   return 1;
 }
 
@@ -46,7 +51,7 @@ static int oo_list_hdr_ok(void *data, long long len, long long cap) {
 static int oo_list_owned(void *data) {
   OoListHeader *h = data ? ((OoListHeader *)data) - 1 : NULL;
   return h && __atomic_load_n(&h->ref_count, __ATOMIC_ACQUIRE) == 1
-      && __atomic_load_n(&h->flags, __ATOMIC_ACQUIRE) == 0;
+      && (__atomic_load_n(&h->flags, __ATOMIC_ACQUIRE) & ~OO_LIST_FLAG_ARENA) == 0;
 }
 
 OoIList oo_ilist_new(void) {
