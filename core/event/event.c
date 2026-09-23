@@ -11,6 +11,11 @@
 #include <pthread.h>
 #include <string.h>
 
+/* Lazy-startup hook owned by metrics.c: idempotent first-use
+ * subscription of the metrics listeners. Declared here (not in
+ * event.h) so only the bus sees it. */
+void oo_metrics_ensure_subscribed(void);
+
 typedef struct {
   char name[OO_EVENT_MAX_NAME];
   void (*fns[OO_EVENT_MAX_SUBSCRIBERS])(void);
@@ -22,9 +27,10 @@ static int g_n_events;
 static pthread_mutex_t g_event_mu = PTHREAD_MUTEX_INITIALIZER;
 static pthread_once_t g_event_once = PTHREAD_ONCE_INIT;
 
+/* g_events/g_n_events are BSS: the loader zeroes them, and
+ * pthread_once guarantees this runs exactly once before any slot is
+ * touched, so no memset. */
 static void event_init_once(void) {
-  memset(g_events, 0, sizeof g_events);
-  g_n_events = 0;
 }
 
 void oo_event_init(void) {
@@ -66,6 +72,9 @@ void oo_event_emit(OoStr name) {
   void (*fns[OO_EVENT_MAX_SUBSCRIBERS])(void);
   int n = 0;
   oo_event_init();
+  /* First emit subscribes the metrics listeners (lazy startup): every
+   * subscribed event dispatches exactly as under the old constructor. */
+  oo_metrics_ensure_subscribed();
   if (!name.data || name.len <= 0 || name.len >= OO_EVENT_MAX_NAME) return;
   pthread_mutex_lock(&g_event_mu);
   for (i = 0; i < g_n_events; i++) {
@@ -83,12 +92,11 @@ void oo_event_emit(OoStr name) {
 }
 
 int oo_event_self_test(void) {
+  /* counter was always 0 (no listener ever registered here); the
+   * observable contract is: emit + null-subscribe + emit, return 1. */
   OoStr n = oo_str_lit("self_test_event");
-  int counter = 0;
   oo_event_emit(n);
-  if (counter != 0) return 0;
   oo_event_subscribe(n, NULL);
   oo_event_emit(n);
-  if (counter != 0) return 0;
   return 1;
 }

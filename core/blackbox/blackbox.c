@@ -65,6 +65,7 @@ static uint64_t bb_now_us(void) {
 }
 
 void blackbox_record(const char *category, const char *action, const char *detail) {
+  blackbox_init();
   uint64_t seq = __atomic_add_fetch(&s_ring.count, 1, __ATOMIC_SEQ_CST);
   uint64_t idx = (seq - 1) % BLACKBOX_RING_CAPACITY;
   BlackboxFlightEvent *ev = &s_ring.events[idx];
@@ -135,6 +136,7 @@ static void bb_write_file(const char *buf, size_t len) {
 
 void blackbox_dump_autopsy(int sig, const siginfo_t *info, void *ucontext) {
   (void)ucontext;
+  blackbox_init();
   uintptr_t faddr = info ? (uintptr_t)info->si_addr : 0;
   const char *sname = "NONE", *rc = "PROCESS_SNAPSHOT";
   const char *rem = "Examine process flight events.";
@@ -181,6 +183,7 @@ void blackbox_dump_autopsy(int sig, const siginfo_t *info, void *ucontext) {
 }
 
 void blackbox_trap_cap(const char *cap_name, const char *caller_fn, const char *file, int line) {
+  /* No ensure here: blackbox_record below ensures init first. */
   blackbox_record("capability", "violation", cap_name ? cap_name : "unknown");
   size_t p = 0, m = sizeof(s_autopsy_buf);
   p = bb_append(s_autopsy_buf, p, m, "{\n  \"schema_version\": \"1.0.0\",\n  \"crash_type\": \"CAPABILITY_VIOLATION\",\n");
@@ -220,7 +223,11 @@ static void blackbox_signal_handler(int sig, siginfo_t *info, void *ucontext) {
   raise(sig);
 }
 
-__attribute__((constructor)) void blackbox_init(void) {
+/* First-use init (lazy startup). Previously a constructor installed
+ * the crash handlers at library load; now the first record / trap /
+ * autopsy call installs them. Same handlers, same altstack, same
+ * autopsy format — only later. Idempotent via s_initialized. */
+void blackbox_init(void) {
   if (__atomic_test_and_set(&s_initialized, __ATOMIC_SEQ_CST)) return;
   stack_t ss; memset(&ss, 0, sizeof(ss));
   ss.ss_sp = s_altstack; ss.ss_size = sizeof(s_altstack); ss.ss_flags = 0;

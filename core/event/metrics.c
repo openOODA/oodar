@@ -47,8 +47,9 @@ static pthread_mutex_t g_metrics_mu = PTHREAD_MUTEX_INITIALIZER;
  * reused for all subsequent internal incr() calls. */
 static long long g_metrics_self_cap = 0;
 
+/* g_metrics is BSS: the loader zeroes it, and pthread_once guarantees
+ * this runs exactly once before any slot is touched, so no memset. */
 static void metrics_init_once(void) {
-  memset(g_metrics, 0, sizeof g_metrics);
   g_metrics_self_cap = oo_cap_grant_metrics();
 }
 
@@ -203,11 +204,19 @@ static void on_aead_seal(void) { OoStr n = oo_str_lit("aead_seal"); oo_metrics_i
 static void on_aead_open(void) { OoStr n = oo_str_lit("aead_open"); oo_metrics_incr(g_metrics_self_cap, n); }
 /* v2.1.0: removed on_cap_seal, on_fs_read, on_fs_write (no emitters). */
 
-static void metrics_subscribe_all(void) {
-  /* v2.1.0: removed cap.seal, fs.read, fs.write subscriptions. They
-   * were never emitted (no oo_event_emit call site in the umbrella).
-   * Keep cap.attenuate (emitted in caps.c:154), pq.sign/verify and
-   * aead.seal/open (emitted in pq_sig.c). */
+/* First-use subscription (lazy startup). Previously a constructor ran
+ * this at library load; now the event bus calls
+ * oo_metrics_ensure_subscribed on the first oo_event_emit, so the
+ * listeners are present before any subscribed event dispatches.
+ * Subscribe only — the self-cap grant stays in metrics_init_once, so
+ * the early-emit failure mode (exit 1 on the ungranted self cap) is
+ * unchanged. v2.1.0: removed cap.seal, fs.read, fs.write
+ * subscriptions. They were never emitted (no oo_event_emit call site
+ * in the umbrella). Keep cap.attenuate, pq.sign/verify,
+ * aead.seal/open. */
+static pthread_once_t g_metrics_sub_once = PTHREAD_ONCE_INIT;
+
+static void metrics_sub_once_init(void) {
   oo_event_subscribe(oo_str_lit("cap.attenuate"), on_cap_attenuate);
   oo_event_subscribe(oo_str_lit("pq.sign"), on_pq_sign);
   oo_event_subscribe(oo_str_lit("pq.verify"), on_pq_verify);
@@ -215,8 +224,6 @@ static void metrics_subscribe_all(void) {
   oo_event_subscribe(oo_str_lit("aead.open"), on_aead_open);
 }
 
-/* Constructor: subscribe at library load. GCC-specific; the runtime
- * umbrella is compiled with gcc per the oodar.c comment. */
-__attribute__((constructor)) static void metrics_ctor(void) {
-  metrics_subscribe_all();
+void oo_metrics_ensure_subscribed(void) {
+  pthread_once(&g_metrics_sub_once, metrics_sub_once_init);
 }

@@ -17,18 +17,16 @@
  *   can call this function via FFI during the migration; the
  *   semantics are the reference implementation.
  *
- * This is the leaf of every oo_cap_require_* gate — see
- * sec/cap/cap_require.c for the gate code that uses this.
+ * This documents the leaf contract of every oo_cap_require_* gate —
+ * the gates in sec/cap/cap_require.c implement it inline.
  */
 
 #include "../../oodar.h"
 
-/* Internal C ABI. Matches the (deleted) Zig export. Static so
- * the symbol stays in this TU; any future external caller should
- * wrap this in a proper public ABI symbol after the RFC for the
- * cap-system rewrite lands. */
-static int oo_cap_check_bits(long long cap, long long want) {
-  if (cap == 0) return 0;
-  if (cap != want) return 0;
-  return 1;
-}
+/* Reference leaf logic (kept as documentation; no code emitted):
+ *   nonzero cap AND cap == want -> 1, else 0 (fail-closed).
+ * The former static oo_cap_check_bits() helper was deleted: it had
+ * no callers (the gates in cap_require.c compare inline) and only
+ * cost .text. Any future external caller should wrap this contract
+ * in a proper public ABI symbol after the RFC for the cap-system
+ * rewrite lands. */

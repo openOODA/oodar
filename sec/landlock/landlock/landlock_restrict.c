@@ -3,6 +3,7 @@
 #include "../sandbox.h"
 #include <sys/prctl.h>
 #include <sys/syscall.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
@@ -74,11 +75,24 @@ struct ll_add_ctx {
 
 static int ll_add_one(const char *path, void *v) {
   struct ll_add_ctx *c = (struct ll_add_ctx *)v;
-  int fd = open(path, O_PATH | O_DIRECTORY | O_CLOEXEC);
+  /* No O_DIRECTORY: path_beneath rules also cover listed files, so fixed
+   * entries like /dev/null (empty source, discard sink) can be allowlisted
+   * for compiler toolchains. Directories keep subtree semantics. */
+  int fd = open(path, O_PATH | O_CLOEXEC);
   if (fd < 0) return -1;
   struct landlock_path_beneath_attr attr;
   memset(&attr, 0, sizeof attr);
   attr.allowed_access = c->access;
+  /* Files reject dir-scoped rights (READ_DIR, REMOVE_FILE, MAKE_REG fail
+   * add_rule on non-dirs). Mask them so listed files like /dev/null keep
+   * the file-meaningful EXECUTE, READ_FILE, WRITE_FILE, TRUNCATE rights. */
+  struct stat st;
+  if (fstat(fd, &st) == 0 && !S_ISDIR(st.st_mode)) {
+    attr.allowed_access &= ~(LL_FS_READ_DIR | LL_FS_REMOVE_DIR |
+      LL_FS_REMOVE_FILE | LL_FS_MAKE_CHAR | LL_FS_MAKE_DIR |
+      LL_FS_MAKE_REG | LL_FS_MAKE_SOCK | LL_FS_MAKE_FIFO |
+      LL_FS_MAKE_BLOCK | LL_FS_MAKE_SYM | LL_FS_REFER);
+  }
   attr.parent_fd = fd;
   long rc = syscall(__NR_landlock_add_rule, c->ruleset_fd, LANDLOCK_RULE_PATH_BENEATH, &attr, 0);
   close(fd);

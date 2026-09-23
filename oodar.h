@@ -172,6 +172,25 @@ typedef struct OoFloatBuf {
 OoFloatBuf oo_float_buf_new(long long cap, long long len);
 OoResS oo_gpu_hip_vec_add_buf(long long cap, OoFloatBuf a, OoFloatBuf b, OoFloatBuf c);
 OoResS oo_gpu_hip_try_launch(long long cap, OoStr shader);
+/* ROCm backend admission: handle pool, copies, and dispatch. The symbols
+ * already ship in liboodar-gpu.a; only the public decls were absent. The
+ * oodac --backend rocm emitter calls this surface from generated HIP. */
+int oo_gpu_init(long long cap);
+OoResS oo_gpu_probe_device(long long cap, int device_id);
+OoResS oo_gpu_sync(long long cap);
+long long oo_gpu_buffer_alloc(long long cap, long long bytes, int unified);
+int oo_gpu_buffer_free(long long cap, long long buf_handle);
+void *oo_gpu_buffer_get_ptr(long long cap, long long buf_handle);
+unsigned long oo_gpu_buffer_get_size(long long cap, long long buf_handle);
+void oo_gpu_pool_purge(long long cap);
+int oo_gpu_copy_h2d(long long cap, long long dst_handle, const void *src, long long bytes);
+int oo_gpu_copy_d2h(long long cap, void *dst, long long src_handle, long long bytes);
+OoResS oo_gpu_hip_sgemm(long long cap, const float *a, const float *b, float *c, int m, int n, int k);
+OoResS oo_gpu_hip_rmsnorm(long long cap, const float *x, const float *gamma, float *out, int rows, int dim);
+OoResS oo_gpu_hip_attention(long long cap, const float *q, const float *k, const float *v, float *out, int seq_len, int d_head);
+OoResS oo_gpu_hip_reduce_sum(long long cap, const float *in, float *out, int n);
+OoResS oo_gpu_hip_rope(long long cap, const float *in, const float *cos_val, const float *sin_val, float *out, int seq_len, int dim);
+OoResS oo_gpu_hip_stencil_3d(long long cap, const float *in, float *out, int nx, int ny, int nz, float c0, float c1);
 OoResS oo_fetch(long long cap, OoStr url);
 
 long long oo_now_ms(long long cap);
