@@ -10,23 +10,28 @@ typedef struct {
 } OoIntEntry;
 
 static OoIntEntry g_int[OO_INT_INTERN];
+/* Zero len = entry not yet built (every interned uint has len >= 1, so 0
+ * is a sound uninit sentinel). Bulk pthread_once init ran 8192 snprintfs
+ * on first use even when the caller needed one value; per-entry lazy init
+ * builds only the entries actually requested. Same bytes, same flags. */
 static unsigned char g_int_len[OO_INT_INTERN];
-static pthread_once_t g_int_once = PTHREAD_ONCE_INIT;
+static pthread_mutex_t g_int_mu = PTHREAD_MUTEX_INITIALIZER;
 
-static void g_int_init(void) {
-    int n;
-    for (n = 0; n < OO_INT_INTERN; n++) {
-        g_int[n].hdr.ref_count = 1;
-        g_int[n].hdr.flags = OO_FLAG_STATIC;
-        int w = snprintf(g_int[n].data, sizeof(g_int[n].data), "%d", n);
-        g_int_len[n] = (unsigned char)(w > 0 ? w : 0);
-    }
+static inline void g_int_build(int n) {
+    g_int[n].hdr.ref_count = 1;
+    g_int[n].hdr.flags = OO_FLAG_STATIC;
+    int w = snprintf(g_int[n].data, sizeof(g_int[n].data), "%d", n);
+    g_int_len[n] = (unsigned char)(w > 0 ? w : 0);
 }
 
 OoStr oo_int_intern(long long n) {
     OoStr r;
     if (n >= 0 && n < OO_INT_INTERN) {
-        pthread_once(&g_int_once, g_int_init);
+        if (g_int_len[(int)n] == 0) {
+            pthread_mutex_lock(&g_int_mu);
+            if (g_int_len[(int)n] == 0) g_int_build((int)n);
+            pthread_mutex_unlock(&g_int_mu);
+        }
         r.len = (long long)g_int_len[(int)n];
         r.data = g_int[(int)n].data;
         return r;

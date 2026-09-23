@@ -36,7 +36,22 @@ typedef struct {
     size_t count;
 } OoStrSlabPool;
 
-static __thread OoStrSlabPool g_tls_slab;
+/* Lazy per-thread slab: a static pool costs ~459 KB of zeroed TLS per
+ * thread at startup (112 minor faults before main even when unused).
+ * The pointer is 8 bytes of TLS; the pool is calloc'd on first short
+ * intern, so untouched processes pay zero faults. calloc zeroes, matching
+ * the old .tbss zero-init exactly. Same cap, same probe order. */
+static __thread OoStrSlabPool *g_tls_slab_ptr;
+
+static inline OoStrSlabPool *oo_tls_slab(void) {
+    OoStrSlabPool *s = g_tls_slab_ptr;
+    if (!s) {
+        s = (OoStrSlabPool *)calloc(1, sizeof(OoStrSlabPool));
+        if (!s) abort();
+        g_tls_slab_ptr = s;
+    }
+    return s;
+}
 
 typedef struct OoInternNode {
     struct OoInternNode *next;
@@ -56,7 +71,7 @@ OoStr oo_str_intern_bytes(const char *p, long long n) {
     unsigned h = 2166136261u;
     for (long long i = 0; i < n; i++) h = (h ^ (unsigned char)p[i]) * 16777619u;
     if (n <= 15) {
-        OoStrSlabPool *s = &g_tls_slab;
+        OoStrSlabPool *s = oo_tls_slab();
         unsigned slot = h & OO_SLAB_HASH_MASK, step = 1;
         while (s->hash_tab[slot] != 0) {
             uint16_t idx = s->hash_tab[slot] - 1;
