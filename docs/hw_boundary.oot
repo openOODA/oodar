@@ -1,0 +1,139 @@
+// # oodar/docs/hw_boundary.oot — Hardware-Boundary Inventory (112 umbrella files)
+//
+// Logline: Every .c file in the oodar.c umbrella TU classified by direct
+//          OS/hardware contact: direct syscall or libc-service use (A),
+//          fail-closed termination only (B), or pure in-repo logic (C).
+//
+// Setup: Boundary rule: a file is in A when it DIRECTLY invokes a kernel,
+//        libc OS service (IO, sockets, processes, threads, time, entropy,
+//        dlopen, shm/epoll, Landlock/seccomp/prctl, rlimit, stat, getenv,
+//        stdio devices, host-FFI, HIP/ALSA), or includes the OS header for
+//        it. malloc/string/stdio-format are portable libc, not boundary.
+//        In-TU calls (grant to sandbox note) are layering, not contact.
+//        Method: include + call-site scan of oodar.c (112 files, v4.0.42).
+//
+// Beats:
+//   1. Direct OS/service/hardware contact (59 files).
+//   2. Fail-closed termination only, exit/abort (18 files).
+//   3. Pure in-repo logic (35 files).
+//
+// ## A. Direct OS/service/hardware contact (59)
+//
+// app/actor/actor.c — pthread create/join/mutex/cond (actor threads).
+// app/actor/actor_channel.c — pthread mutex/cond (channel wait).
+// app/actor/actor_thread.c — pthread + unistd (thread boot).
+// app/io/print.c — fwrite/fputs to stdout/stderr (stdio devices).
+// app/xlang/ffi.c — dlopen/dlsym/getenv/pthread mutex.
+// app/xlang/ffi_sec.c — fork/dup2/waitpid/open/dlopen/getenv/_exit.
+// app/xlang/xlang.c — fork/execv/waitpid/fopen/getenv/_exit.
+// core/anti_emul/anti_emul.c — getentropy/getenv/pthread_once.
+// core/blackbox/blackbox.c — mmap/open/clock_gettime/sigaction/raise/write.
+// core/event/event.c — pthread mutex/once.
+// core/event/metrics.c — pthread mutex/once.
+// core/list/list.c — pthread mutex/once.
+// core/mem/align.c — mmap/munmap.
+// core/mem/alloc.c — mmap/pthread.
+// core/mem/arena.c — mmap/munmap/pthread.
+// core/mem/arena_checkpoint.c — pthread mutex.
+// core/mem/arena_pin.c — getenv/sched affinity/sysconf.
+// core/str/str_from_int.c — pthread mutex/once.
+// core/str/str_intern.c — pthread mutex.
+// fs/os/fs.c — open/read/write/clock_gettime/getenv.
+// fs/os/fs_dir.c — opendir/readdir/getenv.
+// fs/os/fs_lowlevel.c — open/openat/readdir/pthread.
+// fs/os/host.c — host-FFI extern ooda_host_* (out-of-TU host binary).
+// fs/os/netfloor.c — socket/bind/connect/pthread.
+// fs/os/netfloor_tcp.c — socket/bind/connect/accept/getaddrinfo.
+// fs/os/netfloor_udp.c — socket/bind/sendto.
+// fs/os/rlimit.c — getrlimit/setrlimit.
+// fs/os/sys.c — fork/execv/pipe/dup2/waitpid/exit.
+// fs/os/sys_env.c — getenv/setenv.
+// fs/os/sys_epoll.c — epoll_create/ctl/wait.
+// fs/os/sys_exec_wait.c — posix_spawn/waitpid.
+// fs/os/sys_shm.c — shm_open/mmap/munmap.
+// fs/os/sys_stamp.c — stat.
+// fs/os/sys_stdin.c — read/poll on fd 0.
+// fs/os/time_rand.c — clock_gettime/nanosleep.
+// hw/audio/oo_audio_capture.c — ALSA snd_* only under -DUSE_ALSA (stub default).
+// hw/gpu/gpu/gpu.c — dlopen/dlsym HIP launcher table + pthread.
+// hw/gpu/gpu/gpu_hip_dlopen.c — dlopen/dlsym/getenv/pthread.
+// hw/gpu/gpu/gpu_mem.c — hipMemcpy/pthread.
+// hw/gpu/gpu/gpu_pool.c — hipMalloc/hipFree/pthread.
+// hw/gpu/gpu/gpu_stream.c — hipStream/hipEvent/pthread.
+// net/fetch.c — socket/connect/getaddrinfo.
+// net/tls.c — socket/connect/getaddrinfo.
+// sec/cap/cap.c — seccomp/prctl/syscall/socket/fork/exec/openat.
+// sec/cap/cap_alloc.c — getentropy/atexit/pthread_once.
+// sec/cap/cap_ffi.c — getentropy/atexit/pthread_once.
+// sec/cap/cap_time.c — getentropy/atexit/pthread_once.
+// sec/cap/cap_ocap_bridge.c — pthread_once.
+// sec/cap/caps.c — getentropy/atexit/pthread_once.
+// sec/crypto/random.c — getentropy.
+// sec/crypto/symmetric/crypto.c — getentropy/pthread_once.
+// sec/pqc/pq_sig/pq_aead_seal.c — getentropy (nonce).
+// sec/landlock/landlock/landlock.c — landlock syscalls/prctl/open.
+// sec/landlock/landlock/landlock_restrict.c — landlock syscalls/prctl/open.
+// sec/landlock/proc_mem.c — open/read on /proc/self/mem.
+// sec/landlock/sandbox/sandbox.c — landlock_restrict/seccomp/pthread.
+// sec/landlock/sandbox/sandbox_config.c — landlock/seccomp/prctl/socket/fork.
+// sec/landlock/sandbox/sandbox_matrix.c — fork/socket/landlock_restrict.
+// sec/landlock/sandbox_syscalls.c — raw landlock syscalls.
+//
+// ## B. Fail-closed termination only, exit/abort, no other OS call (18)
+//
+// app/actor/actor_closure.c — abort.
+// core/list/flist.c — exit(1).
+// core/list/list_alloc.c — exit(1).
+// core/list/list_set.c — exit(1).
+// core/list/llist.c — exit(1); pthread.h include only, no pthread call.
+// core/mem/weak.c — exit(1).
+// core/str/str_ops.c — exit(1).
+// core/str/str_tok.c — abort.
+// sec/cap/cap_require.c — exit(1)/exit(2) gates.
+// sec/cap/cap_attenuate_path.c — exit(1) prefix gates.
+// sec/crypto/aead/aead.c — abort.
+// sec/crypto/aead/aes_gcm.c — abort.
+// sec/crypto/aead/chacha20_poly1305.c — abort.
+// sec/crypto/hash.c — abort.
+// sec/crypto/symmetric/hash.c — abort.
+// sec/crypto/symmetric/hmac.c — abort.
+// sec/pqc/mldsa/mldsa_poly.c — exit(1).
+// sec/pqc/pq_sig/pq_aead_open.c — abort.
+//
+// ## C. Pure in-repo logic, no direct OS call (35)
+//
+// app/actor/actor_rpc.c — message logic only.
+// app/xlang/ffi_call.c — calls via dlsym-resolved pointers; dl boundary is ffi.c.
+// core/list/list_atomic.c — compiler __atomic builtins; pthread.h include only.
+// core/list/list_slice.c — index logic only.
+// core/math/math.c — arithmetic only.
+// core/mem/arena_dod.c — bookkeeping only.
+// core/mem/arena_soa.c — bookkeeping only.
+// core/str/str.c — buffer logic only.
+// fs/os/dns.c — loopback-literal compare; socket headers include only.
+// fs/os/sys_residual.c — residual stub, no OS call.
+// hw/gpu/gpu/gpu_classify.c — table classify, no OS call.
+// hw/gpu/gpu/gpu_hip.c — launcher-table consumer via oo_cap_require_gpu.
+// hw/gpu/gpu/gpu_hip_dispatch.c — table consumer, no dlopen.
+// hw/gpu/gpu/gpu_hip_dispatch_buf.c — table consumer, no dlopen.
+// hw/gpu/gpu/gpu_launch.c — validation only, no OS call.
+// sec/cap/cap_grant.c — in-TU grant + sandbox notes, no direct OS call.
+// sec/cap/cap_attenuate_hmac.c — first-touch oo_caps_init only.
+// sec/cap/cap_bridge_emitted.c — static data table.
+// sec/cap/cap_check_zig_fallback.c — documented leaf contract.
+// sec/crypto/seal.c — caller-driven error path, no exit.
+// sec/crypto/sha3.c — digest arithmetic only.
+// sec/crypto/symmetric/secure.c — wipe/compare only.
+// sec/landlock/sandbox/sandbox_c.c — status/config mapping only.
+// sec/pqc/mldsa/mldsa.c — field arithmetic only.
+// sec/pqc/mldsa/mldsa_ntt.c — NTT arithmetic only.
+// sec/pqc/mldsa/mldsa_sample.c — sampling arithmetic only.
+// sec/pqc/mldsa/mldsa_sign.c — signing arithmetic only.
+// sec/pqc/mldsa/mldsa_verify.c — verify arithmetic only.
+// sec/pqc/mlkem/mlkem.c — field arithmetic only.
+// sec/pqc/mlkem/mlkem_kem.c — KEM domain binding only.
+// sec/pqc/mlkem/mlkem_ntt.c — NTT arithmetic only.
+// sec/pqc/mlkem/mlkem_poly.c — poly arithmetic only.
+// sec/pqc/mlkem/mlkem_sample.c — sampling arithmetic only.
+// sec/pqc/pq_sig/pq_hmac.c — MAC message logic only.
+// sec/pqc/pq_sig/pq_sig.c — signature framing only.
