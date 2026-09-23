@@ -79,8 +79,13 @@ static volatile int g_test_force_fail = 0;
 static void ocap_init_once(void) {
   /* For each substrate cap, look up the language token name, then
    * get the rights mask from the OCap record. If the lookup misses
-   * (record returns empty name), the rights mask is 0 — fail-closed. */
-  OoSList names = ocap_to_oodar_all_names();
+   * (record returns empty name), the rights mask is 0 — fail-closed.
+   * No ocap_to_oodar_all_names() build here: the list was built and
+   * immediately released (never read), but the reference pulled the
+   * whole slist + list-payload family into every minimal linkage
+   * (~1.9 KB text). Rights come straight from rights_for_name, so
+   * the table, the miss→0 rule, and the exit(2) disagreement code
+   * are unchanged. all_names stays exported for diagnostics/tests. */
   for (int i = 0; i < 26; i++) {
     const char *lang = SUBSTRATE_TO_LANGUAGE[i];
     OoStr name;
@@ -89,7 +94,6 @@ static void ocap_init_once(void) {
     long long mask = ocap_to_oodar_rights_for_name(name);
     g_ocap_rights[i] = mask;
   }
-  oo_slist_release(names);
 }
 
 /* The substrate-cap → index lookup. We avoid a 26-entry token-to-index
