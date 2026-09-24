@@ -17,6 +17,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #if defined(__linux__) || defined(__APPLE__)
 #include <sys/random.h>
 #endif

@@ -6,6 +6,24 @@ Historical releases from v1.0.0 through v3.4.2 are archived in `docs/archive/cha
 
 ## Unreleased
 
+### Added
+- List/string bounds contract probe (`qa/tests_challenger_list_str_bounds.c`): every core
+  list/string op classified as sentinel (clamp/empty/-1, non-fatal) or fail-closed
+  (`stderr` + `exit(1)`, 17 fork-probed OOB aborts across ilist/slist/flist, char_at,
+  ll/lll/llll depths). Wired into `CHALLENGERS` + `make test` (double-run) + `double_run.sh`.
+- Recorded fuzz seeds (`qa/fuzz_seeds.txt`): `scripts/double_run.sh` now runs every
+  `*fuzz*` binary under each recorded seed, twice per seed.
+- musl/Alpine portability: `execinfo.h` fallback stub in `core/blackbox/blackbox.c`
+  (stack frame list renders empty where the header is absent) and missing
+  `<unistd.h>` (musl declares `getentropy` there, not in `<sys/random.h>`) in
+  `sec/pqc/pq_sig/pq_aead_seal.c`. Verified: all 7 archives build and the full
+  `make test` suite passes on Alpine 3.24/musl (gcc 15.2.0) under CI-equivalent
+  `OODA_*` env.
+
+### Changed
+- Fuzz corpus doubled: `qa/tests_fuzz_smoke.c` `N_ITER` 200 → 400 (seeded, deterministic
+  given `argv[1]`; cap values remain `getentropy`-backed by design).
+
 - Remove residual `emit-c` from default make pipeline.
 - Default `make all` relies on committed C shim `sec/cap/cap_bridge_emitted.c`.
 - Product compilation path remains C99 `gcc oodar.c` plus `oodac` LLVM IR.

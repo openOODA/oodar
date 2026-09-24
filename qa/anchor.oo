@@ -19,7 +19,9 @@
 //  11. tests_challenger_sandbox_containment.c — Landlock containment (Red 8 dim 2+8, redteam).
 //  12. tests_challenger_actor_race.c         — 8-thread otp_supervise race (v3.3.4).
 //  13. tests_challenger_env_pwd.c            — PWD preserved via policy getenv + child filter.
-//  14. tests_fuzz_smoke.c                    — 200-iteration random-input crash probe (v3.2.3).
+//  14. tests_fuzz_smoke.c                    — 400-iteration random-input crash probe (v3.2.3; doubled v4.0.44).
+//  26. tests_challenger_list_str_bounds.c   — defined+probed list/string OOB contract: sentinels vs fail-closed exit(1) (v4.0.44).
+//  27. fuzz_seeds.txt                        — recorded canonical fuzz seeds consumed by scripts/double_run.sh (v4.0.44).
 //  15. tests_ffi_call.c                      — FFI round-trip smoke (cap-gated, regression).
 //  16. tests_stdin_owned_str.c               — owned-string semantics on stdin chunk reads.
 //  17. tests_wal_append_sync.c               — WAL append+sync round-trip (fs, regression).

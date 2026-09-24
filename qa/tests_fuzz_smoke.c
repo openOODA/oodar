@@ -44,7 +44,7 @@
 #include <sys/random.h>
 #endif
 
-#define N_ITER 200
+#define N_ITER 400
 #define MAX_PAYLOAD 64
 
 static unsigned long long rng_state = 0xdeadbeefcafebabeULL;

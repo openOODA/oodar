@@ -62,7 +62,10 @@ export OODAR_REPO="$ROOT"
 for bin in scripts/build/test/* scripts/build/lint/*; do
   [[ -x "$bin" && -f "$bin" ]] || continue
   case "$bin" in
-    *fuzz*) run_twice "$bin" 0x12345678 ;;
+    *fuzz*) while read -r seed; do
+             case "$seed" in ''|\#*) continue ;; esac
+             run_twice "$bin" "$seed"
+           done < "$ROOT/qa/fuzz_seeds.txt" ;;
     *differential_cap*|*pathcap*|*perf_benchmark*) run_twice_exit_only "$bin" ;;
     *) run_twice "$bin" ;;
   esac

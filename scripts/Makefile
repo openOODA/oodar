@@ -422,6 +422,7 @@ CHALLENGERS := tests_challenger_contract tests_challenger_sys tests_challenger_w
 	tests_challenger_audio_cap \
 	tests_challenger_fs_dir \
 	tests_challenger_bytes_str \
+	tests_challenger_list_str_bounds \
 	tests_smt_spec_roundtrip \
 	tests_challenger_update_bypass
 
@@ -468,6 +469,8 @@ test: lint $(addprefix $(TEST_DIR)/,$(CHALLENGERS))
 	@$(TEST_DIR)/tests_challenger_fs_dir
 	@$(TEST_DIR)/tests_challenger_bytes_str
 	@$(TEST_DIR)/tests_challenger_bytes_str
+	@$(TEST_DIR)/tests_challenger_list_str_bounds
+	@$(TEST_DIR)/tests_challenger_list_str_bounds
 	@$(TEST_DIR)/tests_smt_spec_roundtrip
 	@$(TEST_DIR)/tests_smt_spec_roundtrip
 	@$(TEST_DIR)/tests_challenger_update_bypass

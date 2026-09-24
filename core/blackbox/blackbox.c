@@ -5,7 +5,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
+#if defined(__has_include) && !__has_include(<execinfo.h>)
+static int backtrace(void **b, int s) { (void)b; (void)s; return 0; }
+#else
 #include <execinfo.h>
+#endif
 #include <string.h>
 #include <errno.h>
 

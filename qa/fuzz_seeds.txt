@@ -1,0 +1,10 @@
+# oodar/qa/fuzz_seeds.txt — recorded canonical fuzz seeds.
+#
+# The CI fuzz gate (qa/tests_fuzz_smoke.c, N_ITER=400) is deterministic
+# given argv[1]: the seed drives the xoshiro stream for arg selection
+# (cap values still come from getentropy by design — see the file
+# header). scripts/double_run.sh runs every *fuzz* binary under EACH
+# seed below, twice per seed, requiring byte-identical output.
+# Add a seed here only with a CHANGES.md note; keep one per line.
+0x12345678
+0x9e3779b9
