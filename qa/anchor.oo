@@ -1,6 +1,6 @@
 // # oodar/qa — Substrate Self-Tests
 //
-// Logline: qa/ holds 2 utilities, 15 challenger probes (cap, path, contract, concurrency, boundary, perf, wave1, wave3, dudect), 4 utility probes (ffi_call, fuzz_smoke, stdin_owned_str, wal_append_sync), and 3 C lints. No python in the lint path.
+// Logline: qa/ holds 2 utilities, 16 challenger probes (cap, path, contract, concurrency, boundary, perf, wave1, wave3, dudect, exec_capture), 4 utility probes (ffi_call, fuzz_smoke, stdin_owned_str, wal_append_sync), and 3 C lints. No python in the lint path.
 //
 // Setup: Self-tests ship with the package. The 2 utilities are smoke / benchmark tests; the 15 challenger tests are adversarial / regression probes (including concurrency_stress, adversarial_boundary, and perf_benchmark); the 4 utility probes are smoke / regression tests for specific subsystems. The 3 lint tests run in CI (Makefile lint target). The umbrella TU (oodar.c) EXCLUDES the qa/ subdir — these are run by the developer, not the runtime.
 //
@@ -33,6 +33,7 @@
 //  23. tests_challenger_concurrency_stress.c — multi-threaded list allocations, actor channels, quota tracking (M2 promoted, v4.1.0).
 //  24. tests_challenger_adversarial_boundary.c — zero-length files, boundary strings, OOB, forged cap fail-closed (M3 promoted, v4.1.0).
 //  25. tests_challenger_perf_benchmark.c     — real micro-benchmarking and throughput floor verification (M4 promoted, v4.1.0).
+//  28. tests_challenger_exec_capture.c      — sys_exec captures 20MB whole (16MiB cap regression, v4.0.46).
 //
 // ──▓▓ oodar/qa ANCHOR ──▓▓──
-// :: 2 utilities + 15 challenger + 4 utility probes + 3 lint tests — all <= 256 ::
+// :: 2 utilities + 16 challenger + 4 utility probes + 3 lint tests — all <= 256 ::

@@ -23,10 +23,10 @@ void oo_child_filter_env(void);
 /* R2/R3: fork + execvp with full argv (no system(3) shell). Captures the
  * child's stdout and stderr via one pipe so an Err payload carries printed
  * diagnostics (println on stdout, cap/landlock on stderr). Bounded to
- * OO_SYS_EXEC_MAX_OUT bytes (16MiB so a product binary's captured
- * stdout fits; the runtime product is C99 `gcc oodar.c`, not oodac
- * emit-c). A flood sees EPIPE. r.val holds the capture on Ok and Err. */
-#define OO_SYS_EXEC_MAX_OUT (1u << 24)
+ * OO_SYS_EXEC_MAX_OUT bytes (64MiB: `oodac build` captures its own
+ * `emit-llvm --concat` IR here, and real programs exceed 16MiB).
+ * A flood still sees EPIPE. r.val holds the capture on Ok and Err. */
+#define OO_SYS_EXEC_MAX_OUT (1u << 26)
 
 OoResS oo_sys_exec(long long cap, int argc, OoStr *argv) {
   OoResS r;
