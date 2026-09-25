@@ -2,7 +2,7 @@ name: oodar CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
     inputs:
       target_tag:

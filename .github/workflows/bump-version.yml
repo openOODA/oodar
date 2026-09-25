@@ -2,7 +2,7 @@ name: bump VERSION to tag
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   workflow_run:
     workflows: ["oodar CI"]
     types: [completed]
@@ -40,4 +40,4 @@ jobs:
           git add VERSION
           # avoid triggering auto-release loop if commit is just VERSION bump
           git commit -m "chore: bump VERSION to $ver [skip ci]" || exit 0
-          git push origin HEAD:main
+          git push origin HEAD:master
