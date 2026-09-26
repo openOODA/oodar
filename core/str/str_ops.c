@@ -43,6 +43,7 @@ long long oo_byte_at(OoStr s, long long idx) {
 }
 long long oo_str_byte_at(OoStr s, long long idx) { return oo_byte_at(s, idx); }
 long long oo_bytes_len(OoStr s) { return oo_str_byte_len(s); }
+long long oo_ord(OoStr s) { return oo_byte_at(s, 0); }
 /* Heap-allocating slice core. str_intern.c wraps this as oo_byte_slice with a
  * <=15-byte slab fast path; the wrapper name is the public entry point. */
 OoStr oo_byte_slice_orig(OoStr s, long long start, long long end) {

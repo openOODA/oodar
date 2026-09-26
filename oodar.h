@@ -118,6 +118,7 @@ long long oo_limb_mul(long long a, long long b, long long cin, long long *hi);
 long long oo_limb_div(long long hi, long long lo, long long divisor, long long *rem);
 long long oo_limb_cmp(long long a, long long b);
 long long oo_bytes_len(OoStr s);
+long long oo_ord(OoStr s);
 OoStr oo_byte_slice(OoStr s, long long start, long long end);
 int oo_bytes_eq(OoStr a, OoStr b);
 OoStr oo_bytes_from_str(OoStr s);
