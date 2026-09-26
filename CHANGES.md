@@ -7,6 +7,11 @@ Historical releases from v1.0.0 through v3.4.2 are archived in `docs/archive/cha
 ## Unreleased
 
 ### Added
+- `oo_sys_path_is_dir` (`fs/os/fs.c`): SysCap-gated directory probe returning 1
+  for directories (final-component symlinks followed) and 0 otherwise. Lets the
+  oodac sandbox engine fail closed on regular-file allowlist entries while raw
+  `landlock_restrict` keeps deliberately accepting listed files. Declared in
+  `oodar.h`, covered by the challenger contract table (68/68 fail-closed).
 - List/string bounds contract probe (`qa/tests_challenger_list_str_bounds.c`): every core
   list/string op classified as sentinel (clamp/empty/-1, non-fatal) or fail-closed
   (`stderr` + `exit(1)`, 17 fork-probed OOB aborts across ilist/slist/flist, char_at,
