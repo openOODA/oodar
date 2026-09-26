@@ -187,6 +187,11 @@ int main(int argc, char **argv) {
 
   fprintf(stderr, "  fs-dir probe: starting\n");
 
+  /* Hermetic jail config: the mkdir/rmdir roundtrip needs a writedir and
+   * CI runs make test with a clean env. Scope writes to /tmp (the scratch
+   * parent) so the test passes with or without ambient OODA_* config. */
+  setenv("OODA_FS_WRITEDIR", "/tmp", 1);
+
   make_scratch();
 
   probe_cap_zero();
