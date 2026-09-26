@@ -144,6 +144,7 @@ static void w_file_stamp(long long c)      { (void)oo_file_stamp(c, oo_str_lit("
 static void w_rlimit_set_cpu_sec(long long c) { (void)oo_rlimit_set_cpu_sec(c, 60); }
 static void w_rlimit_set_mem_mb(long long c)  { (void)oo_rlimit_set_mem_mb(c, 1024); }
 static void w_rlimit_set_nofile(long long c)  { (void)oo_rlimit_set_nofile(c, 1024); }
+static void w_sys_path_is_dir(long long c) { (void)oo_sys_path_is_dir(c, oo_str_lit("/tmp")); }
 static void w_sandbox_apply(long long c)   { (void)oo_sandbox_apply(c); }
 static void w_write_file(long long c)      { (void)oo_write_file(c, oo_str_lit("/tmp/x"), oo_str_lit("z")); }
 static void w_now_ms(long long c)          { (void)oo_now_ms(c); }
@@ -214,6 +215,7 @@ struct { const char *name; mutator_fn fn; } CASES[] = {
   {"oo_rlimit_set_cpu_sec",    w_rlimit_set_cpu_sec},
   {"oo_rlimit_set_mem_mb",     w_rlimit_set_mem_mb},
   {"oo_rlimit_set_nofile",     w_rlimit_set_nofile},
+  {"oo_sys_path_is_dir",       w_sys_path_is_dir},
   {"oo_sandbox_apply",         w_sandbox_apply},
   {"oo_write_file",            w_write_file},
   {"oo_now_ms",                w_now_ms},

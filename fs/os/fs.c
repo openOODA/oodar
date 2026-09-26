@@ -105,6 +105,14 @@ if (!to_cpath(path, cpath, PATH_MAX)) return 0;
 if (!fs_read_confined(cpath)) return 0;
 return (faccessat(AT_FDCWD, cpath, F_OK, AT_SYMLINK_NOFOLLOW) == 0) ? 1 : 0;
 }
+int oo_sys_path_is_dir(long long cap, OoStr path) {
+oo_cap_require_sys(cap, "sys_path_is_dir");
+char cpath[PATH_MAX];
+if (!to_cpath(path, cpath, PATH_MAX)) return 0;
+struct stat st;
+if (stat(cpath, &st) != 0) return 0;
+return S_ISDIR(st.st_mode) ? 1 : 0;
+}
 long long oo_file_size(long long cap, OoStr path) {
 oo_cap_require_fsread(cap, "file_size");
 char cpath[PATH_MAX];
