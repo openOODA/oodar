@@ -14,7 +14,15 @@ static int backtrace(void **b, int s) { (void)b; (void)s; return 0; }
 #include <errno.h>
 
 static uint8_t s_altstack[16384];
-static char s_autopsy_buf[32768];
+/* Autopsy budget (worst case, all maxima hit at once):
+ *   flight sections: 2 x 64 events x ~365B (31/31/63 chars at 2x escape
+ *     expansion + armor + seq/timestamp) = ~46.7K
+ *   call stack: 32 frames x ~45B (hex addresses only) = ~1.5K
+ *   trap coordinate + capability: 4 x 256 chars at 2x expansion = ~2.1K
+ *   header/footer/signal/root_cause/remediation: ~0.7K
+ * Total worst ~51K < 64K. Audit 14: 32K silently truncated (bb_append
+ * stops at max with no marker, yielding invalid JSON). */
+static char s_autopsy_buf[65536];
 static BlackboxRingBuffer s_ring;
 static volatile sig_atomic_t s_in_handler = 0;
 static volatile sig_atomic_t s_initialized = 0;
@@ -56,6 +64,36 @@ static size_t bb_append_json_str(char *buf, size_t pos, size_t max, const char *
     else if ((unsigned char)*s < 32) { s++; }
     else { buf[pos++] = *s++; }
   }
+  if (pos + 1 < max) buf[pos++] = '"';
+  buf[pos] = '\0';
+  return pos;
+}
+
+/* Inner escape without surrounding quotes, capped at n chars. Used for
+ * coordinate segments that share one quoted string. Appends "..." when
+ * input exceeds n. Crash-safe: no malloc, bounded writes. */
+static size_t bb_append_esc_n(char *buf, size_t pos, size_t max,
+    const char *s, size_t n) {
+  size_t i = 0;
+  while (s && *s && i < n && pos + 2 < max) {
+    if (*s == '"' || *s == '\\') { buf[pos++] = '\\'; buf[pos++] = *s++; }
+    else if (*s == '\n') { buf[pos++] = '\\'; buf[pos++] = 'n'; s++; }
+    else if (*s == '\t') { buf[pos++] = '\\'; buf[pos++] = 't'; s++; }
+    else if ((unsigned char)*s < 32) { s++; }
+    else { buf[pos++] = *s++; }
+    i++;
+  }
+  if (s && *s) pos = bb_append(buf, pos, max, "...");
+  buf[pos] = '\0';
+  return pos;
+}
+
+/* Quoted JSON string capped at n chars with "..." overflow marker. */
+static size_t bb_append_json_str_n(char *buf, size_t pos, size_t max,
+    const char *s, size_t n) {
+  if (pos + 1 >= max) return pos;
+  buf[pos++] = '"';
+  pos = bb_append_esc_n(buf, pos, (pos + 2 < max) ? max - 1 : pos, s, n);
   if (pos + 1 < max) buf[pos++] = '"';
   buf[pos] = '\0';
   return pos;
@@ -193,17 +231,17 @@ void blackbox_trap_cap(const char *cap_name, const char *caller_fn, const char *
   p = bb_append(s_autopsy_buf, p, m, "{\n  \"schema_version\": \"1.0.0\",\n  \"crash_type\": \"CAPABILITY_VIOLATION\",\n");
   p = bb_append(s_autopsy_buf, p, m, "  \"crash_signal\": 0,\n  \"signal_name\": \"NONE\",\n  \"signal\": \"NONE\",\n");
   p = bb_append(s_autopsy_buf, p, m, "  \"fault_address\": \"0x0\",\n  \"failure_coordinate\": \"");
-  p = bb_append(s_autopsy_buf, p, m, file ? file : "unknown");
+  p = bb_append_esc_n(s_autopsy_buf, p, m, file ? file : "unknown", 256);
   p = bb_append(s_autopsy_buf, p, m, ":");
   p = bb_append_uint(s_autopsy_buf, p, m, (uint64_t)(line > 0 ? line : 0));
   p = bb_append(s_autopsy_buf, p, m, ":0:");
-  p = bb_append(s_autopsy_buf, p, m, caller_fn ? caller_fn : "unknown");
+  p = bb_append_esc_n(s_autopsy_buf, p, m, caller_fn ? caller_fn : "unknown", 256);
   p = bb_append(s_autopsy_buf, p, m, "\",\n  \"root_cause\": \"CAPABILITY_TRAP_VIOLATION\",\n");
   p = bb_append(s_autopsy_buf, p, m, "  \"remediation\": \"Grant required capability token before invoking restricted operation.\",\n");
   p = bb_append(s_autopsy_buf, p, m, "  \"capability\": {\n    \"token_name\": ");
-  p = bb_append_json_str(s_autopsy_buf, p, m, cap_name ? cap_name : "unknown");
+  p = bb_append_json_str_n(s_autopsy_buf, p, m, cap_name ? cap_name : "unknown", 256);
   p = bb_append(s_autopsy_buf, p, m, ",\n    \"operation\": ");
-  p = bb_append_json_str(s_autopsy_buf, p, m, caller_fn ? caller_fn : "unknown");
+  p = bb_append_json_str_n(s_autopsy_buf, p, m, caller_fn ? caller_fn : "unknown", 256);
   p = bb_append(s_autopsy_buf, p, m, "\n  },\n  \"call_stack\": ");
   p = bb_format_stack(s_autopsy_buf, p, m);
   p = bb_append(s_autopsy_buf, p, m, ",\n  \"flight_events\": ");

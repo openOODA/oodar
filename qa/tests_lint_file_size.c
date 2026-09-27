@@ -56,6 +56,13 @@ static const char *EXCEPTIONS[] = {
    * for #include "hw/audio/audio.h" (the AudioCap wire-up). 257 lines
    * as of v4.6.0. */
   "oodar.h",
+  /* core/blackbox/blackbox.c is the crash handler + autopsy writer.
+   * Audit 14 added the capped/escaped append helpers and the 64K
+   * budget comment (290 lines). Single-TU is a safety property here:
+   * all helpers are provably malloc-free in one view and the statics
+   * (ring, autopsy buffer, handler guards) stay out of headers.
+   * Splitting would grow the signal-safety review surface. */
+  "core/blackbox/blackbox.c",
   NULL,
 };
 

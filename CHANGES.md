@@ -6,6 +6,20 @@ Historical releases from v1.0.0 through v3.4.2 are archived in `docs/archive/cha
 
 ## Unreleased
 
+### Fixed
+- Audit 14 blackbox truncation: `s_autopsy_buf` 32K → 64K with a documented
+  worst-case budget (~51K: 2×64 events at 2× escape expansion + 32 stack
+  frames + capped trap inputs). The old 32K buffer silently truncated
+  (`bb_append` stops at max with no marker): a measured worst-case autopsy
+  is 37,868 bytes — 5K over the old limit, cut mid-JSON. Trap inputs
+  (file/fn/cap) are now capped at 256 chars with `...` markers, and the
+  trap coordinate segments are JSON-escaped (a `"` in a file path previously
+  broke the JSON shape). New probe `qa/tests_blackbox_worstcase.c` fills the
+  ring with hostile max-length events, traps with 300-char quotey strings,
+  and asserts size < 60K, `}\n` tail, balanced braces, markers, and keys.
+  Fifth 256-line lint exception: `core/blackbox/blackbox.c` (290L) — the
+  crash handler stays single-TU as a signal-safety property.
+
 ### Added
 - `oo_sys_path_is_dir` (`fs/os/fs.c`): SysCap-gated directory probe returning 1
   for directories (final-component symlinks followed) and 0 otherwise. Lets the

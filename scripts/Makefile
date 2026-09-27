@@ -425,7 +425,8 @@ CHALLENGERS := tests_challenger_contract tests_challenger_sys tests_challenger_w
 	tests_challenger_list_str_bounds \
 	tests_smt_spec_roundtrip \
 	tests_challenger_update_bypass \
-	tests_challenger_exec_capture
+	tests_challenger_exec_capture \
+	tests_blackbox_worstcase
 
 $(TEST_DIR):
 	@mkdir -p $@
@@ -477,6 +478,7 @@ test: lint $(addprefix $(TEST_DIR)/,$(CHALLENGERS))
 	@$(TEST_DIR)/tests_challenger_update_bypass
 	@$(TEST_DIR)/tests_challenger_exec_capture
 	@$(TEST_DIR)/tests_challenger_exec_capture
+	@$(TEST_DIR)/tests_blackbox_worstcase
 	@echo "TEST OK"
 
 # test-asan: re-run the address-safety probe under ASan + UBSan. The
