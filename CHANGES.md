@@ -32,6 +32,12 @@ Historical releases from v1.0.0 through v3.4.2 are archived in `docs/archive/cha
 - Remove residual `emit-c` from default make pipeline.
 - Default `make all` relies on committed C shim `sec/cap/cap_bridge_emitted.c`.
 - Product compilation path remains C99 `gcc oodar.c` plus `oodac` LLVM IR.
+- Documented the four grandfathered 256-line lint exceptions (the lint
+  requires a CHANGES.md note per entry; none existed): `hw/gpu/hip_kern.hip`
+  (529L GPU kernel), `qa/tests_challenger_ocap_bridge.c` (332L probe matrix),
+  `qa/tests_challenger_address_safety.c` (317L ASan matrix), `oodar.h` (276L
+  ABI header). The v2.3.0 FIPS NTT crypto exception was retired by the v4.1.0
+  split; no crypto file is excepted.
 
 ## v4.10.0 — 2026-09-12
 

@@ -11,8 +11,10 @@
  * trimmed arena.c, gpu_launch.c, and pq_aead.c. v4.1.0 split
  * mldsa_internal.c (627L) and mlkem_internal.c (472L) at FIPS
  * seams into 6 files (mldsa_ntt/poly/sample + mlkem_ntt/sample/poly)
- * each ≤256, so the only remaining exception is hw/gpu/hip_kern.hip
- * (529L, .hip not .c).
+ * each ≤256, retiring the crypto exception. Four grandfathered
+ * exceptions remain (justified inline at EXCEPTIONS below):
+ * hw/gpu/hip_kern.hip (GPU kernel, not C), the two challenger
+ * matrices, and oodar.h (public ABI header).
  *
  * Exit codes:
  *   0 — every file ≤ 256 lines (excluding documented exceptions)
@@ -26,11 +28,11 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-/* Documented algorithm-internal exceptions. The cap exists to help
- * smaller LLMs; the FIPS 203/204 NTT internals are densely coupled
- * and a single-file read is more useful than 4 fragmented files.
- * Add to this list only with a CHANGES.md note. Paths may be
- * relative to the repo root, with or without a leading "./". */
+/* Grandfathered over-cap files, each justified inline. The v2.3.0
+ * FIPS 203/204 NTT exception was retired by the v4.1.0 split (the
+ * 6 NTT/poly/sample files are each ≤256); no crypto file is
+ * excepted. Add to this list only with a CHANGES.md note. Paths
+ * may be relative to the repo root, with or without a leading "./". */
 static const char *EXCEPTIONS[] = {
   "hw/gpu/hip_kern.hip",
   /* qa/tests_challenger_ocap_bridge.c is the 6-probe Phase 1-3
