@@ -37,6 +37,9 @@ jobs:
             fi
           done
           echo "256-line cap verified"
+      - name: Structural lint gates (anchors, file-size, cap-table)
+        run: |
+          make -C scripts lint
 
   build:
     runs-on: ubuntu-latest
@@ -46,6 +49,8 @@ jobs:
         run: |
           chmod +x scripts/repro_build.sh
           ./scripts/repro_build.sh
+          chmod +x scripts/canary_audit.sh
+          ./scripts/canary_audit.sh
           mkdir -p dist
           cp scripts/lib/liboodar.a dist/liboodar.a-linux-x86_64
           (cd dist && sha256sum liboodar.a-linux-x86_64 > liboodar.a-linux-x86_64.sha256)
