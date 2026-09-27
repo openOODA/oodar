@@ -108,6 +108,104 @@ OoResS oo_gpu_cuda_attention(long long cap, const float *q, const float *k, cons
   return r;
 }
 
+static int oo_cuda_kname_is(const char *n, long long nlen, const char *lit) {
+  size_t L;
+  if (!n || !lit) return 0;
+  L = strlen(lit);
+  if ((size_t)nlen != L) return 0;
+  return strncmp(n, lit, (size_t)nlen) == 0;
+}
+
+static int oo_cuda_kname_in(const char *n, long long nlen, const char *const *ids) {
+  int i;
+  if (!ids) return 0;
+  for (i = 0; ids[i]; i++) {
+    if (oo_cuda_kname_is(n, nlen, ids[i])) return 1;
+  }
+  return 0;
+}
+
+static const char *const oo_cuda_ids_vec_add[] = {
+  "vec_add", "k_vec_add", "oo_k_cuda_vec_add", "oo_cuda_vec_add", "k_add", NULL
+};
+static const char *const oo_cuda_ids_sgemm[] = {
+  "sgemm", "k_sgemm", "oo_k_cuda_sgemm", "matmul", "k_matmul", NULL
+};
+static const char *const oo_cuda_ids_rmsnorm[] = {
+  "rmsnorm", "rms_norm", "k_rmsnorm", "oo_k_cuda_rmsnorm", NULL
+};
+static const char *const oo_cuda_ids_attention[] = {
+  "attention", "flash_attention", "k_attn", "oo_k_cuda_attn", "k_attention", NULL
+};
+static const char *const oo_cuda_ids_reduce[] = {
+  "reduce_sum", "reduce", "k_reduce", "oo_k_cuda_reduce", NULL
+};
+
+OoResS oo_gpu_cuda_try_launch_dispatch(long long cap, OoStr shader) {
+  OoResS r;
+  const char *p;
+  const char *name;
+  long long len;
+  long long nlen;
+  p = shader.data ? shader.data : "";
+  len = shader.len < 0 ? 0 : shader.len;
+  name = p;
+  nlen = len;
+  if (len >= 5 && strncmp(p, "cuda:", 5) == 0) {
+    name = p + 5;
+    nlen = len - 5;
+  } else {
+    r.ok = 0;
+    r.val = oo_str_lit("gpu residual: unknown shader directive (want cuda:<kernel>)");
+    return r;
+  }
+
+  /* NEVER shadow cap with 0 (see the HIP twin for why). */
+  if (oo_cuda_kname_in(name, nlen, oo_cuda_ids_vec_add)) {
+    float ha[64], hb[64], hc[64];
+    int i;
+    for (i = 0; i < 64; i++) {
+      ha[i] = (float)i;
+      hb[i] = 2.0f * (float)i;
+      hc[i] = 0.0f;
+    }
+    return oo_gpu_cuda_vec_add(cap, ha, hb, hc, 64);
+  }
+
+  if (oo_cuda_kname_in(name, nlen, oo_cuda_ids_sgemm)) {
+    float A[64], B[64], C[64];
+    int i;
+    for (i = 0; i < 64; i++) { A[i] = 1.0f; B[i] = 2.0f; C[i] = 0.0f; }
+    return oo_gpu_cuda_sgemm(cap, A, B, C, 8, 8, 8);
+  }
+
+  if (oo_cuda_kname_in(name, nlen, oo_cuda_ids_rmsnorm)) {
+    float x[32], gamma[32], out[32];
+    int i;
+    for (i = 0; i < 32; i++) { x[i] = 1.0f; gamma[i] = 1.0f; out[i] = 0.0f; }
+    return oo_gpu_cuda_rmsnorm(cap, x, gamma, out, 1, 32);
+  }
+
+  if (oo_cuda_kname_in(name, nlen, oo_cuda_ids_attention)) {
+    float q[32], k[32], v[32], out[32];
+    int i;
+    for (i = 0; i < 32; i++) { q[i] = 0.1f; k[i] = 0.1f; v[i] = 0.1f; out[i] = 0.0f; }
+    return oo_gpu_cuda_attention(cap, q, k, v, out, 4, 8);
+  }
+
+  if (oo_cuda_kname_in(name, nlen, oo_cuda_ids_reduce)) {
+    float in[256], out[1];
+    int i;
+    for (i = 0; i < 256; i++) in[i] = 1.0f;
+    out[0] = 0.0f;
+    return oo_gpu_cuda_reduce_sum(cap, in, out, 256);
+  }
+
+  r.ok = 0;
+  r.val = oo_str_lit("gpu launch failed: unrecognized kernel");
+  return r;
+}
+
 OoResS oo_gpu_cuda_reduce_sum(long long cap, const float *in, float *out, int n) {
   OoResS r;
   oo_cap_require_gpu(cap, "gpu_cuda_reduce_sum");

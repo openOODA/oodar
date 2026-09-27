@@ -205,6 +205,12 @@ OoResS oo_gpu_cuda_sgemm(long long cap, const float *a, const float *b, float *c
 OoResS oo_gpu_cuda_rmsnorm(long long cap, const float *x, const float *gamma, float *out, int rows, int dim);
 OoResS oo_gpu_cuda_attention(long long cap, const float *q, const float *k, const float *v, float *out, int seq_len, int d_head);
 OoResS oo_gpu_cuda_reduce_sum(long long cap, const float *in, float *out, int n);
+OoResS oo_gpu_cuda_try_launch(long long cap, OoStr shader);
+OoResS oo_gpu_cuda_vec_add_flist(long long cap, OoFList a, OoFList b, OoFList c, int n);
+OoResS oo_gpu_cuda_sgemm_flist(long long cap, OoFList a, OoFList b, OoFList c, int m, int n, int k);
+OoResS oo_gpu_cuda_rmsnorm_flist(long long cap, OoFList x, OoFList gamma, OoFList out, int rows, int dim);
+OoResS oo_gpu_cuda_attention_flist(long long cap, OoFList q, OoFList k, OoFList v, OoFList out, int seq_len, int d_head);
+OoResS oo_gpu_cuda_reduce_sum_flist(long long cap, OoFList in, OoFList out, int n);
 OoResS oo_fetch(long long cap, OoStr url);
 
 long long oo_now_ms(long long cap);

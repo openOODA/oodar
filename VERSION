@@ -14,10 +14,12 @@
 oodar=4.0.57
 ooda=2.10.0
 ooda_max=2.99.0
-api_surface=115
+api_surface=116
 # CUDA admission: +3 (hw/gpu/gpu/gpu_cuda_dlopen.c,
 # gpu_cuda_dispatch.c, gpu_cuda.c). cuda_kern.cu is not counted
 # (CI counts *.c only). 112 → 115.
+# CUDA LLVM marshal: +1 (gpu_cuda_dispatch_flist.c, byval-%OoFList
+# forms for .oo List[Float] args). 115 → 116.
 # v4.10.0: cumulative Thrust over v4.5.0; 5 backwards-compatible
 # MINOR bumps landed in this session:
 #   v4.6.0: hw/audio wire-up (+1 .c file: hw/audio/oo_audio_capture.c;

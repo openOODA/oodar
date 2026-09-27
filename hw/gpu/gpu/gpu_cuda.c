@@ -45,3 +45,11 @@ int oo_gpu_cuda_unload(void) {
    * is a no-op returning 1 to keep the symmetric API. */
   return 1;
 }
+
+OoResS oo_gpu_cuda_try_launch_dispatch(long long cap, OoStr shader);
+
+OoResS oo_gpu_cuda_try_launch(long long cap, OoStr shader) {
+  oo_cap_require_gpu(cap, "gpu_launch");
+  oo_gpu_init(cap);
+  return oo_gpu_cuda_try_launch_dispatch(cap, shader);
+}

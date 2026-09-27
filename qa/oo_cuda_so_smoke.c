@@ -63,6 +63,29 @@ int main(void) {
   CHECK(r.ok == 1, "reduce_sum MATCH");
   CHECK(fabsf(sum[0] - 4096.0f) < 1.0f, "reduce_sum == 4096");
 
+  double fxa[64], fxb[64], fxc[64];
+  OoFList fx, fy, fz;
+  for (int i = 0; i < 64; i++) { fxa[i] = (double)i; fxb[i] = 1.0; fxc[i] = 0.0; }
+  fx.data = fxa; fx.len = 64; fx.cap = 64;
+  fy.data = fxb; fy.len = 64; fy.cap = 64;
+  fz.data = fxc; fz.len = 64; fz.cap = 64;
+  r = oo_gpu_cuda_vec_add_flist(cap, fx, fy, fz, 64);
+  CHECK(r.ok == 1, "vec_add_flist MATCH (LLVM byval path)");
+  CHECK(fabs(fxc[63] - 64.0) < 1e-6, "flist fxc[63]==64");
+
+  OoStr sh = oo_str_lit("cuda:vec_add");
+  r = oo_gpu_cuda_try_launch(cap, sh);
+  CHECK(r.ok == 1, "try_launch cuda:vec_add MATCH");
+  sh = oo_str_lit("cuda:reduce");
+  r = oo_gpu_cuda_try_launch(cap, sh);
+  CHECK(r.ok == 1, "try_launch cuda:reduce MATCH");
+  sh = oo_str_lit("cuda:nope");
+  r = oo_gpu_cuda_try_launch(cap, sh);
+  CHECK(r.ok == 0, "try_launch unknown kernel fails closed");
+  sh = oo_str_lit("hip:vec_add");
+  r = oo_gpu_cuda_try_launch(cap, sh);
+  CHECK(r.ok == 0, "try_launch wrong prefix fails closed");
+
   /* Fail-closed rows (valid with or without GPU). */
   r = oo_gpu_cuda_vec_add(cap, 0, b, c, 64);
   CHECK(r.ok == 0, "vec_add null fails closed");

@@ -60,6 +60,22 @@ int main(void) {
              (r.ok == 1 && has(r.val, "MATCH"));
   CHECK(coherent, "reduce valid args coherent (absent|MATCH)");
 
+  /* By-value OoFList forms (LLVM backend .oo List[Float] path). */
+  double da[8] = {1, 2, 3, 4, 5, 6, 7, 8}, db[8] = {1, 1, 1, 1, 1, 1, 1, 1}, dc[8];
+  OoFList fa, fb, fc;
+  fa.data = da; fa.len = 8; fa.cap = 8;
+  fb.data = db; fb.len = 8; fb.cap = 8;
+  fc.data = dc; fc.len = 8; fc.cap = 8;
+  r = oo_gpu_cuda_vec_add_flist(cap, fa, fb, fc, 8);
+  coherent = (r.ok == 0 && has(r.val, "liboo_cuda.so absent")) ||
+             (r.ok == 1 && has(r.val, "MATCH"));
+  CHECK(coherent, "flist valid args coherent (absent|MATCH)");
+  OoFList fn = fa; fn.data = 0;
+  r = oo_gpu_cuda_vec_add_flist(cap, fn, fb, fc, 8);
+  CHECK(r.ok == 0 && has(r.val, "invalid args"), "flist null fails closed");
+  r = oo_gpu_cuda_vec_add_flist(cap, fa, fb, fc, 9);
+  CHECK(r.ok == 0 && has(r.val, "invalid args"), "flist over-len fails closed");
+
   free(ba.data); free(sh.data); free(zb.data);
   if (fails == 0) printf("PASS tests_cuda_nogpu\n");
   return fails ? 1 : 0;

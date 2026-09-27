@@ -7,6 +7,16 @@ Historical releases from v1.0.0 through v3.4.2 are archived in `docs/archive/cha
 ## Unreleased
 
 ### Added
+- Landlock device-node rights: explicitly listed char/block devices now
+  receive `WRITE_FILE` (drivers open RDWR) + `IOCTL_DEV` (abi>=5; every
+  driver call is an ioctl). Without them, allowlisted `/dev/nvidia*`
+  nodes failed open/ioctl, so jailed GPU binaries silently computed
+  nothing (cudaMalloc denied). Granted ONLY on explicitly listed device
+  nodes — never on dirs or regular files — so allowing `/dev` as a
+  subtree still confers no device write/ioctl. (oodac's jail constructor
+  probes and appends existing `/dev/nvidia*` nodes + `/proc/self`, all
+  gated on NVIDIA presence; both halves required. Minimal /proc set
+  proven by bisection: `/proc/self` suffices, full `/proc` unneeded.)
 - CUDA backend admission (NVIDIA twin of the HIP surface, proven on 2x
   RTX 4060 Ti sm_89): `hw/gpu/cuda_kern.cu` (5 kernels — vec_add, sgemm,
   rmsnorm, single-head attention, grid-stride reduce_sum — each launcher
@@ -21,6 +31,14 @@ Historical releases from v1.0.0 through v3.4.2 are archived in `docs/archive/cha
   hosts). Manual `qa/oo_cuda_so_smoke.c` (6/6 MATCH on sm_89, NOT in
   CHALLENGERS — mirrors the HIP smoke) + CI-safe `qa/tests_cuda_nogpu.c`
   (fail-closed + absent|MATCH coherence, in CHALLENGERS + `make test`).
+- CUDA `try_launch` (`cuda:<kernel>` self-test dispatcher: vec_add, sgemm,
+  rmsnorm, attention, reduce_sum) + `gpu_cuda_dispatch_flist.c` (by-value
+  `OoFList` forms for the LLVM backend: `ptr byval(%OoFList)` passes the
+  24-byte aggregate on the stack, never a pointer — pointer params read
+  garbage (proven via disassembly); f64 converted around the f32 kernels;
+  `api_surface` 115 → 116). Known asymmetry: the HIP LLVM path has the
+  same marshal gap; left untouched (no AMD hardware to prove a fix —
+  documented, not papered over).
 
 ### Fixed
 - Audit 14 blackbox truncation: `s_autopsy_buf` 32K → 64K with a documented

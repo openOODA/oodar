@@ -71,6 +71,7 @@ static int ll_each_dir(OoStr dirs, int *count, int (*fn)(const char *, void *), 
 struct ll_add_ctx {
   int ruleset_fd;
   unsigned long long access;
+  int abi;
 };
 
 static int ll_add_one(const char *path, void *v) {
@@ -92,6 +93,16 @@ static int ll_add_one(const char *path, void *v) {
       LL_FS_REMOVE_FILE | LL_FS_MAKE_CHAR | LL_FS_MAKE_DIR |
       LL_FS_MAKE_REG | LL_FS_MAKE_SOCK | LL_FS_MAKE_FIFO |
       LL_FS_MAKE_BLOCK | LL_FS_MAKE_SYM | LL_FS_REFER);
+    /* Device nodes (e.g. /dev/nvidia*) need WRITE_FILE (drivers open
+     * RDWR) and IOCTL_DEV (abi>=5; every driver call is an ioctl).
+     * Granted ONLY on explicitly listed char/block devices, never on
+     * dirs or regular files, so allowing /dev as a subtree still
+     * confers no device write/ioctl. /dev/null gains the write bit it
+     * was documented for (discard sink). */
+    if (S_ISCHR(st.st_mode) || S_ISBLK(st.st_mode)) {
+      attr.allowed_access |= LL_FS_WRITE_FILE;
+      if (c->abi >= 5) attr.allowed_access |= LL_FS_IOCTL_DEV;
+    }
   }
   attr.parent_fd = fd;
   long rc = syscall(__NR_landlock_add_rule, c->ruleset_fd, LANDLOCK_RULE_PATH_BENEATH, &attr, 0);
@@ -164,6 +175,7 @@ OoResS oo_landlock_restrict(long long cap, OoStr read_dirs, OoStr write_dirs) {
   if (nread > 0) {
     struct ll_add_ctx ctx;
     ctx.ruleset_fd = ruleset_fd;
+    ctx.abi = abi;
     ctx.access = ll_read_bits(abi) & attr.handled_access_fs;
     if (ll_each_dir(read_dirs, NULL, ll_add_one, &ctx) != 0) {
       close(ruleset_fd);
@@ -173,6 +185,7 @@ OoResS oo_landlock_restrict(long long cap, OoStr read_dirs, OoStr write_dirs) {
   if (nwrite > 0) {
     struct ll_add_ctx ctx;
     ctx.ruleset_fd = ruleset_fd;
+    ctx.abi = abi;
     ctx.access = ll_write_bits(abi) & attr.handled_access_fs;
     if (ll_each_dir(write_dirs, NULL, ll_add_one, &ctx) != 0) {
       close(ruleset_fd);
