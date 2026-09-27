@@ -124,5 +124,6 @@
 #include "app/actor/actor_closure.c"
 #include "core/mem/align.c"
 #include "core/mem/weak.c"
+#include "core/blackbox/blackbox_emit.c"
 #include "core/blackbox/blackbox.c"
 #include "hw/audio/oo_audio_capture.c"
