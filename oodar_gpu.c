@@ -10,3 +10,6 @@
 #include "hw/gpu/gpu/gpu_hip_dispatch.c"
 #include "hw/gpu/gpu/gpu_hip_dispatch_buf.c"
 #include "hw/gpu/gpu/gpu_hip.c"
+#include "hw/gpu/gpu/gpu_cuda_dlopen.c"
+#include "hw/gpu/gpu/gpu_cuda_dispatch.c"
+#include "hw/gpu/gpu/gpu_cuda.c"

@@ -136,10 +136,11 @@ int oo_gpu_hip_available(void) {
 }
 
 int oo_gpu_init(long long cap) {
+  int oo_gpu_cuda_available(void); /* fwd: gpu_cuda.c, later in umbrella */
   oo_cap_require_gpu(cap, "gpu_init");
   pthread_mutex_lock(&g_gpu_mutex);
   if (g_gpu_initialized) {
-    int already = g_hip_ok;
+    int already = g_hip_ok || oo_gpu_cuda_available();
     pthread_mutex_unlock(&g_gpu_mutex);
     return already ? 1 : 0;
   }
@@ -184,10 +185,10 @@ int oo_gpu_init(long long cap) {
   memset(g_event_handles, 0, sizeof(g_event_handles));
   memset(g_pending_copies, 0, sizeof(g_pending_copies));
   g_gpu_initialized = 1;
-  int ok = g_hip_ok;
+  int ok = g_hip_ok || oo_gpu_cuda_available();
   pthread_mutex_unlock(&g_gpu_mutex);
   if (!ok) {
-    fprintf(stderr, "ERR\tgpu\tgpu_init: HIP/ROCm runtime absent; failing closed\n");
+    fprintf(stderr, "ERR\tgpu\tgpu_init: no GPU runtime (neither HIP/ROCm nor CUDA); failing closed\n");
   }
   return ok;
 }

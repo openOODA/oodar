@@ -193,6 +193,18 @@ OoResS oo_gpu_hip_attention(long long cap, const float *q, const float *k, const
 OoResS oo_gpu_hip_reduce_sum(long long cap, const float *in, float *out, int n);
 OoResS oo_gpu_hip_rope(long long cap, const float *in, const float *cos_val, const float *sin_val, float *out, int seq_len, int dim);
 OoResS oo_gpu_hip_stencil_3d(long long cap, const float *in, float *out, int nx, int ny, int nz, float c0, float c1);
+/* CUDA backend admission: NVIDIA twin of the HIP surface above. Symbols
+ * ship in liboodar-gpu.a; liboo_cuda.so (nvcc, sm_89) is dlopened at
+ * runtime. The oodac --backend cuda emitter calls this surface. */
+int oo_gpu_cuda_available(void);
+int oo_gpu_cuda_load(void);
+int oo_gpu_cuda_unload(void);
+OoResS oo_gpu_cuda_vec_add(long long cap, float *a, float *b, float *c, int n);
+OoResS oo_gpu_cuda_vec_add_buf(long long cap, OoFloatBuf a, OoFloatBuf b, OoFloatBuf c);
+OoResS oo_gpu_cuda_sgemm(long long cap, const float *a, const float *b, float *c, int m, int n, int k);
+OoResS oo_gpu_cuda_rmsnorm(long long cap, const float *x, const float *gamma, float *out, int rows, int dim);
+OoResS oo_gpu_cuda_attention(long long cap, const float *q, const float *k, const float *v, float *out, int seq_len, int d_head);
+OoResS oo_gpu_cuda_reduce_sum(long long cap, const float *in, float *out, int n);
 OoResS oo_fetch(long long cap, OoStr url);
 
 long long oo_now_ms(long long cap);

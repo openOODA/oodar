@@ -69,6 +69,29 @@ OoResS oo_gpu_launch_kernel(long long cap, OoStr target, OoStr kernel_name, OoSt
                             int gx, int gy, int gz, int bx, int by, int bz,
                             void **kernel_args, int arg_count);
 
+/* The liboo_cuda.so launcher table. Lives here (not gpu.c) so the
+ * CUDA files see it without touching gpu.c (256-line cap). */
+typedef struct {
+  int (*vec_add_launch)(const float *, const float *, float *, int);
+  int (*sgemm_launch)(const float *, const float *, float *, int, int, int);
+  int (*rmsnorm_launch)(const float *, const float *, float *, int, int);
+  int (*attention_launch)(const float *, const float *, const float *, float *, int, int);
+  int (*reduce_sum_launch)(const float *, float *, int);
+} OoCudaKernels;
+OoCudaKernels *oo_cuda_kernels(void);
+int oo_cuda_so_bind(void);
+
+/* Dynamic NVIDIA / CUDA Kernel Dispatch Functions */
+int oo_gpu_cuda_available(void);
+int oo_gpu_cuda_load(void);
+int oo_gpu_cuda_unload(void);
+OoResS oo_gpu_cuda_vec_add(long long cap, float *a, float *b, float *c, int n);
+OoResS oo_gpu_cuda_vec_add_buf(long long cap, OoFloatBuf a, OoFloatBuf b, OoFloatBuf c);
+OoResS oo_gpu_cuda_sgemm(long long cap, const float *a, const float *b, float *c, int m, int n, int k);
+OoResS oo_gpu_cuda_rmsnorm(long long cap, const float *x, const float *gamma, float *out, int rows, int dim);
+OoResS oo_gpu_cuda_attention(long long cap, const float *q, const float *k, const float *v, float *out, int seq_len, int d_head);
+OoResS oo_gpu_cuda_reduce_sum(long long cap, const float *in, float *out, int n);
+
 /* Dynamic ROCm / HIP Kernel Dispatch Functions */
 OoResS oo_gpu_hip_vec_add(long long cap, float *a, float *b, float *c, int n);
 OoResS oo_gpu_hip_sgemm(long long cap, const float *a, const float *b, float *c, int m, int n, int k);

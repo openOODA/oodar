@@ -6,6 +6,22 @@ Historical releases from v1.0.0 through v3.4.2 are archived in `docs/archive/cha
 
 ## Unreleased
 
+### Added
+- CUDA backend admission (NVIDIA twin of the HIP surface, proven on 2x
+  RTX 4060 Ti sm_89): `hw/gpu/cuda_kern.cu` (5 kernels — vec_add, sgemm,
+  rmsnorm, single-head attention, grid-stride reduce_sum — each launcher
+  CPU-verifies, rc 5 on mismatch; reduce verifies in double precision
+  since float serial sums saturate past 2^24), `gpu_cuda_dlopen.c`
+  (`OODA_CUDA_LIB` / `liboo_cuda.so` search + dlsym),
+  `gpu_cuda_dispatch.c` (6 cap-gated dispatchers incl. `vec_add_buf`),
+  `gpu_cuda.c` (`oo_gpu_cuda_available` via libcuda.so.1 probe).
+  Public `oo_gpu_cuda_*` decls in `oodar.h`; both umbrellas include the
+  3 new files; `api_surface` 112 → 115. `oo_gpu_init` now succeeds when
+  EITHER runtime is present (was: misleading HIP-absent ERR on CUDA-only
+  hosts). Manual `qa/oo_cuda_so_smoke.c` (6/6 MATCH on sm_89, NOT in
+  CHALLENGERS — mirrors the HIP smoke) + CI-safe `qa/tests_cuda_nogpu.c`
+  (fail-closed + absent|MATCH coherence, in CHALLENGERS + `make test`).
+
 ### Fixed
 - Audit 14 blackbox truncation: `s_autopsy_buf` 32K → 64K with a documented
   worst-case budget (~51K: 2×64 events at 2× escape expansion + 32 stack
