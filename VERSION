@@ -14,7 +14,9 @@
 oodar=4.0.58
 ooda=2.10.0
 ooda_max=2.99.0
-api_surface=116
+api_surface=117
+# blackbox 256-line-cap split: core/blackbox/blackbox_emit.c out of
+# blackbox.c. Net api_surface delta: +1 (116 → 117).
 # CUDA admission: +3 (hw/gpu/gpu/gpu_cuda_dlopen.c,
 # gpu_cuda_dispatch.c, gpu_cuda.c). cuda_kern.cu is not counted
 # (CI counts *.c only). 112 → 115.
