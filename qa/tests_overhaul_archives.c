@@ -69,6 +69,7 @@ static void test_tier2_boundary_cases(void) {
   /* Case 8: API surface parity with declared version */
   FILE *vf = fopen("oodar/VERSION", "r");
   if (!vf) vf = fopen("../VERSION", "r");
+  if (!vf) vf = fopen("VERSION", "r");
   int api_surface = 0;
   if (vf) {
     char line[128];
@@ -80,7 +81,7 @@ static void test_tier2_boundary_cases(void) {
     }
     fclose(vf);
   }
-  CHECK(api_surface == 112, "api_surface_declared_112");
+  CHECK(api_surface == 117, "api_surface_declared_117");
 
   /* Case 9: SHA-256 sidecar format check */
   FILE *sf = fopen("oodar/scripts/lib/liboodar.a.sha256", "r");

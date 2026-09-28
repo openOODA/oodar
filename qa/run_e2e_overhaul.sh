@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Master E2E Runner: openOODA Runtime Substrate Overhaul
 # Compliance: wc -l <= 256, Double-Run (Run_1 == Run_2 = 0), Zero Ambient.
+#
+# RETIRED 2026-09-28, kept for history. The C tests now run under
+# `make -C scripts test` + scripts/double_run.sh (stricter: byte-identical
+# double-run with -fstack-protector-strong). The oodac tier shell tests run
+# under oodac/tests/e2e/run_all.sh. Do not revive this orchestrator.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"

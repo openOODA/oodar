@@ -11,7 +11,11 @@
  * branchy negative control proves the Welch comparison discriminates —
  * verified live 2026-09-11: HMAC |t|=34, GCM |t|=628, branchy |t|=104886.)
  * Framework pattern (ns CLOCK_MONOTONIC, CPU pinning, |t| < 4.5) is
- * preserved from qa/dudect_c_native.c. */
+ * preserved from qa/dudect_c_native.c.
+ *
+ * Manual-only: minutes-long statistical test needing a quiet pinned CPU;
+ * unsuitable for per-push CI (noise-flaky by design). Last verified live
+ * 2026-09-28: HMAC |t|=958, GCM |t|=832, branchy |t|=413770. */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif

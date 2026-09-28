@@ -427,7 +427,11 @@ CHALLENGERS := tests_challenger_contract tests_challenger_sys tests_challenger_w
 	tests_challenger_update_bypass \
 	tests_challenger_exec_capture \
 	tests_blackbox_worstcase \
-	tests_cuda_nogpu
+	tests_cuda_nogpu \
+	tests_overhaul_slab tests_overhaul_arena \
+	tests_overhaul_arena_pass tests_overhaul_sandbox \
+	tests_overhaul_canary_fuzz tests_overhaul_archives \
+	tests_overhaul_cross tests_overhaul_workload
 
 $(TEST_DIR):
 	@mkdir -p $@
@@ -481,6 +485,14 @@ test: lint $(addprefix $(TEST_DIR)/,$(CHALLENGERS))
 	@$(TEST_DIR)/tests_challenger_exec_capture
 	@$(TEST_DIR)/tests_blackbox_worstcase
 	@$(TEST_DIR)/tests_cuda_nogpu
+	@$(TEST_DIR)/tests_overhaul_slab
+	@$(TEST_DIR)/tests_overhaul_arena
+	@$(TEST_DIR)/tests_overhaul_arena_pass
+	@$(TEST_DIR)/tests_overhaul_sandbox
+	@$(TEST_DIR)/tests_overhaul_canary_fuzz 42
+	@$(TEST_DIR)/tests_overhaul_archives
+	@$(TEST_DIR)/tests_overhaul_cross
+	@$(TEST_DIR)/tests_overhaul_workload
 	@echo "TEST OK"
 
 # test-asan: re-run the address-safety probe under ASan + UBSan. The
