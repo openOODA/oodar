@@ -98,6 +98,13 @@ CFLAGS_REPRO=(
   "-fmacro-prefix-map=$REPO_ROOT=."
   "-fstack-protector-strong"
   "-Wno-builtin-macro-redefined"
+  # MUST match the Makefile default CFLAGS shape: oodac links with
+  # -Wl,--gc-sections, which needs per-function sections to drop
+  # unreferenced code. Without these, single-object archives keep every
+  # function and their cross-lib undefined refs (e.g. net.a seal.o needs
+  # pqc.a AES-GCM) fail the link (oodac CI 2026-09-28 dlopen case).
+  "-ffunction-sections"
+  "-fdata-sections"
 )
 
 # Output paths
