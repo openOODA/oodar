@@ -62,64 +62,6 @@ jobs:
           path: dist/
           if-no-files-found: error
 
-  blackbox-gate:
-    needs: [verify]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: checkout oodar
-        uses: actions/checkout@v4
-        with:
-          path: oodar
-      - name: checkout std
-        uses: actions/checkout@v4
-        with:
-          repository: openOODA/std
-          path: std
-      - name: checkout oodac
-        uses: actions/checkout@v4
-        with:
-          repository: openOODA/oodac
-          path: oodac
-      - name: require compiler
-        run: |
-          test -x oodac/bin/oodac || chmod +x oodac/bin/oodac
-      - name: determinism double-run on qa/ probes (RULES §1.10)
-        working-directory: ${{ github.workspace }}/oodar
-        env:
-          OODA_FS_READDIR: ${{ github.workspace }}
-          OODA_FS_WRITEDIR: ${{ github.workspace }}
-          OODA_NO_JAIL: '1'
-          OODA_COMPILER: ${{ github.workspace }}/oodac/bin/oodac
-        run: |
-          set -euo pipefail
-          trap 'rm -f /tmp/*.diff[12]' EXIT
-          shopt -s nullglob
-          count=0
-          for f in qa/probe_*.oo; do
-            test -f "$f" || continue
-            count=$((count + 1))
-            base=$(basename "$f" .oo)
-            "$OODA_COMPILER" tokens "$f" > "/tmp/${base}.diff1" 2>&1 || {
-              echo "[blackbox-gate FAIL] diff non-zero exit on $f"
-              exit 1
-            }
-            "$OODA_COMPILER" tokens "$f" > "/tmp/${base}.diff2" 2>&1 || {
-              echo "[blackbox-gate FAIL] second diff non-zero exit on $f"
-              exit 1
-            }
-            if ! diff -q "/tmp/${base}.diff1" "/tmp/${base}.diff2" >/dev/null; then
-              echo "[blackbox-gate FAIL] non-deterministic diff on $f (double-run law violation, RULES §1.10)"
-              diff "/tmp/${base}.diff1" "/tmp/${base}.diff2" | head -20
-              exit 1
-            fi
-          done
-          if [ "$count" -eq 0 ]; then
-            echo "[blackbox-gate SKIP] no qa/probe_*.oo in this repo"
-            exit 0
-          fi
-          echo "[blackbox-gate OK] $count probes deterministic across double-run (oodac-native gate)"
-
   # Immune system: every challenger runs twice in fresh processes with
   # byte-identical stdout+stderr+exit (crypto-token tests: exit-identical).
   # AI writes the code; this machinery makes it trustworthy.
@@ -134,7 +76,7 @@ jobs:
           ./scripts/double_run.sh
 
   auto-release:
-    needs: [verify, build, blackbox-gate, immune-system]
+    needs: [verify, build, immune-system]
     uses: openOODA/openOODA/.github/workflows/auto-release.yml@v2.10.44
     with:
       artifact_pattern: 'release-assets-*'
