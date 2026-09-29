@@ -75,8 +75,71 @@ jobs:
           chmod +x scripts/double_run.sh
           ./scripts/double_run.sh
 
+  # RULES §1.10 double-run determinism over oodar's own .oo corpus (39
+  # anchors). Fail-closed: zero files or any nondeterminism fails the job.
+  # (No SKIP path: this C repo has no qa/probe_*.oo, so the corpus is the
+  # tracked .oo set itself. Per-file assertion is exit-code + output
+  # identity across two fresh runs — audit/docs anchors deterministically
+  # ERR because they anchor .oot docs the lexer does not accept; that is
+  # logged, and any nondeterminism still fails.)
+  blackbox-gate:
+    needs: [verify]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout oodar
+        uses: actions/checkout@v4
+        with:
+          path: oodar
+      - name: checkout oodac
+        uses: actions/checkout@v4
+        with:
+          repository: openOODA/oodac
+          path: oodac
+      - name: require compiler
+        run: |
+          test -x oodac/bin/oodac || chmod +x oodac/bin/oodac
+      - name: determinism double-run on tracked .oo corpus (RULES §1.10)
+        working-directory: ${{ github.workspace }}/oodar
+        env:
+          OODA_FS_READDIR: ${{ github.workspace }}
+          OODA_FS_WRITEDIR: ${{ github.workspace }}
+          OODA_NO_JAIL: '1'
+          OODA_COMPILER: ${{ github.workspace }}/oodac/bin/oodac
+        run: |
+          set -euo pipefail
+          trap 'rm -f /tmp/*.diff[12]' EXIT
+          count=0
+          errcount=0
+          while IFS= read -r f; do
+            test -f "$f" || continue
+            count=$((count + 1))
+            base=$(echo "$f" | tr '/' '_' | sed 's/\.oo$//')
+            rc1=0; rc2=0
+            "$OODA_COMPILER" tokens "$f" > "/tmp/${base}.diff1" 2>&1 || rc1=$?
+            "$OODA_COMPILER" tokens "$f" > "/tmp/${base}.diff2" 2>&1 || rc2=$?
+            if [ "$rc1" -ne "$rc2" ]; then
+              echo "[blackbox-gate FAIL] non-deterministic exit on $f ($rc1 vs $rc2, RULES §1.10)"
+              exit 1
+            fi
+            if ! diff -q "/tmp/${base}.diff1" "/tmp/${base}.diff2" >/dev/null; then
+              echo "[blackbox-gate FAIL] non-deterministic diff on $f (double-run law violation, RULES §1.10)"
+              diff "/tmp/${base}.diff1" "/tmp/${base}.diff2" | head -20
+              exit 1
+            fi
+            if [ "$rc1" -ne 0 ]; then
+              errcount=$((errcount + 1))
+              echo "[blackbox-gate NOTE] $f deterministically exits $rc1: $(head -1 "/tmp/${base}.diff1")"
+            fi
+          done < <(git ls-files "*.oo")
+          if [ "$count" -eq 0 ]; then
+            echo "[blackbox-gate FAIL] zero tracked .oo files (corpus floor violated)"
+            exit 1
+          fi
+          echo "[blackbox-gate OK] $count files deterministic across double-run ($errcount deterministic-nonzero, oodac-native gate)"
+
   auto-release:
-    needs: [verify, build, immune-system]
+    needs: [verify, build, blackbox-gate, immune-system]
     uses: openOODA/openOODA/.github/workflows/auto-release.yml@v2.10.44
     with:
       artifact_pattern: 'release-assets-*'
