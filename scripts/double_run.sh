@@ -15,6 +15,15 @@ say() { printf '[double-run] %s\n' "$*"; }
 TMPD="$(mktemp -d /tmp/oodar_dr_XXXXXX)"
 trap 'rm -rf "$TMPD"' EXIT INT TERM
 
+# Real libs, not vacuous absence: tests_overhaul_archives cases 9-10 stat the
+# modular archives, which are gitignored — a fresh checkout has none and the
+# test treats absence as pass. Build them so size/sidecar checks are real.
+if ! make -C scripts hashes > "$TMPD/oodar_doublerun_makehashes.log" 2>&1; then
+  say "FAIL: make hashes failed; last 30 lines:"
+  tail -n 30 "$TMPD/oodar_doublerun_makehashes.log"
+  exit 1
+fi
+
 # Ensure binaries exist (also proves the suite passes once via make test).
 if ! make -C scripts test > "$TMPD/oodar_doublerun_maketest.log" 2>&1; then
   say "FAIL: make test failed; last 30 lines:"
@@ -62,7 +71,7 @@ export OODAR_REPO="$ROOT"
 for bin in scripts/build/test/* scripts/build/lint/*; do
   [[ -x "$bin" && -f "$bin" ]] || continue
   case "$bin" in
-    *fuzz*) while read -r seed; do
+    *fuzz*) while read -r seed || [[ -n "$seed" ]]; do
              case "$seed" in ''|\#*) continue ;; esac
              run_twice "$bin" "$seed"
            done < "$ROOT/qa/fuzz_seeds.txt" ;;
@@ -71,6 +80,12 @@ for bin in scripts/build/test/* scripts/build/lint/*; do
   esac
 done
 
+# Floor: an empty build dir (or a neutered `make test`) must not pass
+# vacuously. 44 = challengers × (1 + fuzz-seed fan-out) as proven green.
+if [[ "$PASS_N" -lt 44 ]]; then
+  say "FAIL: only $PASS_N challengers ran, floor is 44"
+  exit 1
+fi
 if [[ "$FAIL" != "0" ]]; then
   say "FAIL: $PASS_N identical, some diverged"
   exit 1

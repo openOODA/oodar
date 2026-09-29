@@ -134,7 +134,7 @@ jobs:
           ./scripts/double_run.sh
 
   auto-release:
-    needs: [verify, build, blackbox-gate]
+    needs: [verify, build, blackbox-gate, immune-system]
     uses: openOODA/openOODA/.github/workflows/auto-release.yml@v2.10.44
     with:
       artifact_pattern: 'release-assets-*'
