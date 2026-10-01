@@ -167,6 +167,16 @@ OoResI oo_sys_exec_wait(long long cap, OoStr cmd, OoSList a) {
   if (rc != 0) {
     signal(SIGTTOU, old_ttou);
     signal(SIGTTIN, old_ttin);
+    if (rc == ENOENT) {
+      r.val = 127;
+      r.err = oo_str_lit("command not found");
+    } else if (rc == EACCES) {
+      r.val = 126;
+      r.err = oo_str_lit("permission denied");
+    } else {
+      r.val = 127;
+      r.err = oo_str_lit("spawn failed");
+    }
     return r;
   }
 
