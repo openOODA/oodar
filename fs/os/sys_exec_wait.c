@@ -151,7 +151,13 @@ OoResI oo_sys_exec_wait(long long cap, OoStr cmd, OoSList a) {
   }
 
   posix_spawnattr_init(&attr);
-  short spawn_flags = POSIX_SPAWN_USEVFORK | POSIX_SPAWN_SETPGROUP;
+  sigset_t default_signals;
+  sigemptyset(&default_signals);
+  sigaddset(&default_signals, SIGINT);
+  sigaddset(&default_signals, SIGQUIT);
+  sigaddset(&default_signals, SIGTSTP);
+  posix_spawnattr_setsigdefault(&attr, &default_signals);
+  short spawn_flags = POSIX_SPAWN_USEVFORK | POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF;
   posix_spawnattr_setflags(&attr, spawn_flags);
   posix_spawnattr_setpgroup(&attr, 0);
 

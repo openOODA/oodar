@@ -180,6 +180,52 @@ OoResS oo_tui_write(long long cap, OoStr data) {
       r.val = oo_str_lit("chdir failed");
       return r;
     }
+    char cwd_buf[4096];
+    if (getcwd(cwd_buf, sizeof(cwd_buf))) {
+      setenv("PWD", cwd_buf, 1);
+      r.ok = 1;
+      r.val = oo_str_lit(cwd_buf);
+    }
+    return r;
+  }
+  if ((data.len >= 4 && memcmp(data.data, "\0pwd", 4) == 0) ||
+      (data.len >= 5 && memcmp(data.data, "\x1b_pwd", 5) == 0)) {
+    char cwd_buf[4096];
+    if (getcwd(cwd_buf, sizeof(cwd_buf))) {
+      r.ok = 1;
+      r.val = oo_str_lit(cwd_buf);
+      return r;
+    }
+    r.ok = 1;
+    r.val = oo_str_lit(".");
+    return r;
+  }
+  if ((data.len >= 7 && memcmp(data.data, "\0mkdir:", 7) == 0) ||
+      (data.len >= 8 && memcmp(data.data, "\x1b_mkdir:", 8) == 0)) {
+    char path_buf[4096];
+    size_t offset = (data.data[0] == '\x1b') ? 8 : 7;
+    size_t plen = (size_t)data.len - offset;
+    if (plen >= sizeof(path_buf)) {
+      r.ok = 0;
+      r.val = oo_str_lit("path too long");
+      return r;
+    }
+    memcpy(path_buf, data.data + offset, plen);
+    path_buf[plen] = '\0';
+    for (char *p = path_buf + 1; *p; p++) {
+      if (*p == '/') {
+        *p = '\0';
+        mkdir(path_buf, 0755);
+        *p = '/';
+      }
+    }
+    if (mkdir(path_buf, 0755) != 0 && errno != EEXIST) {
+      r.ok = 0;
+      r.val = oo_str_lit("mkdir failed");
+      return r;
+    }
+    r.ok = 1;
+    r.val = oo_str_lit("ok");
     return r;
   }
   if ((data.len >= 5 && memcmp(data.data, "\x00set:", 5) == 0) ||
