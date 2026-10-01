@@ -197,23 +197,21 @@ OoResI oo_sys_exec_wait(long long cap, OoStr cmd, OoSList a) {
   if (wrc < 0) return r;
 
   if (WIFEXITED(st)) {
+    r.ok = 1;
     r.val = WEXITSTATUS(st);
-    if (r.val == 0) {
-      r.ok = 1;
-      r.err = oo_str_lit("");
-    } else {
-      r.err = oo_str_lit("sys_exec_wait nonzero");
-    }
+    r.err = oo_str_lit("");
     return r;
   }
   if (WIFSIGNALED(st)) {
+    r.ok = 1;
     r.val = 128 + WTERMSIG(st);
-    r.err = oo_str_lit("sys_exec_wait signaled");
+    r.err = oo_str_lit("");
     return r;
   }
   if (WIFSTOPPED(st)) {
+    r.ok = 1;
     r.val = 128 + WSTOPSIG(st);
-    r.err = oo_str_lit("sys_exec_wait stopped");
+    r.err = oo_str_lit("");
     return r;
   }
   r.val = 1;
