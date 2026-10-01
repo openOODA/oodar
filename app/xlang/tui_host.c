@@ -1,5 +1,6 @@
-/* tui_host.c — termios and ioctl TUI host primitives for raw mode line editing.
- * FfiCap-gated primitives implementing oo_tui_* declared intrinsics. */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
 #include "../../oodar.h"
 #include "../../oodar_internal.h"
 #include <termios.h>
@@ -10,6 +11,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/epoll.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <errno.h>
 
 static struct termios s_orig_termios;
 static int s_raw_active = 0;
@@ -142,6 +149,12 @@ OoResS oo_tui_get_size(long long cap) {
   return r;
 }
 
+static volatile sig_atomic_t s_daemon_running = 1;
+static void daemon_sig_handler(int sig) {
+  (void)sig;
+  s_daemon_running = 0;
+}
+
 OoResS oo_tui_write(long long cap, OoStr data) {
   oo_cap_require_ffi(cap, "tui_write");
   OoResS r;
@@ -194,6 +207,132 @@ OoResS oo_tui_write(long long cap, OoStr data) {
       memcpy(k_buf, data.data + offset, klen);
       k_buf[klen] = '\0';
       unsetenv(k_buf);
+    }
+    return r;
+  }
+  if ((data.len >= 8 && memcmp(data.data, "\0" "daemon:", 8) == 0) ||
+      (data.len >= 9 && memcmp(data.data, "\x1b_daemon:", 9) == 0)) {
+    char d_buf[8192];
+    size_t offset = (data.data[0] == '\x1b') ? 9 : 8;
+    size_t dlen = (size_t)data.len - offset;
+    if (dlen < sizeof(d_buf)) {
+      memcpy(d_buf, data.data + offset, dlen);
+      d_buf[dlen] = '\0';
+      char *sock = NULL;
+      char *bin = NULL;
+      char *cwd = NULL;
+      char *cur = d_buf;
+      while (cur && *cur) {
+        char *next = strchr(cur, ';');
+        if (next) *next = '\0';
+        if (strncmp(cur, "sock=", 5) == 0) sock = cur + 5;
+        else if (strncmp(cur, "bin=", 4) == 0) bin = cur + 4;
+        else if (strncmp(cur, "cwd=", 4) == 0) cwd = cur + 4;
+        cur = next ? next + 1 : NULL;
+      }
+      if (sock && bin) {
+        // Run native epoll AF_UNIX daemon
+        unlink(sock);
+        char pdir[4096];
+        strncpy(pdir, sock, sizeof(pdir) - 1);
+        pdir[sizeof(pdir) - 1] = '\0';
+        char *last_sl = strrchr(pdir, '/');
+        if (last_sl && last_sl != pdir) {
+          *last_sl = '\0';
+          char mk_cmd[4096];
+          snprintf(mk_cmd, sizeof(mk_cmd), "mkdir -p \"%s\" 2>/dev/null", pdir);
+          system(mk_cmd);
+        }
+        int lfd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+        if (lfd >= 0) {
+          struct sockaddr_un sa;
+          memset(&sa, 0, sizeof(sa));
+          sa.sun_family = AF_UNIX;
+          strncpy(sa.sun_path, sock, sizeof(sa.sun_path) - 1);
+          if (bind(lfd, (struct sockaddr *)&sa, sizeof(sa)) == 0) {
+            chmod(sock, 0600);
+            if (listen(lfd, 16) == 0) {
+              int epfd = epoll_create1(EPOLL_CLOEXEC);
+              if (epfd >= 0) {
+                struct epoll_event ev;
+                ev.events = EPOLLIN;
+                ev.data.fd = lfd;
+                epoll_ctl(epfd, EPOLL_CTL_ADD, lfd, &ev);
+                s_daemon_running = 1;
+                void (*old_int)(int) = signal(SIGINT, daemon_sig_handler);
+                void (*old_term)(int) = signal(SIGTERM, daemon_sig_handler);
+                void (*old_pipe)(int) = signal(SIGPIPE, SIG_IGN);
+                struct epoll_event evs[16];
+                while (s_daemon_running) {
+                  int nfds = epoll_wait(epfd, evs, 16, 500);
+                  if (nfds < 0) {
+                    if (errno == EINTR) continue;
+                    break;
+                  }
+                  for (int ei = 0; ei < nfds; ei++) {
+                    int efd = evs[ei].data.fd;
+                    if (efd == lfd) {
+                      int cfd = accept4(lfd, NULL, NULL, SOCK_CLOEXEC);
+                      if (cfd >= 0) {
+                        struct epoll_event cev;
+                        cev.events = EPOLLIN;
+                        cev.data.fd = cfd;
+                        epoll_ctl(epfd, EPOLL_CTL_ADD, cfd, &cev);
+                      }
+                    } else {
+                      char req[16384];
+                      ssize_t nr = read(efd, req, sizeof(req) - 1);
+                      if (nr <= 0) {
+                        epoll_ctl(epfd, EPOLL_CTL_DEL, efd, NULL);
+                        close(efd);
+                      } else {
+                        req[nr] = '\0';
+                        int pfd[2];
+                        if (pipe2(pfd, O_CLOEXEC) == 0) {
+                          pid_t pid = fork();
+                          if (pid == 0) {
+                            if (cwd && cwd[0]) chdir(cwd);
+                            dup2(pfd[1], STDOUT_FILENO);
+                            close(pfd[0]);
+                            close(pfd[1]);
+                            char *av[] = {bin, "--varlink-call", req, NULL};
+                            execv(bin, av);
+                            _exit(127);
+                          }
+                          close(pfd[1]);
+                          char rep[16384];
+                          size_t rtot = 0;
+                          while (rtot < sizeof(rep) - 2) {
+                            ssize_t red = read(pfd[0], rep + rtot, sizeof(rep) - rtot - 2);
+                            if (red <= 0) break;
+                            rtot += (size_t)red;
+                          }
+                          close(pfd[0]);
+                          waitpid(pid, NULL, 0);
+                          if (rtot == 0 || rep[rtot - 1] != '\0') {
+                            rep[rtot++] = '\0';
+                          }
+                          write(efd, rep, rtot);
+                        }
+                        epoll_ctl(epfd, EPOLL_CTL_DEL, efd, NULL);
+                        close(efd);
+                      }
+                    }
+                  }
+                }
+                close(epfd);
+                signal(SIGINT, old_int);
+                signal(SIGTERM, old_term);
+                signal(SIGPIPE, old_pipe);
+              }
+            }
+            close(lfd);
+            unlink(sock);
+          } else {
+            close(lfd);
+          }
+        }
+      }
     }
     return r;
   }
