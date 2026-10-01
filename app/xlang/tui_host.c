@@ -145,12 +145,61 @@ OoResS oo_tui_get_size(long long cap) {
 OoResS oo_tui_write(long long cap, OoStr data) {
   oo_cap_require_ffi(cap, "tui_write");
   OoResS r;
-  if (data.data && data.len > 0) {
-    ssize_t nw = write(STDOUT_FILENO, data.data, (size_t)data.len);
-    (void)nw;
-  }
   r.ok = 1;
   r.val = oo_str_lit("ok");
+  if (!data.data || data.len <= 0) return r;
+
+  /* Native filesystem control channel */
+  if ((data.len >= 4 && memcmp(data.data, "\x00cd:", 4) == 0) ||
+      (data.len >= 5 && memcmp(data.data, "\x1b_cd:", 5) == 0)) {
+    char path_buf[4096];
+    size_t offset = (data.data[0] == '\x1b') ? 5 : 4;
+    size_t plen = (size_t)data.len - offset;
+    if (plen >= sizeof(path_buf)) {
+      r.ok = 0;
+      r.val = oo_str_lit("path too long");
+      return r;
+    }
+    memcpy(path_buf, data.data + offset, plen);
+    path_buf[plen] = '\0';
+    if (chdir(path_buf) != 0) {
+      r.ok = 0;
+      r.val = oo_str_lit("chdir failed");
+      return r;
+    }
+    return r;
+  }
+  if ((data.len >= 5 && memcmp(data.data, "\x00set:", 5) == 0) ||
+      (data.len >= 6 && memcmp(data.data, "\x1b_set:", 6) == 0)) {
+    char kv_buf[4096];
+    size_t offset = (data.data[0] == '\x1b') ? 6 : 5;
+    size_t kvlen = (size_t)data.len - offset;
+    if (kvlen < sizeof(kv_buf)) {
+      memcpy(kv_buf, data.data + offset, kvlen);
+      kv_buf[kvlen] = '\0';
+      char *eq = strchr(kv_buf, '=');
+      if (eq) {
+        *eq = '\0';
+        setenv(kv_buf, eq + 1, 1);
+      }
+    }
+    return r;
+  }
+  if ((data.len >= 5 && memcmp(data.data, "\x00uns:", 5) == 0) ||
+      (data.len >= 6 && memcmp(data.data, "\x1b_uns:", 6) == 0)) {
+    char k_buf[256];
+    size_t offset = (data.data[0] == '\x1b') ? 6 : 5;
+    size_t klen = (size_t)data.len - offset;
+    if (klen < sizeof(k_buf)) {
+      memcpy(k_buf, data.data + offset, klen);
+      k_buf[klen] = '\0';
+      unsetenv(k_buf);
+    }
+    return r;
+  }
+
+  ssize_t nw = write(STDOUT_FILENO, data.data, (size_t)data.len);
+  (void)nw;
   return r;
 }
 

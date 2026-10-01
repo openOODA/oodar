@@ -11,3 +11,4 @@
 #include "app/xlang/ffi.c"
 #include "app/xlang/ffi_call.c"
 #include "app/xlang/xlang.c"
+#include "app/xlang/tui_host.c"
