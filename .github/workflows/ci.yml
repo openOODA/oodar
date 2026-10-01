@@ -82,7 +82,7 @@ jobs:
   # identity across two fresh runs — audit/docs anchors deterministically
   # ERR because they anchor .oot docs the lexer does not accept; that is
   # logged, and any nondeterminism still fails.)
-  blackbox-gate:
+  determinism-gate:
     needs: [verify]
     if: always()
     runs-on: ubuntu-latest
@@ -139,7 +139,7 @@ jobs:
           echo "[blackbox-gate OK] $count files deterministic across double-run ($errcount deterministic-nonzero, oodac-native gate)"
 
   auto-release:
-    needs: [verify, build, blackbox-gate, immune-system]
+    needs: [verify, build, determinism-gate, immune-system]
     uses: openOODA/openOODA/.github/workflows/auto-release.yml@v2.10.44
     with:
       artifact_pattern: 'release-assets-*'

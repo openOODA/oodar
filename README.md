@@ -42,9 +42,10 @@ All design, RFCs, practices, and onboarding live in [openOODA/openOODA](https://
 | [openOODA/install](https://github.com/openOODA/install) | How the toolchain lands (install.sh, apt, dnf, pacman) |
 | [openOODA/opm](https://github.com/openOODA/opm) | Package manager |
 | [openOODA/catalog](https://github.com/openOODA/catalog) | Public package catalog |
-| [openOODA/lsp](https://github.com/openOODA/lsp) | Language server |
-| [openOODA/mcp](https://github.com/openOODA/mcp) | MCP server |
-| [openOODA/bb](https://github.com/openOODA/bb) | Operational Logistics: Agent-native execution flight recorder and crash autopsy engine |
+| [openOODA/lsp](https://github.com/openOODA/lsp) | Language Server Protocol daemon |
+| [openOODA/cli](https://github.com/openOODA/cli) | Sovereign developer driver (build, test, fmt, qa) |
+| [openOODA/mcp](https://github.com/openOODA/mcp) | MCP server, flight recording, and telemetry engine |
+| [openOODA/tui](https://github.com/openOODA/tui) | Interactive terminal UI and coding harness |
 | [openOODA/website](https://github.com/openOODA/website) | Website source |
 | [openOODA/.github](https://github.com/openOODA/.github) | Org profile, shared community files, workflows |
 
