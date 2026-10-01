@@ -8,6 +8,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <signal.h>
+#include <termios.h>
 
 static char *oo_cstr_dup(const char *s) {
   size_t len;
@@ -42,23 +44,8 @@ static int oo_env_matches_filter(const char *entry) {
   if (!eq) return 0;
   klen = (size_t)(eq - entry);
   if (klen == 0) return 0;
-  if ((klen >= 5 && strncmp(entry, "OODA_", 5) == 0) ||
-      (klen >= 6 && strncmp(entry, "OODAC_", 6) == 0) ||
-      (klen == 9 && strncmp(entry, "OODACODEX", 9) == 0) ||
-      (klen == 3 && strncmp(entry, "PWD", 3) == 0) ||
-      (klen >= 3 && strncmp(entry, "OO_", 3) == 0)) {
-    return 1;
-  }
-  /* PATH is passed through unconditionally (the standard exec convention).
-   * Filtered from the policy scrub above; the build path below checks
-   * whether a PATH survived the filter and falls back to a hardcoded
-   * minimal list only when the parent had none. This avoids injecting
-   * /usr/local/bin (a privileged shadow point) into environments that
-   * the caller already trusted enough to inherit. */
-  if (klen == 4 && strncmp(entry, "PATH", 4) == 0) {
-    return 1;
-  }
-  return 0;
+  if (strncmp(entry, "LD_", 3) == 0 || strncmp(entry, "GLIBC_TUNABLES", 14) == 0) return 0;
+  return 1;
 }
 
 static void oo_free_child_env(char **child_env) {
@@ -164,7 +151,12 @@ OoResI oo_sys_exec_wait(long long cap, OoStr cmd, OoSList a) {
   }
 
   posix_spawnattr_init(&attr);
-  posix_spawnattr_setflags(&attr, POSIX_SPAWN_USEVFORK);
+  short spawn_flags = POSIX_SPAWN_USEVFORK | POSIX_SPAWN_SETPGROUP;
+  posix_spawnattr_setflags(&attr, spawn_flags);
+  posix_spawnattr_setpgroup(&attr, 0);
+
+  void (*old_ttou)(int) = signal(SIGTTOU, SIG_IGN);
+  void (*old_ttin)(int) = signal(SIGTTIN, SIG_IGN);
 
   rc = posix_spawnp(&pid, av[0], NULL, &attr, av, child_env);
   posix_spawnattr_destroy(&attr);
@@ -173,12 +165,24 @@ OoResI oo_sys_exec_wait(long long cap, OoStr cmd, OoSList a) {
   oo_free_child_env(child_env);
 
   if (rc != 0) {
+    signal(SIGTTOU, old_ttou);
+    signal(SIGTTIN, old_ttin);
     return r;
   }
 
+  if (isatty(STDIN_FILENO)) {
+    tcsetpgrp(STDIN_FILENO, pid);
+  }
+
   do {
-    wrc = waitpid(pid, &st, 0);
+    wrc = waitpid(pid, &st, WUNTRACED);
   } while (wrc < 0 && errno == EINTR);
+
+  if (isatty(STDIN_FILENO)) {
+    tcsetpgrp(STDIN_FILENO, getpgrp());
+  }
+  signal(SIGTTOU, old_ttou);
+  signal(SIGTTIN, old_ttin);
 
   if (wrc < 0) return r;
 
@@ -192,7 +196,17 @@ OoResI oo_sys_exec_wait(long long cap, OoStr cmd, OoSList a) {
     }
     return r;
   }
+  if (WIFSIGNALED(st)) {
+    r.val = 128 + WTERMSIG(st);
+    r.err = oo_str_lit("sys_exec_wait signaled");
+    return r;
+  }
+  if (WIFSTOPPED(st)) {
+    r.val = 128 + WSTOPSIG(st);
+    r.err = oo_str_lit("sys_exec_wait stopped");
+    return r;
+  }
   r.val = 1;
-  r.err = oo_str_lit("sys_exec_wait signaled");
+  r.err = oo_str_lit("sys_exec_wait unknown");
   return r;
 }

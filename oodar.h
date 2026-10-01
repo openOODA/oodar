@@ -137,8 +137,37 @@ OoResS oo_tcp_read(long long cap, long long slot, long long max_n);
 OoResS oo_udp_recv(long long cap, long long slot, long long max_n);
 OoResS oo_udp_send(long long cap, long long slot, OoStr host, long long port, OoStr data);
 OoResS oo_tcp_close(long long cap, long long slot);
+
+/* AF_UNIX stream ops. bind materialises a filesystem node, so it takes BindCap
+ * and FsWriteCap; the data plane takes FsCap; unlinking a socket path takes
+ * FsWriteCap. Descriptors are SOCK_CLOEXEC and bound sockets are chmod 0600. */
+OoResS oo_unix_bind(long long bind_cap, long long fsw_cap, OoStr path);
+OoResS oo_unix_accept(long long fs_cap, long long listen_slot);
+OoResS oo_unix_connect(long long fs_cap, long long fsw_cap, OoStr path);
+OoResS oo_unix_write(long long fs_cap, long long slot, OoStr data);
+OoResS oo_unix_read(long long fs_cap, long long slot, long long max_n);
+/* Bounded read for frame assembly; empty value means the timeout elapsed. */
+OoResS oo_unix_read_timeout(long long fs_cap, long long slot, long long timeout_ms,
+                            long long max_n);
+OoResS oo_unix_close(long long fs_cap, long long slot);
+OoResS oo_unix_unlink(long long fsw_cap, OoStr path);
+
 OoResS oo_sock_raw(long long cap, long long proto);
 OoResS oo_tls_connect(long long cap, OoStr host, long long port);
+
+/* TUI host primitives for raw mode line editing and terminal queries */
+OoResS oo_tui_enable_raw(long long cap, OoStr tty_path);
+OoResS oo_tui_disable_raw(long long cap, OoStr tty_path);
+OoResS oo_tui_read_byte(long long cap, OoStr tty_path);
+OoResS oo_tui_read_byte_timeout(long long cap, OoStr tty_path, long long timeout_ms);
+OoResS oo_tui_get_size(long long cap);
+OoResS oo_tui_write(long long cap, OoStr data);
+OoResS oo_tui_alt_screen_enter(long long cap);
+OoResS oo_tui_alt_screen_leave(long long cap);
+OoResS oo_tui_show_cursor(long long cap, long long vis);
+OoResS oo_tui_clear(long long cap);
+OoResS oo_tui_signal_winch_install(long long cap);
+OoResS oo_tui_signal_winch_poll(long long cap);
 
 OoResS oo_thread_spawn(long long cap, OoStr name);
 OoResS oo_thread_join(long long cap, long long slot);
