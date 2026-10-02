@@ -175,7 +175,17 @@ OoResS oo_tui_write(long long cap, OoStr data) {
     }
     memcpy(path_buf, data.data + offset, plen);
     path_buf[plen] = '\0';
-    if (chdir(path_buf) != 0) {
+    const char *target = path_buf;
+    char exp_buf[4096];
+    if (plen == 0 || (plen == 1 && path_buf[0] == '~')) {
+      const char *h = getenv("HOME");
+      target = (h && h[0]) ? h : "/";
+    } else if (path_buf[0] == '~' && path_buf[1] == '/') {
+      const char *h = getenv("HOME");
+      snprintf(exp_buf, sizeof(exp_buf), "%s%s", (h && h[0]) ? h : "", path_buf + 1);
+      target = exp_buf;
+    }
+    if (chdir(target) != 0) {
       r.ok = 0;
       r.val = oo_str_lit("chdir failed");
       return r;

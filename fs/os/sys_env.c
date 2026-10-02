@@ -16,7 +16,12 @@
  * Product env_get still requires EnvCap via oo_env_get. */
 const char *oo_process_policy_getenv(const char *key) {
   if (!key || !key[0]) return NULL;
-  if (strncmp(key, "OODA_", 5) != 0 && strncmp(key, "OO_", 3) != 0 && strcmp(key, "OODACODEX") != 0 && strcmp(key, "PWD") != 0) {
+  if (strncmp(key, "OODA_", 5) != 0 && strncmp(key, "OO_", 3) != 0 &&
+      strcmp(key, "OODACODEX") != 0 && strcmp(key, "PWD") != 0 &&
+      strcmp(key, "HOME") != 0 && strcmp(key, "USER") != 0 &&
+      strcmp(key, "PATH") != 0 && strcmp(key, "TERM") != 0 &&
+      strcmp(key, "SHELL") != 0 && strcmp(key, "OLDPWD") != 0 &&
+      strcmp(key, "XDG_RUNTIME_DIR") != 0 && strcmp(key, "OOSH_SOCKET") != 0) {
     return NULL;
   }
   return getenv(key);
