@@ -104,7 +104,7 @@ OoResS oo_env_get(long long cap, OoStr key) {
   if (!kbuf) return r;
   memcpy(kbuf, key.data, (size_t)key.len);
   kbuf[key.len] = '\0';
-  const char *val = getenv(kbuf);
+  const char *val = oo_process_policy_getenv(kbuf);
   free(kbuf);
   if (val) {
     r.ok = 1;
