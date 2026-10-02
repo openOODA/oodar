@@ -32,6 +32,26 @@ int rfd = fs_open_ro_nofollow(cpath); if (rfd < 0) return r;
 struct stat st;
 if (fstat(rfd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size < 0) { close(rfd); return r; }
 size_t sz = (size_t)st.st_size;
+if (sz == 0) {
+  size_t cap_sz = 131072;
+  char *buf = oo_str_alloc_payload(cap_sz);
+  size_t off = 0;
+  while (off < cap_sz - 1) {
+    ssize_t n = read(rfd, buf + off, cap_sz - 1 - off);
+    if (n < 0) {
+      if (errno == EINTR) continue;
+      oo_str_release((OoStr){buf, (long long)off});
+      close(rfd);
+      return r;
+    }
+    if (n == 0) break;
+    off += (size_t)n;
+  }
+  buf[off] = 0;
+  close(rfd);
+  r.ok = 1; r.val.data = buf; r.val.len = (long long)off;
+  return r;
+}
 char *buf = oo_str_alloc_payload(sz);
 size_t off = 0;
 while (off < sz) {

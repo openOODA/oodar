@@ -201,6 +201,7 @@ int fs_read_confined(const char *cpath) {
   char abs[PATH_MAX], rd_abs[PATH_MAX], wd_abs[PATH_MAX], cwd_buf[PATH_MAX];
   const char *check = fs_make_abs(cpath, abs, sizeof abs);
   if (!check) return 0;
+  if (strncmp(check, "/proc/self/", 11) == 0 || strcmp(check, "/proc/self") == 0) return 1;
   const char *rd_check = rd;
   const char *wd_check = wd;
   if ((!rd || !rd[0]) && (!wd || !wd[0])) {
