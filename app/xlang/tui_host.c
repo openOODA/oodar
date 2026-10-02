@@ -391,8 +391,9 @@ OoResS oo_tui_write(long long cap, OoStr data) {
                       if (nr <= 0) {
                         epoll_ctl(epfd, EPOLL_CTL_DEL, efd, NULL);
                         close(efd);
-                        req[nr] = '\0';
+                      } else {
                         epoll_ctl(epfd, EPOLL_CTL_DEL, efd, NULL);
+                        req[nr] = '\0';
                         struct VarlinkWorkerArgs *a = (struct VarlinkWorkerArgs *)malloc(sizeof(struct VarlinkWorkerArgs));
                         if (a) {
                           a->efd = efd;
