@@ -59,7 +59,10 @@ OoResS oo_tui_enable_raw(long long cap, OoStr tty_path) {
       return r;
     }
     s_raw_active = 1;
+    signal(SIGINT, SIG_IGN);
     atexit(tui_atexit_restore);
+  } else {
+    signal(SIGINT, SIG_IGN);
   }
   r.ok = 1;
   r.val = oo_str_lit("ok");
