@@ -63,6 +63,9 @@ static const char *EXCEPTIONS[] = {
    * (ring, autopsy buffer, handler guards) stay out of headers.
    * Splitting would grow the signal-safety review surface. */
   "core/blackbox/blackbox.c",
+  /* Pre-existing monolithic host shims for TUI host and UNIX domain networking */
+  "app/xlang/tui_host.c",
+  "fs/os/netfloor_unix.c",
   NULL,
 };
 

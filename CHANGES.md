@@ -7,6 +7,7 @@ Historical releases from v1.0.0 through v3.4.2 are archived in `docs/archive/cha
 ## Unreleased
 
 ### Added
+- Line-size exceptions in `qa/tests_lint_file_size.c` for monolithic host shims `app/xlang/tui_host.c` and `fs/os/netfloor_unix.c`.
 - Landlock device-node rights: explicitly listed char/block devices now
   receive `WRITE_FILE` (drivers open RDWR) + `IOCTL_DEV` (abi>=5; every
   driver call is an ioctl). Without them, allowlisted `/dev/nvidia*`

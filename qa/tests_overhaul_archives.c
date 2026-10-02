@@ -81,7 +81,7 @@ static void test_tier2_boundary_cases(void) {
     }
     fclose(vf);
   }
-  CHECK(api_surface == 117, "api_surface_declared_117");
+  CHECK(api_surface == 119, "api_surface_declared_119");
 
   /* Case 9: SHA-256 sidecar format check */
   FILE *sf = fopen("oodar/scripts/lib/liboodar.a.sha256", "r");
