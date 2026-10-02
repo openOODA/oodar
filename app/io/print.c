@@ -13,7 +13,10 @@
  * wanted. */
 
 void oo_print_str(OoStr s) {
-  if (s.data && s.len > 0) fwrite(s.data, 1, (size_t)s.len, stdout);
+  if (s.data && s.len > 0) {
+    fwrite(s.data, 1, (size_t)s.len, stdout);
+    fflush(stdout);
+  }
 }
 
 void oo_eprint_str(OoStr s) {

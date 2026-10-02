@@ -94,13 +94,22 @@ int oo_is_policy_path(const char *p) {
 OoResS oo_env_get(long long cap, OoStr key) {
   oo_cap_require_env(cap, "env_get");
   OoResS r;
-  const char *val = oo_process_policy_getenv(key.data ? key.data : "");
+  r.ok = 0;
+  r.val = oo_str_lit("env var not set");
+  if (!key.data || key.len <= 0) return r;
+  for (long long i = 0; i < key.len; i++) {
+    if (key.data[i] == '\0' || key.data[i] == '=') return r;
+  }
+  char *kbuf = (char *)malloc((size_t)key.len + 1);
+  if (!kbuf) return r;
+  memcpy(kbuf, key.data, (size_t)key.len);
+  kbuf[key.len] = '\0';
+  const char *val = getenv(kbuf);
+  free(kbuf);
   if (val) {
     r.ok = 1;
     r.val = oo_str_lit(val);
-  } else {
-    r.ok = 0;
-    r.val = oo_str_lit("env var not set");
   }
   return r;
 }
+
