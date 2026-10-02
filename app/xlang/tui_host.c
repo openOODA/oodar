@@ -17,6 +17,53 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <pthread.h>
+
+struct VarlinkWorkerArgs {
+  int efd;
+  char *bin;
+  char *cwd;
+  char req[16384];
+};
+
+static void *varlink_worker_thread(void *arg) {
+  struct VarlinkWorkerArgs *a = (struct VarlinkWorkerArgs *)arg;
+  int pfd[2];
+  if (pipe2(pfd, O_CLOEXEC) == 0) {
+    pid_t pid = fork();
+    if (pid == 0) {
+      if (a->cwd && a->cwd[0]) {
+        if (chdir(a->cwd) != 0) {}
+      }
+      dup2(pfd[1], STDOUT_FILENO);
+      close(pfd[0]);
+      close(pfd[1]);
+      char *av[] = {a->bin, "--varlink-call", a->req, NULL};
+      execv(a->bin, av);
+      _exit(127);
+    }
+    close(pfd[1]);
+    char rep[16384];
+    size_t rtot = 0;
+    while (rtot < sizeof(rep) - 2) {
+      ssize_t red = read(pfd[0], rep + rtot, sizeof(rep) - rtot - 2);
+      if (red <= 0) break;
+      rtot += (size_t)red;
+    }
+    close(pfd[0]);
+    waitpid(pid, NULL, 0);
+    if (rtot == 0 || rep[rtot - 1] != '\0') {
+      rep[rtot++] = '\0';
+    }
+    ssize_t nw = write(a->efd, rep, rtot);
+    (void)nw;
+  }
+  close(a->efd);
+  free(a->bin);
+  free(a->cwd);
+  free(a);
+  return NULL;
+}
 
 static struct termios s_orig_termios;
 static int s_raw_active = 0;
@@ -344,37 +391,26 @@ OoResS oo_tui_write(long long cap, OoStr data) {
                       if (nr <= 0) {
                         epoll_ctl(epfd, EPOLL_CTL_DEL, efd, NULL);
                         close(efd);
-                      } else {
                         req[nr] = '\0';
-                        int pfd[2];
-                        if (pipe2(pfd, O_CLOEXEC) == 0) {
-                          pid_t pid = fork();
-                          if (pid == 0) {
-                            if (cwd && cwd[0]) chdir(cwd);
-                            dup2(pfd[1], STDOUT_FILENO);
-                            close(pfd[0]);
-                            close(pfd[1]);
-                            char *av[] = {bin, "--varlink-call", req, NULL};
-                            execv(bin, av);
-                            _exit(127);
-                          }
-                          close(pfd[1]);
-                          char rep[16384];
-                          size_t rtot = 0;
-                          while (rtot < sizeof(rep) - 2) {
-                            ssize_t red = read(pfd[0], rep + rtot, sizeof(rep) - rtot - 2);
-                            if (red <= 0) break;
-                            rtot += (size_t)red;
-                          }
-                          close(pfd[0]);
-                          waitpid(pid, NULL, 0);
-                          if (rtot == 0 || rep[rtot - 1] != '\0') {
-                            rep[rtot++] = '\0';
-                          }
-                          write(efd, rep, rtot);
-                        }
                         epoll_ctl(epfd, EPOLL_CTL_DEL, efd, NULL);
-                        close(efd);
+                        struct VarlinkWorkerArgs *a = (struct VarlinkWorkerArgs *)malloc(sizeof(struct VarlinkWorkerArgs));
+                        if (a) {
+                          a->efd = efd;
+                          a->bin = strdup(bin);
+                          a->cwd = strdup(cwd ? cwd : "");
+                          memcpy(a->req, req, (size_t)nr);
+                          a->req[nr] = '\0';
+                          pthread_t th;
+                          pthread_attr_t attr;
+                          pthread_attr_init(&attr);
+                          pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+                          if (pthread_create(&th, &attr, varlink_worker_thread, a) != 0) {
+                            varlink_worker_thread(a);
+                          }
+                          pthread_attr_destroy(&attr);
+                        } else {
+                          close(efd);
+                        }
                       }
                     }
                   }
@@ -393,6 +429,132 @@ OoResS oo_tui_write(long long cap, OoStr data) {
         }
       }
     }
+    return r;
+  }
+
+  if ((data.len >= 6 && memcmp(data.data, "\x00pipe:", 6) == 0) ||
+      (data.len >= 7 && memcmp(data.data, "\x1b_pipe:", 7) == 0)) {
+    size_t offset = (data.data[0] == '\x1b') ? 7 : 6;
+    size_t plen = (size_t)data.len - offset;
+    const char *payload = data.data + offset;
+    const char *nl = (const char *)memchr(payload, '\n', plen);
+    if (nl) {
+      size_t cmd_len = (size_t)(nl - payload);
+      char *cmd_buf = (char *)malloc(cmd_len + 1);
+      if (cmd_buf) {
+        memcpy(cmd_buf, payload, cmd_len);
+        cmd_buf[cmd_len] = '\0';
+        const char *inp = nl + 1;
+        size_t inp_len = plen - (cmd_len + 1);
+        int pfd[2];
+        if (pipe2(pfd, O_CLOEXEC) == 0) {
+          pid_t pid = fork();
+          if (pid == 0) {
+            dup2(pfd[0], STDIN_FILENO);
+            close(pfd[0]);
+            close(pfd[1]);
+            execl("/bin/sh", "sh", "-c", cmd_buf, (char *)NULL);
+            _exit(127);
+          }
+          close(pfd[0]);
+          if (inp_len > 0) {
+            size_t w_tot = 0;
+            while (w_tot < inp_len) {
+              ssize_t w = write(pfd[1], inp + w_tot, inp_len - w_tot);
+              if (w <= 0) break;
+              w_tot += (size_t)w;
+            }
+          }
+          close(pfd[1]);
+          int st = 0;
+          waitpid(pid, &st, 0);
+          free(cmd_buf);
+          int rc = WIFEXITED(st) ? WEXITSTATUS(st) : (WIFSIGNALED(st) ? 128 + WTERMSIG(st) : 1);
+          char rc_buf[32];
+          snprintf(rc_buf, sizeof(rc_buf), "%d", rc);
+          r.ok = (rc == 0) ? 1 : 0;
+          r.val = oo_str_intern_bytes(rc_buf, strlen(rc_buf));
+          return r;
+        }
+        free(cmd_buf);
+      }
+    }
+    r.ok = 0;
+    r.val = oo_str_lit("pipe failed");
+    return r;
+  }
+  if ((data.len >= 4 && memcmp(data.data, "\x00bg:", 4) == 0) ||
+      (data.len >= 5 && memcmp(data.data, "\x1b_bg:", 5) == 0)) {
+    size_t offset = (data.data[0] == '\x1b') ? 5 : 4;
+    size_t cmd_len = (size_t)data.len - offset;
+    char *cmd_buf = (char *)malloc(cmd_len + 1);
+    if (cmd_buf) {
+      memcpy(cmd_buf, data.data + offset, cmd_len);
+      cmd_buf[cmd_len] = '\0';
+      pid_t pid = fork();
+      if (pid == 0) {
+        setpgid(0, 0);
+        execl("/bin/sh", "sh", "-c", cmd_buf, (char *)NULL);
+        _exit(127);
+      }
+      free(cmd_buf);
+      if (pid > 0) {
+        setpgid(pid, pid);
+        char pid_buf[32];
+        snprintf(pid_buf, sizeof(pid_buf), "%d", (int)pid);
+        r.ok = 1;
+        r.val = oo_str_intern_bytes(pid_buf, strlen(pid_buf));
+        return r;
+      }
+    }
+    r.ok = 0;
+    r.val = oo_str_lit("bg failed");
+    return r;
+  }
+  if ((data.len >= 10 && memcmp(data.data, "\x00job_poll:", 10) == 0) ||
+      (data.len >= 11 && memcmp(data.data, "\x1b_job_poll:", 11) == 0)) {
+    size_t offset = (data.data[0] == '\x1b') ? 11 : 10;
+    char buf[32];
+    size_t l = (size_t)data.len - offset;
+    if (l >= sizeof(buf)) l = sizeof(buf) - 1;
+    memcpy(buf, data.data + offset, l);
+    buf[l] = '\0';
+    pid_t pid = (pid_t)atoi(buf);
+    int st = 0;
+    pid_t ret = waitpid(pid, &st, WNOHANG);
+    if (ret == 0) {
+      r.ok = 1;
+      r.val = oo_str_lit("Running");
+    } else {
+      r.ok = 1;
+      r.val = oo_str_lit("Done");
+    }
+    return r;
+  }
+  if ((data.len >= 8 && memcmp(data.data, "\x00job_fg:", 8) == 0) ||
+      (data.len >= 9 && memcmp(data.data, "\x1b_job_fg:", 9) == 0)) {
+    size_t offset = (data.data[0] == '\x1b') ? 9 : 8;
+    char buf[32];
+    size_t l = (size_t)data.len - offset;
+    if (l >= sizeof(buf)) l = sizeof(buf) - 1;
+    memcpy(buf, data.data + offset, l);
+    buf[l] = '\0';
+    pid_t pid = (pid_t)atoi(buf);
+    pid_t pgrp = getpgid(pid);
+    if (pgrp > 0 && isatty(STDIN_FILENO)) {
+      tcsetpgrp(STDIN_FILENO, pgrp);
+    }
+    kill(-pgrp, SIGCONT);
+    int st = 0;
+    waitpid(pid, &st, WUNTRACED);
+    if (isatty(STDIN_FILENO)) {
+      tcsetpgrp(STDIN_FILENO, getpgrp());
+    }
+    int rc = WIFEXITED(st) ? WEXITSTATUS(st) : 0;
+    char rc_buf[32];
+    snprintf(rc_buf, sizeof(rc_buf), "%d", rc);
+    r.ok = 1;
+    r.val = oo_str_intern_bytes(rc_buf, strlen(rc_buf));
     return r;
   }
 
