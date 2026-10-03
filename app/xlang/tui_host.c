@@ -327,6 +327,35 @@ OoResS oo_tui_write(long long cap, OoStr data) {
     r.val = oo_str_lit(".");
     return r;
   }
+  if ((data.len >= 4 && memcmp(data.data, "\0env", 4) == 0) ||
+      (data.len >= 5 && memcmp(data.data, "\x1b_env", 5) == 0)) {
+    extern char **environ;
+    size_t total = 0;
+    if (environ) {
+      for (char **e = environ; *e; e++) {
+        total += strlen(*e) + 1;
+      }
+    }
+    char *buf = (char *)malloc(total > 0 ? total + 1 : 1);
+    if (buf) {
+      size_t pos = 0;
+      if (environ) {
+        for (char **e = environ; *e; e++) {
+          size_t elen = strlen(*e);
+          memcpy(buf + pos, *e, elen);
+          pos += elen;
+          buf[pos++] = '\n';
+        }
+      }
+      r.ok = 1;
+      r.val = oo_str_intern_bytes(buf, pos);
+      free(buf);
+      return r;
+    }
+    r.ok = 1;
+    r.val = oo_str_lit("");
+    return r;
+  }
   if ((data.len >= 7 && memcmp(data.data, "\0mkdir:", 7) == 0) ||
       (data.len >= 8 && memcmp(data.data, "\x1b_mkdir:", 8) == 0)) {
     char path_buf[4096];
@@ -371,15 +400,31 @@ OoResS oo_tui_write(long long cap, OoStr data) {
     }
     return r;
   }
-  if ((data.len >= 5 && memcmp(data.data, "\x00uns:", 5) == 0) ||
+  if ((data.len >= 7 && memcmp(data.data, "\x00unset:", 7) == 0) ||
+      (data.len >= 8 && memcmp(data.data, "\x1b_unset:", 8) == 0) ||
+      (data.len >= 5 && memcmp(data.data, "\x00uns:", 5) == 0) ||
       (data.len >= 6 && memcmp(data.data, "\x1b_uns:", 6) == 0)) {
     char k_buf[256];
-    size_t offset = (data.data[0] == '\x1b') ? 6 : 5;
+    size_t offset = (data.data[0] == '\x1b') ? ((data.len >= 8 && memcmp(data.data, "\x1b_unset:", 8) == 0) ? 8 : 6)
+                                             : ((data.len >= 7 && memcmp(data.data, "\x00unset:", 7) == 0) ? 7 : 5);
     size_t klen = (size_t)data.len - offset;
     if (klen < sizeof(k_buf)) {
       memcpy(k_buf, data.data + offset, klen);
       k_buf[klen] = '\0';
       unsetenv(k_buf);
+    }
+    return r;
+  }
+  if ((data.len >= 6 && memcmp(data.data, "\0" "exec:", 6) == 0) ||
+      (data.len >= 7 && memcmp(data.data, "\x1b_exec:", 7) == 0)) {
+    size_t offset = (data.data[0] == '\x1b') ? 7 : 6;
+    size_t elen = (size_t)data.len - offset;
+    char *ecmd = (char *)malloc(elen + 1);
+    if (ecmd) {
+      memcpy(ecmd, data.data + offset, elen);
+      ecmd[elen] = '\0';
+      oo_run_child_cmd(ecmd);
+      _exit(127);
     }
     return r;
   }
@@ -633,6 +678,18 @@ OoResS oo_tui_write(long long cap, OoStr data) {
             int fd = -1;
             if (strcmp(op, "2>&1") == 0) {
               dup2(STDOUT_FILENO, STDERR_FILENO);
+            } else if (strcmp(op, "2>") == 0) {
+              fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0664);
+              if (fd >= 0) { dup2(fd, STDERR_FILENO); close(fd); }
+              else { perror("oosh"); _exit(1); }
+            } else if (strcmp(op, "2>>") == 0) {
+              fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0664);
+              if (fd >= 0) { dup2(fd, STDERR_FILENO); close(fd); }
+              else { perror("oosh"); _exit(1); }
+            } else if (strcmp(op, "&>") == 0) {
+              fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0664);
+              if (fd >= 0) { dup2(fd, STDOUT_FILENO); dup2(fd, STDERR_FILENO); close(fd); }
+              else { perror("oosh"); _exit(1); }
             } else if (strcmp(op, "<") == 0) {
               fd = open(filename, O_RDONLY);
               if (fd >= 0) { dup2(fd, STDIN_FILENO); close(fd); }

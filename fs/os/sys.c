@@ -65,8 +65,9 @@ OoResS oo_sys_exec(long long cap, int argc, OoStr *argv) {
     av[i] = ac;
   }
   av[argc] = NULL;
-  out_buf = oo_str_alloc_payload(OO_SYS_EXEC_MAX_OUT);
-  if (!out_buf) {
+  size_t buf_cap = 65536;
+  char *temp_buf = (char *)malloc(buf_cap);
+  if (!temp_buf) {
     for (i = 0; i < argc; i++) free(av[i]);
     free(av); close(pipefd[0]); close(pipefd[1]);
     return r;
@@ -75,7 +76,7 @@ OoResS oo_sys_exec(long long cap, int argc, OoStr *argv) {
   if (pid < 0) {
     for (i = 0; i < argc; i++) free(av[i]);
     free(av);
-    { OoStr tmp; tmp.data = out_buf; tmp.len = 0; oo_str_release(tmp); }
+    free(temp_buf);
     close(pipefd[0]); close(pipefd[1]);
     return r;
   }
@@ -90,23 +91,40 @@ OoResS oo_sys_exec(long long cap, int argc, OoStr *argv) {
   }
   close(pipefd[1]);
   for (;;) {
-    ssize_t got = read(pipefd[0], out_buf + out_n, OO_SYS_EXEC_MAX_OUT - out_n);
+    if (out_n >= buf_cap) {
+      if (buf_cap >= OO_SYS_EXEC_MAX_OUT) break;
+      size_t next_cap = buf_cap * 2;
+      if (next_cap > OO_SYS_EXEC_MAX_OUT) next_cap = OO_SYS_EXEC_MAX_OUT;
+      char *nb = (char *)realloc(temp_buf, next_cap);
+      if (!nb) break;
+      temp_buf = nb;
+      buf_cap = next_cap;
+    }
+    ssize_t got = read(pipefd[0], temp_buf + out_n, buf_cap - out_n);
     if (got <= 0) break;
     out_n += (size_t)got;
-    if (out_n >= OO_SYS_EXEC_MAX_OUT) break;
   }
   close(pipefd[0]);
   for (i = 0; i < argc; i++) free(av[i]);
   free(av);
   if (waitpid(pid, &st, 0) < 0) {
-    OoStr tmp; tmp.data = out_buf; tmp.len = 0; oo_str_release(tmp);
+    free(temp_buf);
     return r;
   }
   if (WIFEXITED(st) && WEXITSTATUS(st) == 0) {
     r.ok = 1;
   }
-  r.val.data = out_buf;
-  r.val.len = (long long)out_n;
+  out_buf = oo_str_alloc_payload(out_n);
+  if (out_buf) {
+    if (out_n > 0) memcpy(out_buf, temp_buf, out_n);
+    out_buf[out_n] = '\0';
+    r.val.data = out_buf;
+    r.val.len = (long long)out_n;
+  } else {
+    r.ok = 0;
+    r.val = oo_str_lit("");
+  }
+  free(temp_buf);
   return r;
 }
 
