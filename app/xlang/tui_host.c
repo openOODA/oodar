@@ -18,6 +18,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <pthread.h>
+#include <fcntl.h>
 
 struct VarlinkWorkerArgs {
   int efd;
@@ -203,6 +204,72 @@ static volatile sig_atomic_t s_daemon_running = 1;
 static void daemon_sig_handler(int sig) {
   (void)sig;
   s_daemon_running = 0;
+}
+
+static void oo_run_child_cmd(const char *cmd) {
+  if (!cmd || !*cmd) _exit(0);
+
+  char self_path[4096];
+  ssize_t slen = readlink("/proc/self/exe", self_path, sizeof(self_path) - 1);
+  if (slen > 0) self_path[slen] = '\0';
+  else strcpy(self_path, "./dist/oosh");
+
+  int has_meta = 0;
+  for (const char *p = cmd; *p; p++) {
+    if (*p == ';' || *p == '&' || *p == '|' || *p == '<' || *p == '>' ||
+        *p == '$' || *p == '`' || *p == '*' || *p == '?' || *p == '(' || *p == ')') {
+      has_meta = 1;
+      break;
+    }
+  }
+
+  if (!has_meta) {
+    char *dup = strdup(cmd);
+    if (dup) {
+      char *argv[128];
+      int argc = 0;
+      char *p = dup;
+      while (*p && argc < 127) {
+        while (*p == ' ' || *p == '\t' || *p == '\n') p++;
+        if (!*p) break;
+        char *token_start = p;
+        if (*p == '"' || *p == '\'') {
+          char q = *p++;
+          token_start = p;
+          while (*p && *p != q) p++;
+          if (*p == q) { *p = '\0'; p++; }
+        } else {
+          while (*p && *p != ' ' && *p != '\t' && *p != '\n') p++;
+          if (*p) { *p = '\0'; p++; }
+        }
+        argv[argc++] = token_start;
+      }
+      argv[argc] = NULL;
+
+      if (argc > 0) {
+        const char *b = argv[0];
+        if (strcmp(b, "whereami") == 0 || strcmp(b, "caps") == 0 ||
+            strcmp(b, "autopsy") == 0 || strcmp(b, "remedy") == 0 ||
+            strcmp(b, "scry") == 0 || strcmp(b, "rune") == 0 ||
+            strcmp(b, "status") == 0 || strcmp(b, "help") == 0 ||
+            strcmp(b, "version") == 0 || strcmp(b, "alias") == 0 ||
+            strcmp(b, "unalias") == 0 || strcmp(b, "export") == 0 ||
+            strcmp(b, "pwd") == 0 || strcmp(b, "take") == 0) {
+          free(dup);
+          execl(self_path, "oosh", "-c", cmd, (char *)NULL);
+          _exit(127);
+        }
+        execvp(argv[0], argv);
+        if (errno == ENOENT) {
+          execl(self_path, "oosh", "-c", cmd, (char *)NULL);
+        }
+      }
+      free(dup);
+    }
+  }
+
+  execl("/bin/sh", "sh", "-c", cmd, (char *)NULL);
+  _exit(127);
 }
 
 OoResS oo_tui_write(long long cap, OoStr data) {
@@ -454,7 +521,7 @@ OoResS oo_tui_write(long long cap, OoStr data) {
             dup2(pfd[0], STDIN_FILENO);
             close(pfd[0]);
             close(pfd[1]);
-            execl("/bin/sh", "sh", "-c", cmd_buf, (char *)NULL);
+            oo_run_child_cmd(cmd_buf);
             _exit(127);
           }
           close(pfd[0]);
@@ -484,6 +551,123 @@ OoResS oo_tui_write(long long cap, OoStr data) {
     r.val = oo_str_lit("pipe failed");
     return r;
   }
+  if ((data.len >= 7 && memcmp(data.data, "\x00pipe2:", 7) == 0) ||
+      (data.len >= 8 && memcmp(data.data, "\x1b_pipe2:", 8) == 0)) {
+    size_t offset = (data.data[0] == '\x1b') ? 8 : 7;
+    size_t plen = (size_t)data.len - offset;
+    const char *payload = data.data + offset;
+    const char *nl = (const char *)memchr(payload, '\n', plen);
+    if (nl) {
+      size_t cmd1_len = (size_t)(nl - payload);
+      char *cmd1 = (char *)malloc(cmd1_len + 1);
+      size_t cmd2_len = plen - (cmd1_len + 1);
+      char *cmd2 = (char *)malloc(cmd2_len + 1);
+      if (cmd1 && cmd2) {
+        memcpy(cmd1, payload, cmd1_len);
+        cmd1[cmd1_len] = '\0';
+        memcpy(cmd2, nl + 1, cmd2_len);
+        cmd2[cmd2_len] = '\0';
+        int pfd[2];
+        if (pipe2(pfd, O_CLOEXEC) == 0) {
+          pid_t pid1 = fork();
+          if (pid1 == 0) {
+            dup2(pfd[1], STDOUT_FILENO);
+            close(pfd[0]);
+            close(pfd[1]);
+            oo_run_child_cmd(cmd1);
+            _exit(127);
+          }
+          pid_t pid2 = fork();
+          if (pid2 == 0) {
+            dup2(pfd[0], STDIN_FILENO);
+            close(pfd[0]);
+            close(pfd[1]);
+            oo_run_child_cmd(cmd2);
+            _exit(127);
+          }
+          close(pfd[0]);
+          close(pfd[1]);
+          int st1 = 0, st2 = 0;
+          waitpid(pid1, &st1, 0);
+          waitpid(pid2, &st2, 0);
+          free(cmd1);
+          free(cmd2);
+          int rc = WIFEXITED(st2) ? WEXITSTATUS(st2) : 1;
+          char rc_buf[32];
+          snprintf(rc_buf, sizeof(rc_buf), "%d", rc);
+          r.ok = (rc == 0) ? 1 : 0;
+          r.val = oo_str_intern_bytes(rc_buf, strlen(rc_buf));
+          return r;
+        }
+      }
+      if (cmd1) free(cmd1);
+      if (cmd2) free(cmd2);
+    }
+    r.ok = 0;
+    r.val = oo_str_lit("pipe2 failed");
+    return r;
+  }
+  if ((data.len >= 7 && memcmp(data.data, "\x00redir:", 7) == 0) ||
+      (data.len >= 8 && memcmp(data.data, "\x1b_redir:", 8) == 0)) {
+    size_t offset = (data.data[0] == '\x1b') ? 8 : 7;
+    size_t plen = (size_t)data.len - offset;
+    const char *payload = data.data + offset;
+    const char *nl = (const char *)memchr(payload, '\n', plen);
+    if (nl) {
+      size_t hdr_len = (size_t)(nl - payload);
+      char *hdr = (char *)malloc(hdr_len + 1);
+      size_t cmd_len = plen - (hdr_len + 1);
+      char *cmd = (char *)malloc(cmd_len + 1);
+      if (hdr && cmd) {
+        memcpy(hdr, payload, hdr_len);
+        hdr[hdr_len] = '\0';
+        memcpy(cmd, nl + 1, cmd_len);
+        cmd[cmd_len] = '\0';
+        char *colon = strchr(hdr, ':');
+        if (colon) {
+          *colon = '\0';
+          const char *op = hdr;
+          const char *filename = colon + 1;
+          pid_t pid = fork();
+          if (pid == 0) {
+            int fd = -1;
+            if (strcmp(op, "2>&1") == 0) {
+              dup2(STDOUT_FILENO, STDERR_FILENO);
+            } else if (strcmp(op, "<") == 0) {
+              fd = open(filename, O_RDONLY);
+              if (fd >= 0) { dup2(fd, STDIN_FILENO); close(fd); }
+              else { perror("oosh"); _exit(1); }
+            } else if (strcmp(op, ">>") == 0) {
+              fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0664);
+              if (fd >= 0) { dup2(fd, STDOUT_FILENO); close(fd); }
+              else { perror("oosh"); _exit(1); }
+            } else {
+              fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0664);
+              if (fd >= 0) { dup2(fd, STDOUT_FILENO); close(fd); }
+              else { perror("oosh"); _exit(1); }
+            }
+            oo_run_child_cmd(cmd);
+            _exit(127);
+          }
+          int st = 0;
+          waitpid(pid, &st, 0);
+          free(hdr);
+          free(cmd);
+          int rc = WIFEXITED(st) ? WEXITSTATUS(st) : 1;
+          char rc_buf[32];
+          snprintf(rc_buf, sizeof(rc_buf), "%d", rc);
+          r.ok = (rc == 0) ? 1 : 0;
+          r.val = oo_str_intern_bytes(rc_buf, strlen(rc_buf));
+          return r;
+        }
+      }
+      if (hdr) free(hdr);
+      if (cmd) free(cmd);
+    }
+    r.ok = 0;
+    r.val = oo_str_lit("redir failed");
+    return r;
+  }
   if ((data.len >= 4 && memcmp(data.data, "\x00bg:", 4) == 0) ||
       (data.len >= 5 && memcmp(data.data, "\x1b_bg:", 5) == 0)) {
     size_t offset = (data.data[0] == '\x1b') ? 5 : 4;
@@ -495,7 +679,7 @@ OoResS oo_tui_write(long long cap, OoStr data) {
       pid_t pid = fork();
       if (pid == 0) {
         setpgid(0, 0);
-        execl("/bin/sh", "sh", "-c", cmd_buf, (char *)NULL);
+        oo_run_child_cmd(cmd_buf);
         _exit(127);
       }
       free(cmd_buf);
@@ -556,6 +740,25 @@ OoResS oo_tui_write(long long cap, OoStr data) {
     snprintf(rc_buf, sizeof(rc_buf), "%d", rc);
     r.ok = 1;
     r.val = oo_str_intern_bytes(rc_buf, strlen(rc_buf));
+    return r;
+  }
+  if ((data.len >= 8 && memcmp(data.data, "\x00job_bg:", 8) == 0) ||
+      (data.len >= 9 && memcmp(data.data, "\x1b_job_bg:", 9) == 0)) {
+    size_t offset = (data.data[0] == '\x1b') ? 9 : 8;
+    char buf[32];
+    size_t l = (size_t)data.len - offset;
+    if (l >= sizeof(buf)) l = sizeof(buf) - 1;
+    memcpy(buf, data.data + offset, l);
+    buf[l] = '\0';
+    pid_t pid = (pid_t)atoi(buf);
+    pid_t pgrp = getpgid(pid);
+    if (pgrp > 0) {
+      kill(-pgrp, SIGCONT);
+    } else {
+      kill(pid, SIGCONT);
+    }
+    r.ok = 1;
+    r.val = oo_str_lit("Running");
     return r;
   }
 
