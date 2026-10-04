@@ -436,9 +436,9 @@ CHALLENGERS := tests_challenger_contract tests_challenger_sys tests_challenger_w
 $(TEST_DIR):
 	@mkdir -p $@
 
-$(TEST_DIR)/%: $(REPO_ROOT)/qa/%.c $(REPO_ROOT)/oodar.c | $(TEST_DIR)
+$(TEST_DIR)/%: $(REPO_ROOT)/qa/%.c $(BUILD_DIR)/oodar.o | $(TEST_DIR)
 	@mkdir -p $(dir $@)
-	@$(CC) $(filter-out -include oodar.h,$(CFLAGS)) -I$(REPO_ROOT) -o $@ $< $(REPO_ROOT)/oodar.c -lpthread -ldl -lm
+	@$(CC) $(filter-out -include oodar.h,$(CFLAGS)) -I$(REPO_ROOT) -o $@ $< $(BUILD_DIR)/oodar.o -lpthread -ldl -lm
 
 test: lint $(addprefix $(TEST_DIR)/,$(CHALLENGERS))
 	@echo "RUN contract (double-run)"
