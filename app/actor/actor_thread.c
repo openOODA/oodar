@@ -28,6 +28,14 @@ static void *oo_thread_worker(void *arg) {
   if (slot < 0 || slot >= OO_THREAD_SLOTS) return NULL;
   OoThreadSlot *s = &g_threads[slot];
 
+  long long ar_cap = oo_cap_grant_arena();
+  OoResS ar_res = oo_arena_create(ar_cap, 65536);
+  long long arena_id = -1;
+  if (ar_res.ok && ar_res.val.data && strncmp(ar_res.val.data, "ar:", 3) == 0) {
+    arena_id = atoll(ar_res.val.data + 3);
+    oo_arena_alloc(ar_cap, arena_id, 0); /* attach */
+  }
+
   pthread_mutex_lock(&s->mu);
   s->running = 1;
   while (!s->stop_req && s->live) {
@@ -35,6 +43,11 @@ static void *oo_thread_worker(void *arg) {
   }
   s->running = 0;
   pthread_mutex_unlock(&s->mu);
+
+  if (arena_id >= 0) {
+    oo_arena_alloc(ar_cap, arena_id, -1); /* detach */
+    oo_arena_destroy(ar_cap, arena_id);
+  }
   return NULL;
 }
 

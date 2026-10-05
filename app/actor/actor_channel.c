@@ -116,7 +116,10 @@ OoResS oo_channel_send(long long cap, long long slot, OoStr msg) {
     r.val = oo_str_lit("channel_send: full");
     return r;
   }
-  ch->msgs[ch->tail] = oo_ch_copy(msg);
+  OoStr m = msg;
+  if (m.len > (1LL << 20)) m.len = 1LL << 20;
+  oo_str_retain(m);
+  ch->msgs[ch->tail] = m;
   ch->tail = (ch->tail + 1) % OO_CH_QDEPTH;
   ch->count++;
   pthread_cond_signal(&ch->not_empty);
@@ -189,6 +192,7 @@ OoResS oo_channel_recv(long long cap, long long slot) {
   }
   r.ok = 1;
   r.val = ch->msgs[ch->head];
+  ch->msgs[ch->head] = (OoStr){ 0, 0 };
   ch->head = (ch->head + 1) % OO_CH_QDEPTH;
   ch->count--;
   pthread_cond_signal(&ch->not_full);

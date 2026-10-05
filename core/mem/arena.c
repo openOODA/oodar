@@ -144,7 +144,7 @@ OoResS oo_arena_alloc(long long cap, long long id, long long n) {
     r.val = oo_str_lit("arena_alloc: bad id");
     return r;
   }
-  if (a->off & 15) a->off = (a->off + 15) & ~15ULL;
+  if (a->off & 63) a->off = (a->off + 63) & ~63ULL;
   if ((size_t)n > a->cap - a->off) {
     pthread_mutex_unlock(&a->mu);
     r.val = oo_str_lit("arena_alloc: full");

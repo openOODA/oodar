@@ -131,9 +131,20 @@ OoResS oo_tui_disable_raw(long long cap, OoStr tty_path) {
 }
 
 OoResS oo_tui_read_byte(long long cap, OoStr tty_path) {
-  (void)tty_path;
   oo_cap_require_ffi(cap, "tui_read_byte");
   OoResS r;
+  if (tty_path.len >= 4 && memcmp(tty_path.data, "poll", 4) == 0) {
+    struct pollfd pfd;
+    pfd.fd = STDIN_FILENO;
+    pfd.events = POLLIN;
+    pfd.revents = 0;
+    int prc = poll(&pfd, 1, 25);
+    if (prc <= 0 || !(pfd.revents & POLLIN)) {
+      r.ok = 1;
+      r.val = oo_str_lit("");
+      return r;
+    }
+  }
   char c = 0;
   ssize_t n = read(STDIN_FILENO, &c, 1);
   if (n == 1) {
@@ -492,6 +503,12 @@ OoResS oo_tui_write(long long cap, OoStr data) {
                     if (efd == lfd) {
                       int cfd = accept4(lfd, NULL, NULL, SOCK_CLOEXEC);
                       if (cfd >= 0) {
+                        struct ucred cred;
+                        socklen_t crlen = sizeof(cred);
+                        if (getsockopt(cfd, SOL_SOCKET, SO_PEERCRED, &cred, &crlen) != 0 || cred.uid != getuid()) {
+                          close(cfd);
+                          continue;
+                        }
                         struct epoll_event cev;
                         cev.events = EPOLLIN;
                         cev.data.fd = cfd;
@@ -725,6 +742,82 @@ OoResS oo_tui_write(long long cap, OoStr data) {
     r.val = oo_str_lit("redir failed");
     return r;
   }
+  static int s_saved_stdout = -1;
+  static int s_saved_stderr = -1;
+  static int s_saved_stdin = -1;
+  if ((data.len >= 12 && memcmp(data.data, "\x00redir_push:", 12) == 0) ||
+      (data.len >= 13 && memcmp(data.data, "\x1b_redir_push:", 13) == 0)) {
+    size_t offset = (data.data[0] == '\x1b') ? 13 : 12;
+    size_t plen = (size_t)data.len - offset;
+    char buf[4096];
+    if (plen >= sizeof(buf)) plen = sizeof(buf) - 1;
+    memcpy(buf, data.data + offset, plen);
+    buf[plen] = '\0';
+    char *colon = strchr(buf, ':');
+    if (colon) {
+      *colon = '\0';
+      const char *op = buf;
+      const char *filename = colon + 1;
+      fflush(stdout);
+      fflush(stderr);
+      int fd = -1;
+      if (strcmp(op, "2>&1") == 0) {
+        if (s_saved_stderr < 0) s_saved_stderr = dup(STDERR_FILENO);
+        dup2(STDOUT_FILENO, STDERR_FILENO);
+      } else if (strcmp(op, "2>") == 0) {
+        if (s_saved_stderr < 0) s_saved_stderr = dup(STDERR_FILENO);
+        fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0664);
+        if (fd >= 0) { dup2(fd, STDERR_FILENO); close(fd); }
+      } else if (strcmp(op, "2>>") == 0) {
+        if (s_saved_stderr < 0) s_saved_stderr = dup(STDERR_FILENO);
+        fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0664);
+        if (fd >= 0) { dup2(fd, STDERR_FILENO); close(fd); }
+      } else if (strcmp(op, "&>") == 0) {
+        if (s_saved_stdout < 0) s_saved_stdout = dup(STDOUT_FILENO);
+        if (s_saved_stderr < 0) s_saved_stderr = dup(STDERR_FILENO);
+        fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0664);
+        if (fd >= 0) { dup2(fd, STDOUT_FILENO); dup2(fd, STDERR_FILENO); close(fd); }
+      } else if (strcmp(op, "<") == 0) {
+        if (s_saved_stdin < 0) s_saved_stdin = dup(STDIN_FILENO);
+        fd = open(filename, O_RDONLY);
+        if (fd >= 0) { dup2(fd, STDIN_FILENO); close(fd); }
+      } else if (strcmp(op, ">>") == 0) {
+        if (s_saved_stdout < 0) s_saved_stdout = dup(STDOUT_FILENO);
+        fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0664);
+        if (fd >= 0) { dup2(fd, STDOUT_FILENO); close(fd); }
+      } else {
+        if (s_saved_stdout < 0) s_saved_stdout = dup(STDOUT_FILENO);
+        fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0664);
+        if (fd >= 0) { dup2(fd, STDOUT_FILENO); close(fd); }
+      }
+    }
+    r.ok = 1;
+    r.val = oo_str_lit("0");
+    return r;
+  }
+  if ((data.len >= 10 && memcmp(data.data, "\x00redir_pop", 10) == 0) ||
+      (data.len >= 11 && memcmp(data.data, "\x1b_redir_pop", 11) == 0)) {
+    fflush(stdout);
+    fflush(stderr);
+    if (s_saved_stdout >= 0) {
+      dup2(s_saved_stdout, STDOUT_FILENO);
+      close(s_saved_stdout);
+      s_saved_stdout = -1;
+    }
+    if (s_saved_stderr >= 0) {
+      dup2(s_saved_stderr, STDERR_FILENO);
+      close(s_saved_stderr);
+      s_saved_stderr = -1;
+    }
+    if (s_saved_stdin >= 0) {
+      dup2(s_saved_stdin, STDIN_FILENO);
+      close(s_saved_stdin);
+      s_saved_stdin = -1;
+    }
+    r.ok = 1;
+    r.val = oo_str_lit("0");
+    return r;
+  }
   if ((data.len >= 4 && memcmp(data.data, "\x00bg:", 4) == 0) ||
       (data.len >= 5 && memcmp(data.data, "\x1b_bg:", 5) == 0)) {
     size_t offset = (data.data[0] == '\x1b') ? 5 : 4;
@@ -771,6 +864,25 @@ OoResS oo_tui_write(long long cap, OoStr data) {
       r.ok = 1;
       r.val = oo_str_lit("Done");
     }
+    return r;
+  }
+  if ((data.len >= 10 && memcmp(data.data, "\x00job_wait:", 10) == 0) ||
+      (data.len >= 11 && memcmp(data.data, "\x1b_job_wait:", 11) == 0)) {
+    size_t offset = (data.data[0] == '\x1b') ? 11 : 10;
+    char buf[32];
+    size_t l = (size_t)data.len - offset;
+    if (l >= sizeof(buf)) l = sizeof(buf) - 1;
+    memcpy(buf, data.data + offset, l);
+    buf[l] = '\0';
+    pid_t pid = (l > 0) ? (pid_t)atoi(buf) : -1;
+    int st = 0;
+    if (pid <= 0) {
+      while (waitpid(-1, &st, 0) > 0 || errno == EINTR) {}
+    } else {
+      while (waitpid(pid, &st, 0) < 0 && errno == EINTR) {}
+    }
+    r.ok = 1;
+    r.val = oo_str_lit("0");
     return r;
   }
   if ((data.len >= 8 && memcmp(data.data, "\x00job_fg:", 8) == 0) ||

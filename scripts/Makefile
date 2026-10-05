@@ -428,6 +428,7 @@ CHALLENGERS := tests_challenger_contract tests_challenger_sys tests_challenger_w
 	tests_challenger_exec_capture \
 	tests_blackbox_worstcase \
 	tests_cuda_nogpu \
+	tests_adversarial_gpu_cap \
 	tests_overhaul_slab tests_overhaul_arena \
 	tests_overhaul_arena_pass tests_overhaul_sandbox \
 	tests_overhaul_canary_fuzz tests_overhaul_archives \
@@ -485,6 +486,7 @@ test: lint $(addprefix $(TEST_DIR)/,$(CHALLENGERS))
 	@$(TEST_DIR)/tests_challenger_exec_capture
 	@$(TEST_DIR)/tests_blackbox_worstcase
 	@$(TEST_DIR)/tests_cuda_nogpu
+	@$(TEST_DIR)/tests_adversarial_gpu_cap
 	@$(TEST_DIR)/tests_overhaul_slab
 	@$(TEST_DIR)/tests_overhaul_arena
 	@$(TEST_DIR)/tests_overhaul_arena_pass
