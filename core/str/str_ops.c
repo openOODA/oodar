@@ -143,8 +143,8 @@ do_slice:;
   if (rlen <= 0) return oo_str_intern_bytes("", 0);
   if (rlen == 1) return oo_str_ascii_intern((unsigned char)s.data[bs]);
   if (rlen <= 1024) return oo_str_intern_bytes(s.data + bs, rlen);
-  OoStr r; r.len = rlen; r.data = oo_str_alloc_payload((size_t)r.len);
-  memcpy(r.data, s.data + bs, (size_t)r.len);
+  OoStr r = { .data = oo_str_alloc_payload((size_t)rlen), .len = rlen };
+  memcpy(r.data, s.data + bs, (size_t)rlen);
   return r;
 }
 int oo_char_is_digit(OoStr s){ return s.len==1 && isdigit((unsigned char)s.data[0]); }
@@ -244,14 +244,12 @@ OoStr str_trim(OoStr s) {
   long long rlen = end - start;
   if (rlen <= 0) return oo_str_intern_bytes("", 0);
   if (rlen == 1) return oo_str_ascii_intern((unsigned char)s.data[start]);
-  OoStr r; r.len = rlen; r.data = oo_str_alloc_payload((size_t)r.len);
-  memcpy(r.data, s.data + start, (size_t)r.len);
+  OoStr r = { .data = oo_str_alloc_payload((size_t)rlen), .len = rlen };
+  memcpy(r.data, s.data + start, (size_t)rlen);
   return r;
 }
 
 /* Result[String, String] structural equality. */
 int oo_res_eq_s(OoResS a, OoResS b) {
-  if (a.ok != b.ok) return 0;
-  if (a.ok == 0) return 1;
-  return oo_str_eq(a.val, b.val);
+  return (a.ok != b.ok) ? 0 : ((a.ok == 0) ? 1 : oo_str_eq(a.val, b.val));
 }
