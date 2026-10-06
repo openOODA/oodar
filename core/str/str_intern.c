@@ -135,6 +135,6 @@ OoStr oo_byte_slice(OoStr s, long long start, long long end) {
     if (end > s.len) end = s.len;
     if (start > end || start >= s.len) return oo_str_intern_bytes("", 0);
     long long rlen = end - start;
-    if (rlen <= 15) return oo_str_intern_bytes(s.data + start, rlen);
+    if (rlen <= 1024) return oo_str_intern_bytes(s.data + start, rlen);
     return oo_byte_slice_orig(s, start, end);
 }

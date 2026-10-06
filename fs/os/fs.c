@@ -49,6 +49,12 @@ if (sz == 0) {
   }
   buf[off] = 0;
   close(rfd);
+  size_t k0 = 0;
+  while (k0 < off && (unsigned char)buf[k0] < 0x80) k0++;
+  if (k0 == off) {
+    OoStrHeader *hdr0 = ((OoStrHeader *)buf) - 1;
+    hdr0->flags |= OO_FLAG_ASCII;
+  }
   r.ok = 1; r.val.data = buf; r.val.len = (long long)off;
   return r;
 }
@@ -67,6 +73,12 @@ while (off < sz) {
 }
 buf[sz] = 0;
 close(rfd);
+size_t k1 = 0;
+while (k1 < sz && (unsigned char)buf[k1] < 0x80) k1++;
+if (k1 == sz) {
+  OoStrHeader *hdr1 = ((OoStrHeader *)buf) - 1;
+  hdr1->flags |= OO_FLAG_ASCII;
+}
 r.ok = 1; r.val.data = buf; r.val.len = (long long)sz;
 return r;
 }

@@ -30,12 +30,13 @@ typedef struct OoArena {
   size_t off;
   pthread_mutex_t mu;
   uint64_t gen;
+  size_t top_cur;
 } OoArena;
 #endif
 
-/* One slot in the live=0 / base=NULL / cap=off=0 / mutex=ready / gen=0
+/* One slot in the live=0 / base=NULL / cap=off=0 / mutex=ready / gen=0 / top_cur=-1
  * idle state. Used 32× to initialize g_ar[] below. */
-#define OO_ARENA_SLOT_INIT {0, NULL, 0, 0, PTHREAD_MUTEX_INITIALIZER, 0}
+#define OO_ARENA_SLOT_INIT {0, NULL, 0, 0, PTHREAD_MUTEX_INITIALIZER, 0, (size_t)-1}
 OoArena g_ar[OO_ARENA_SLOTS] = {
   OO_ARENA_SLOT_INIT, OO_ARENA_SLOT_INIT, OO_ARENA_SLOT_INIT, OO_ARENA_SLOT_INIT,
   OO_ARENA_SLOT_INIT, OO_ARENA_SLOT_INIT, OO_ARENA_SLOT_INIT, OO_ARENA_SLOT_INIT,
@@ -109,6 +110,7 @@ OoResS oo_arena_create(long long cap, long long bytes) {
   g_ar[s].base = mem;
   g_ar[s].cap = alloc_cap;
   g_ar[s].off = 0;
+  g_ar[s].top_cur = (size_t)-1;
   g_ar[s].live = 1;
   g_ar[s].gen++;
   pthread_mutex_unlock(&g_ar[s].mu);
@@ -179,15 +181,16 @@ OoResS oo_arena_reset(long long cap, long long id) {
     return r;
   }
   a->off = 0;
+  a->top_cur = (size_t)-1;
   extern void oo_arena_on_destroy(int slot);
   oo_arena_on_destroy(s);
   char *base = a->base;
   size_t acap = a->cap;
   pthread_mutex_unlock(&a->mu);
 #if defined(__linux__)
-  /* Release backing pages; the heap is the allocator's business, not the
-   * arena's (a trim here would tax every compiler pass reset). */
+  /* Release backing pages and trim glibc heap to keep peak compiler RSS minimal. */
   if (base && acap > 0) madvise(base, (acap + 4095) & ~4095UL, MADV_DONTNEED);
+  malloc_trim(0);
 #endif
   r.ok = 1;
   r.val = oo_str_lit("OK");
@@ -222,6 +225,7 @@ OoResS oo_arena_destroy(long long cap, long long id) {
   a->live = 0;
   a->cap = 0;
   a->off = 0;
+  a->top_cur = (size_t)-1;
   {
     extern void oo_arena_on_destroy(int slot);
     oo_arena_on_destroy(s);
@@ -231,6 +235,9 @@ OoResS oo_arena_destroy(long long cap, long long id) {
   if (to_free) {
     munmap(to_free, (freed_cap + 4095) & ~4095UL);
   }
+#if defined(__linux__)
+  malloc_trim(0);
+#endif
   r.ok = 1;
   r.val = oo_str_lit("OK");
   return r;

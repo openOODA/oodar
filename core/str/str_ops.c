@@ -142,6 +142,7 @@ do_slice:;
   long long rlen = be - bs;
   if (rlen <= 0) return oo_str_intern_bytes("", 0);
   if (rlen == 1) return oo_str_ascii_intern((unsigned char)s.data[bs]);
+  if (rlen <= 1024) return oo_str_intern_bytes(s.data + bs, rlen);
   OoStr r; r.len = rlen; r.data = oo_str_alloc_payload((size_t)r.len);
   memcpy(r.data, s.data + bs, (size_t)r.len);
   return r;
