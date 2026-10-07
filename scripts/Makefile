@@ -118,7 +118,8 @@ GPU_LIB    := $(LIB_DIR)/liboodar-gpu.a
 ACTOR_LIB  := $(LIB_DIR)/liboodar-actor.a
 AUDIO_LIB  := $(LIB_DIR)/liboodar-audio.a
 NET_LIB    := $(LIB_DIR)/liboodar-net.a
-MODULAR_LIBS := $(CORE_LIB) $(PQC_LIB) $(GPU_LIB) $(ACTOR_LIB) $(AUDIO_LIB) $(NET_LIB)
+NOSTD_LIB  := $(LIB_DIR)/liboodar-nostd.a
+MODULAR_LIBS := $(CORE_LIB) $(PQC_LIB) $(GPU_LIB) $(ACTOR_LIB) $(AUDIO_LIB) $(NET_LIB) $(NOSTD_LIB)
 
 # ---------------------------------------------------------------------------
 # The .c files in the umbrella TU (derived from oodar.c #includes). The order
@@ -151,7 +152,7 @@ UMBRELLA_OBJS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(UMBRELLA_SRCS))
 # Phony targets
 .PHONY: all clean install check perfile lint lint-anchors lint-file-size \
         lint-cap-table adversarial test repro \
-        core pqc gpu actor audio net modular check-size hashes
+        core pqc gpu actor audio net nostd modular check-size hashes
 
 # ---------------------------------------------------------------------------
 # Default: build liboodar.a from the umbrella TU (single .o).
@@ -168,6 +169,7 @@ gpu:   $(GPU_LIB)
 actor: $(ACTOR_LIB)
 audio: $(AUDIO_LIB)
 net:   $(NET_LIB)
+nostd: $(NOSTD_LIB)
 
 # Build the lib from the single .o produced by `gcc -c oodar.c`.
 # The sort is unnecessary here (one file) but kept for symmetry
@@ -248,6 +250,14 @@ $(BUILD_DIR)/oodar_audio.o: $(REPO_ROOT)/oodar_audio.c $(addprefix $(REPO_ROOT)/
 $(BUILD_DIR)/oodar_net.o: $(REPO_ROOT)/oodar_net.c $(addprefix $(REPO_ROOT)/,$(NET_SRCS)) | $(BUILD_DIR)
 	@echo "CC  oodar_net.c"
 	@$(CC) $(CFLAGS) -I$(REPO_ROOT) -c $< -o $@
+
+$(BUILD_DIR)/oodar_nostd.o: $(REPO_ROOT)/oodar_nostd.c $(REPO_ROOT)/oodar_nostd.h | $(BUILD_DIR)
+	@echo "CC  oodar_nostd.c (freestanding)"
+	@$(CC) -Os -std=c11 -ffreestanding -fno-builtin -fno-stack-protector -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -DOO_FREESTANDING=1 -I$(REPO_ROOT) -c $< -o $@
+
+$(NOSTD_LIB): $(BUILD_DIR)/oodar_nostd.o | $(LIB_DIR)
+	@echo "AR  $@"
+	@$(AR) $(ARFLAGS) $@ $<
 
 # ---------------------------------------------------------------------------
 # perfile: best-effort per-file build. Each .c is compiled to .o
@@ -432,10 +442,15 @@ CHALLENGERS := tests_challenger_contract tests_challenger_sys tests_challenger_w
 	tests_overhaul_slab tests_overhaul_arena \
 	tests_overhaul_arena_pass tests_overhaul_sandbox \
 	tests_overhaul_canary_fuzz tests_overhaul_archives \
-	tests_overhaul_cross tests_overhaul_workload
+	tests_overhaul_cross tests_overhaul_workload \
+	tests_freestanding_nostd
 
 $(TEST_DIR):
 	@mkdir -p $@
+
+$(TEST_DIR)/tests_freestanding_nostd: $(REPO_ROOT)/qa/tests_freestanding_nostd.c $(NOSTD_LIB) | $(TEST_DIR)
+	@mkdir -p $(dir $@)
+	@$(CC) $(filter-out -include oodar.h,$(CFLAGS)) -I$(REPO_ROOT) -o $@ $< $(NOSTD_LIB)
 
 $(TEST_DIR)/%: $(REPO_ROOT)/qa/%.c $(BUILD_DIR)/oodar.o | $(TEST_DIR)
 	@mkdir -p $(dir $@)
@@ -443,6 +458,8 @@ $(TEST_DIR)/%: $(REPO_ROOT)/qa/%.c $(BUILD_DIR)/oodar.o | $(TEST_DIR)
 
 test: lint $(addprefix $(TEST_DIR)/,$(CHALLENGERS))
 	@echo "RUN contract (double-run)"
+	@$(TEST_DIR)/tests_freestanding_nostd
+	@$(TEST_DIR)/tests_freestanding_nostd
 	@$(TEST_DIR)/tests_challenger_contract
 	@$(TEST_DIR)/tests_challenger_contract
 	@$(TEST_DIR)/tests_challenger_sys

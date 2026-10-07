@@ -4,12 +4,18 @@
  * live in types/types_*.h, one concept per file. Existing #include
  * "types.h" sites do not need to change. The base stdio/stdlib/time/
  * stdint includes and the oo_monotonic_us forward decl stay here. */
+#ifdef OO_FREESTANDING
+#include <stdint.h>
+#include <stddef.h>
+#include "oodar_nostd.h"
+#else
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
 #include <stdint.h>
+#endif
 
 long long oo_monotonic_us(void);
 

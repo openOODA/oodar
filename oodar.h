@@ -1,6 +1,7 @@
 #ifndef OODAR_H
 #define OODAR_H
 #include "types.h"
+#include "oodar_nostd.h"
 #include "sec/cap/caps.h"
 
 #ifndef __has_builtin
